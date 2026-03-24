@@ -156,6 +156,7 @@ ON CONFLICT (time_period) DO NOTHING;
 
 -- =============================================================================
 -- THEME_CONTEXT - Thematic elements (core + extended)
+-- Hierarchical themes use "parent: sub" convention (e.g. "art: cinema")
 -- =============================================================================
 
 INSERT INTO theme_context (theme_name) VALUES
@@ -214,9 +215,14 @@ INSERT INTO theme_context (theme_name) VALUES
     ('art: sculpture'),
     ('art: theatre'),
     ('art: radio'),
+    -- Sport sub-types
+    ('sport'),
+    ('sport: motor'),
+    ('sport: individual'),
+    ('sport: collective'),
+    ('sport: tournament'),
     -- More core themes
     ('martial arts'),
-    ('sport'),
     ('nature'),
     ('technology'),
     ('food/cooking'),

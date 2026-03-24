@@ -57,11 +57,14 @@ VALID_THEMES = [
     "slasher", "futuristic", "dystopia", "tales and legends", "supernatural",
     "sorcery", "alien contact", "paranormal", "time travel/loop",
     "virtual reality", "dream", "nonsense",
-    # Art sub-types
+    # Art sub-types (hierarchical: "parent: sub")
     "art", "art: music", "art: cinema", "art: literature", "art: fashion",
     "art: painting", "art: sculpture", "art: theatre", "art: radio",
+    # Sport sub-types (hierarchical: "parent: sub")
+    "sport", "sport: motor", "sport: individual", "sport: collective",
+    "sport: tournament",
     # More core themes
-    "martial arts", "sport", "nature", "technology", "food/cooking",
+    "martial arts", "nature", "technology", "food/cooking",
     "party", "book",
     # Extended themes
     "identity_crisis", "police_violence", "evolution",

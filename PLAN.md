@@ -9,7 +9,7 @@
 | 3 | Claude enrichment module | ✅ DONE | claude_enricher.py, taxonomy_config.py, enrichment_runner.py, db_inserter.py, test_enrichment_pipeline.py |
 | 4 | Seed 3 reference films | ✅ DONE | 3 films inserted + verify_db.py ALL CHECKS PASSED |
 | 4.5 | Fix: Awards + Streaming support | ✅ DONE | Awards via Claude enrichment, Streaming via TMDB watch/providers |
-| 5 | Backend API (FastAPI) | 🔲 TODO | Filtering, CRUD, search |
+| 5 | Backend API (FastAPI) | ✅ DONE | SQLAlchemy ORM, CRUD, filtering, search, taxonomy endpoints |
 | 6 | Frontend: search grid + filters | 🔲 TODO | Poster grid, filter sidebar |
 | 7 | Film detail view + edit | 🔲 TODO | Full detail panel, tag editing |
 | 8 | Add Film workflow | 🔲 TODO | TMDB search → Claude enrich → save |
@@ -51,7 +51,7 @@
 - `setup_db.py`: SQL parsing fails on $$ blocks — workaround: use `psql` directly
 - `verify_db.py`: transaction poisoning with asyncpg — fixed: each query uses its own connection
 
-## Step 4.5: Fix Awards + Streaming Support
+## Step 4.5: Fix Awards + Streaming Support ✅
 
 ### Problem
 Schema has `award` and `stream_platform`/`film_exploitation` tables but nothing in the pipeline populates them.
@@ -83,14 +83,56 @@ python scripts/verify_db.py
 
 ## Step 5: Backend API (FastAPI)
 
+### Objective
+Build the full REST API that serves as the bridge between the database and the future frontend. This API must expose all film data with rich filtering, support CRUD operations, and provide taxonomy endpoints for filter dropdowns.
+
+### Architecture Decisions
+- **Async throughout:** SQLAlchemy 2.0 async with asyncpg (already installed)
+- **Raw SQL preferred for complex queries:** The schema uses many junction tables; SQLAlchemy ORM for models but raw SQL (via `text()`) for complex multi-join filter queries to keep them readable and performant
+- **Pydantic v2** for request/response schemas
+- **CORS enabled** for local frontend dev (localhost:3000)
+
 ### Planned Deliverables
-- `backend/app/main.py` — FastAPI app entry
-- `backend/app/models/` — SQLAlchemy ORM models
-- `backend/app/routers/films.py` — Film CRUD + search + filter endpoints
-- `backend/app/routers/taxonomy.py` — Taxonomy list endpoints
-- `backend/app/routers/persons.py` — Person filmography endpoints
-- `backend/app/schemas/` — Pydantic request/response schemas
-- `backend/app/database.py` — DB connection and session management
+
+**Core files:**
+- `backend/app/main.py` — FastAPI app with CORS, lifespan (DB pool startup/shutdown), router includes
+- `backend/app/database.py` — Async engine + session factory using DATABASE_URL from .env
+- `backend/app/models/__init__.py` — SQLAlchemy ORM models reflecting schema.sql (Film, Person, PersonJob, Crew, Casting, Studio, Production, Language, FilmLanguage, Category, FilmGenre, CinemaType, FilmTechnique, CulturalMovement, FilmMovement, Geography, FilmSetPlace, TimePeriod, FilmPeriod, PlaceContext, FilmPlace, ThemeContext, FilmTheme, CharactersType, FilmCharacters, CharacterContext, FilmCharacterContext, Atmosphere, FilmAtmosphere, MessageConveyed, FilmMessage, Motivation, FilmMotivation, Source, FilmOrigin, StreamPlatform, FilmExploitation, Award, FilmSequel)
+- `backend/app/schemas/film.py` — Pydantic schemas: FilmListItem (compact for grid), FilmDetail (full with all relations), FilmCreate, FilmUpdate, FilmSearchParams
+- `backend/app/schemas/taxonomy.py` — TaxonomyItem, TaxonomyList
+- `backend/app/schemas/person.py` — PersonSummary, PersonDetail
+- `backend/app/routers/films.py` — Film endpoints: list (paginated + filtered), detail, search, create, update
+- `backend/app/routers/taxonomy.py` — Taxonomy endpoints: one per dimension (categories, themes, atmospheres, etc.)
+- `backend/app/routers/persons.py` — Person filmography endpoint
+
+**Key endpoints:**
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `GET /api/films` | GET | Paginated list with multi-filter: categories, themes, atmosphere, time_period, director, year range, search query. Returns FilmListItem[] |
+| `GET /api/films/{id}` | GET | Full film detail with all junction data (cast, crew, themes, etc.). Returns FilmDetail |
+| `GET /api/films/search` | GET | Full-text search across original_title, all film_language titles, person names, summary |
+| `POST /api/films` | POST | Create film from TMDB data + enrichment JSON |
+| `PUT /api/films/{id}` | PUT | Update film metadata and tag junctions |
+| `GET /api/taxonomy/{dimension}` | GET | List all values for a taxonomy dimension (e.g., /api/taxonomy/categories) |
+| `GET /api/persons/{id}` | GET | Person detail with filmography |
+| `GET /api/stats` | GET | DB statistics: film count, genre distribution, decade distribution |
+
+**Filtering logic for `GET /api/films`:**
+- Multiple filter params: `?categories=Drama,Thriller&atmosphere=mysterious&year_min=1990&year_max=2005&director=David+Lynch`
+- All filters are AND-combined
+- Multi-value within a dimension is OR (e.g., categories=Drama,Thriller → Drama OR Thriller)
+- Pagination: `?page=1&per_page=20`
+- Sorting: `?sort_by=year&sort_order=desc` (supported: year, title, duration, budget, revenue)
+
+### Validation
+After implementation:
+1. `uvicorn backend.app.main:app --reload` should start without errors
+2. `GET /docs` → Swagger UI should list all endpoints
+3. `GET /api/films` → Should return the 3 seeded films
+4. `GET /api/films?categories=Drama` → Should filter correctly
+5. `GET /api/films/1` → Should return full film detail with all junctions populated
+6. `GET /api/taxonomy/categories` → Should return all seeded category values
 
 ---
 
