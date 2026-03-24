@@ -1,0 +1,300 @@
+[
+  {
+    "film": {
+      "original_title": "2001: A Space Odyssey",
+      "duration": 149,
+      "color": true,
+      "first_release_date": "1968-04-02",
+      "summary": "Humanity finds a mysterious object buried beneath the lunar surface and sets off to find its origins with the help of HAL 9000, the world's most advanced supercomputer.",
+      "poster_url": "https://image.tmdb.org/t/p/w500/ve72VENBiEuJSdhLMEfJCqGfbFn.jpg",
+      "backdrop_url": "https://image.tmdb.org/t/p/w780/sHhDMj0sLzBMIEDUiMNjGlaYAmN.jpg",
+      "imdb_id": "tt0062622",
+      "tmdb_id": 62,
+      "budget": 10500000,
+      "revenue": 146000000
+    },
+    "titles": [
+      {"language_code": "en", "title": "2001: A Space Odyssey", "is_original": true},
+      {"language_code": "fr", "title": "2001 : L'Odyss\u00e9e de l'espace", "is_original": false}
+    ],
+    "categories": ["Science-Fiction", "Drama", "Adventure"],
+    "historic_subcategories": [],
+    "crew": [
+      {"firstname": "Stanley", "lastname": "Kubrick", "tmdb_id": 240, "role": "Director", "photo_url": "https://image.tmdb.org/t/p/w185/j3EahdEWMPs1e5REj4OQ7Wm5UNE.jpg"},
+      {"firstname": "Stanley", "lastname": "Kubrick", "tmdb_id": 240, "role": "Writer", "photo_url": "https://image.tmdb.org/t/p/w185/j3EahdEWMPs1e5REj4OQ7Wm5UNE.jpg"},
+      {"firstname": "Stanley", "lastname": "Kubrick", "tmdb_id": 240, "role": "Producer", "photo_url": "https://image.tmdb.org/t/p/w185/j3EahdEWMPs1e5REj4OQ7Wm5UNE.jpg"},
+      {"firstname": "Arthur C.", "lastname": "Clarke", "tmdb_id": 2994, "role": "Writer", "photo_url": null},
+      {"firstname": "Geoffrey", "lastname": "Unsworth", "tmdb_id": 5765, "role": "Cinematographer", "photo_url": null},
+      {"firstname": "Ray", "lastname": "Lovejoy", "tmdb_id": 1304043, "role": "Editor", "photo_url": null}
+    ],
+    "cast": [
+      {"firstname": "Keir", "lastname": "Dullea", "tmdb_id": 7506, "character_name": "Dr. Dave Bowman", "cast_order": 0, "photo_url": "https://image.tmdb.org/t/p/w185/6xGSicm0jNlSOmOlCjihy3Uazsv.jpg"},
+      {"firstname": "Gary", "lastname": "Lockwood", "tmdb_id": 7507, "character_name": "Dr. Frank Poole", "cast_order": 1, "photo_url": "https://image.tmdb.org/t/p/w185/mVr1iBiqVmQj4abqNDOj9rOfdKR.jpg"},
+      {"firstname": "William", "lastname": "Sylvester", "tmdb_id": 7508, "character_name": "Dr. Heywood R. Floyd", "cast_order": 2, "photo_url": null},
+      {"firstname": "Daniel", "lastname": "Richter", "tmdb_id": 150703, "character_name": "Moon-Watcher", "cast_order": 3, "photo_url": null},
+      {"firstname": "Leonard", "lastname": "Rossiter", "tmdb_id": 7509, "character_name": "Dr. Andrei Smyslov", "cast_order": 4, "photo_url": null},
+      {"firstname": "Douglas", "lastname": "Rain", "tmdb_id": 15218, "character_name": "HAL 9000 (voice)", "cast_order": 5, "photo_url": null},
+      {"firstname": "Margaret", "lastname": "Tyzack", "tmdb_id": 10521, "character_name": "Elena", "cast_order": 6, "photo_url": null},
+      {"firstname": "Robert", "lastname": "Beatty", "tmdb_id": 29435, "character_name": "Dr. Ralph Halvorsen", "cast_order": 7, "photo_url": null},
+      {"firstname": "Sean", "lastname": "Sullivan", "tmdb_id": 150709, "character_name": "Dr. Bill Michaels", "cast_order": 8, "photo_url": null},
+      {"firstname": "Frank", "lastname": "Miller", "tmdb_id": 1209762, "character_name": "Mission Controller", "cast_order": 9, "photo_url": null}
+    ],
+    "studios": [
+      {"name": "Metro-Goldwyn-Mayer", "country": "US"},
+      {"name": "Stanley Kubrick Productions", "country": "GB"}
+    ],
+    "languages": [
+      {"code": "en", "name": "English"},
+      {"code": "ru", "name": "Russian"}
+    ],
+    "keywords": ["artificial intelligence", "man vs machine", "space travel", "human evolution", "astronaut", "monolith", "spacecraft", "jupiter"],
+    "production_countries": ["US", "GB"],
+    "streaming_platforms": [],
+    "enrichment": {
+      "categories": ["Science-Fiction", "Drama", "Adventure"],
+      "historic_subcategories": [],
+      "cinema_type": ["blockbuster", "art house"],
+      "cultural_movement": ["new hollywood", "aesthetics"],
+      "time_context": ["prehistoric", "30-year post-war boom", "future"],
+      "geography": [
+        {"continent": "Africa", "country": "Kenya", "state_city": null, "place_type": "diegetic"}
+      ],
+      "place_environment": ["space", "desert"],
+      "themes": ["futuristic", "alien contact", "technology", "death", "time passing", "evolution"],
+      "characters_type": ["solitary", "tandem"],
+      "character_context": ["android", "alien"],
+      "atmosphere": ["contemplative", "oppressive", "mysterious", "disturbing"],
+      "motivations": ["quest", "odyssey", "power", "doubt/dilemma", "survival"],
+      "message": ["philosophical", "metaphysical", "symbolic", "surreal"],
+      "source": {
+        "type": "novel",
+        "title": "The Sentinel",
+        "author": "Arthur C. Clarke"
+      },
+      "awards": [
+        {"festival_name": "Academy Awards", "category": "Best Visual Effects", "year": 1969, "result": "won"},
+        {"festival_name": "Academy Awards", "category": "Best Director", "year": 1969, "result": "nominated"},
+        {"festival_name": "Academy Awards", "category": "Best Picture", "year": 1969, "result": "nominated"},
+        {"festival_name": "Academy Awards", "category": "Best Original Screenplay", "year": 1969, "result": "nominated"},
+        {"festival_name": "Academy Awards", "category": "Best Art Direction", "year": 1969, "result": "nominated"}
+      ],
+      "confidence": {
+        "categories": 0.95,
+        "cinema_type": 0.95,
+        "cultural_movement": 0.95,
+        "time_context": 0.95,
+        "geography": 0.95,
+        "place_environment": 0.95,
+        "themes": 0.95,
+        "characters_type": 0.95,
+        "character_context": 0.95,
+        "atmosphere": 0.95,
+        "motivations": 0.95,
+        "message": 0.95,
+        "source": 0.95,
+        "awards": 0.95
+      },
+      "new_values_suggested": []
+    }
+  },
+  {
+    "film": {
+      "original_title": "La Haine",
+      "duration": 98,
+      "color": false,
+      "first_release_date": "1995-05-31",
+      "summary": "After a young Arab is arrested and beaten unconscious by police, a riot erupts in the housing projects just outside of Paris. Three friends \u2014 Vinz, Hubert, and Sa\u00efd \u2014 wander around the city in the aftermath, with Vinz vowing to kill a cop if their friend dies.",
+      "poster_url": "https://image.tmdb.org/t/p/w500/2w0faxGnSJR4Xv7FHZYvQ0y3L4l.jpg",
+      "backdrop_url": "https://image.tmdb.org/t/p/w780/cOiSs7CPQ9hn5FPuhFcc6aIYBpH.jpg",
+      "imdb_id": "tt0113247",
+      "tmdb_id": 3405,
+      "budget": 2600000,
+      "revenue": 15300000
+    },
+    "titles": [
+      {"language_code": "fr", "title": "La Haine", "is_original": true},
+      {"language_code": "en", "title": "Hate", "is_original": false}
+    ],
+    "categories": ["Drama", "Thriller"],
+    "historic_subcategories": [],
+    "crew": [
+      {"firstname": "Mathieu", "lastname": "Kassovitz", "tmdb_id": 11544, "role": "Director", "photo_url": "https://image.tmdb.org/t/p/w185/nT0i7t7dCdA55F4KvATFiWrh3iO.jpg"},
+      {"firstname": "Mathieu", "lastname": "Kassovitz", "tmdb_id": 11544, "role": "Writer", "photo_url": "https://image.tmdb.org/t/p/w185/nT0i7t7dCdA55F4KvATFiWrh3iO.jpg"},
+      {"firstname": "Mathieu", "lastname": "Kassovitz", "tmdb_id": 11544, "role": "Editor", "photo_url": "https://image.tmdb.org/t/p/w185/nT0i7t7dCdA55F4KvATFiWrh3iO.jpg"},
+      {"firstname": "Pierre", "lastname": "A\u00efm", "tmdb_id": 5284, "role": "Cinematographer", "photo_url": null},
+      {"firstname": "Christophe", "lastname": "Rossignon", "tmdb_id": 25803, "role": "Producer", "photo_url": null}
+    ],
+    "cast": [
+      {"firstname": "Vincent", "lastname": "Cassel", "tmdb_id": 1785, "character_name": "Vinz", "cast_order": 0, "photo_url": "https://image.tmdb.org/t/p/w185/fDwMOkqCNQCeDxSsGvBmcMGIVxE.jpg"},
+      {"firstname": "Hubert", "lastname": "Kound\u00e9", "tmdb_id": 19580, "character_name": "Hubert", "cast_order": 1, "photo_url": "https://image.tmdb.org/t/p/w185/q7iJpkxLoKXRsx2VuN9seOmllGz.jpg"},
+      {"firstname": "Sa\u00efd", "lastname": "Taghmaoui", "tmdb_id": 19581, "character_name": "Sa\u00efd", "cast_order": 2, "photo_url": "https://image.tmdb.org/t/p/w185/eATyiVQlEi27gmsCm6vbCIJir6r.jpg"},
+      {"firstname": "Abdel Ahmed", "lastname": "Ghili", "tmdb_id": 1197896, "character_name": "Abdel Ichaha", "cast_order": 3, "photo_url": null},
+      {"firstname": "Karim", "lastname": "Belkhadra", "tmdb_id": 113879, "character_name": "Samir", "cast_order": 4, "photo_url": null},
+      {"firstname": "Edouard", "lastname": "Montoute", "tmdb_id": 61245, "character_name": "Darky", "cast_order": 5, "photo_url": null},
+      {"firstname": "Fran\u00e7ois", "lastname": "Levantal", "tmdb_id": 29899, "character_name": "Ast\u00e9rix", "cast_order": 6, "photo_url": null},
+      {"firstname": "Marc", "lastname": "Duret", "tmdb_id": 57430, "character_name": "Inspector 'Notre Dame'", "cast_order": 7, "photo_url": null},
+      {"firstname": "H\u00e9lo\u00efse", "lastname": "Rauth", "tmdb_id": 1218100, "character_name": "Sarah", "cast_order": 8, "photo_url": null},
+      {"firstname": "Rywka", "lastname": "Wajsbrot", "tmdb_id": 1218101, "character_name": "Vinz's Grandmother", "cast_order": 9, "photo_url": null}
+    ],
+    "studios": [
+      {"name": "Les Productions Lazennec", "country": "FR"},
+      {"name": "Canal+", "country": "FR"},
+      {"name": "La Sept Cin\u00e9ma", "country": "FR"}
+    ],
+    "languages": [
+      {"code": "fr", "name": "French"}
+    ],
+    "keywords": ["police brutality", "racism", "banlieue", "friendship", "violence", "housing project", "social inequality"],
+    "production_countries": ["FR"],
+    "streaming_platforms": [],
+    "enrichment": {
+      "categories": ["Drama", "Thriller"],
+      "historic_subcategories": [],
+      "cinema_type": ["art house", "black_and_white"],
+      "cultural_movement": ["realism", "generational"],
+      "time_context": ["contemporary", "end 20th"],
+      "geography": [
+        {"continent": "Europe", "country": "France", "state_city": "\u00cele-de-France", "place_type": "diegetic"},
+        {"continent": "Europe", "country": "France", "state_city": "Paris", "place_type": "diegetic"}
+      ],
+      "place_environment": ["urban"],
+      "themes": ["social", "societal", "political", "delinquency", "tragedy", "death", "police_violence"],
+      "characters_type": ["trio", "buddies"],
+      "character_context": ["interracial", "teenager"],
+      "atmosphere": ["violent", "oppressive", "depressive/sad"],
+      "motivations": ["friendship", "solidarity", "rebellion/revolt", "vengeance"],
+      "message": ["political", "humanist", "slang dialogs", "black comedy"],
+      "source": {
+        "type": "original screenplay",
+        "title": null,
+        "author": null
+      },
+      "awards": [
+        {"festival_name": "Cannes Film Festival", "category": "Best Director", "year": 1995, "result": "won"},
+        {"festival_name": "César Awards", "category": "Best Film", "year": 1996, "result": "won"},
+        {"festival_name": "César Awards", "category": "Best Editing", "year": 1996, "result": "won"},
+        {"festival_name": "César Awards", "category": "Best Producer", "year": 1996, "result": "won"}
+      ],
+      "confidence": {
+        "categories": 0.95,
+        "cinema_type": 0.95,
+        "cultural_movement": 0.95,
+        "time_context": 0.95,
+        "geography": 0.95,
+        "place_environment": 0.95,
+        "themes": 0.95,
+        "characters_type": 0.95,
+        "character_context": 0.95,
+        "atmosphere": 0.95,
+        "motivations": 0.95,
+        "message": 0.95,
+        "source": 0.95,
+        "awards": 0.95
+      },
+      "new_values_suggested": []
+    }
+  },
+  {
+    "film": {
+      "original_title": "Mulholland Drive",
+      "duration": 147,
+      "color": true,
+      "first_release_date": "2001-10-12",
+      "summary": "Blonde Betty Elms has only just arrived in Hollywood to become a movie star when she meets an enigmatic brunette with amnesia. As the two set off to solve the second woman's identity, they are enveloped in a twisting web of mystery, illusion, and double identity.",
+      "poster_url": "https://image.tmdb.org/t/p/w500/tVxGt7ZiFBtAiHRg7W1bpbYOBbY.jpg",
+      "backdrop_url": "https://image.tmdb.org/t/p/w780/hDB9WDnNpJwIxwuLOLMHFAoA20B.jpg",
+      "imdb_id": "tt0166924",
+      "tmdb_id": 1018,
+      "budget": 15000000,
+      "revenue": 20100000
+    },
+    "titles": [
+      {"language_code": "en", "title": "Mulholland Drive", "is_original": true},
+      {"language_code": "fr", "title": "Mulholland Drive", "is_original": false}
+    ],
+    "categories": ["Drama", "Thriller"],
+    "historic_subcategories": [],
+    "crew": [
+      {"firstname": "David", "lastname": "Lynch", "tmdb_id": 5602, "role": "Director", "photo_url": "https://image.tmdb.org/t/p/w185/dGDjga8Ls8KfOAPBoPgCkKBoaxZ.jpg"},
+      {"firstname": "David", "lastname": "Lynch", "tmdb_id": 5602, "role": "Writer", "photo_url": "https://image.tmdb.org/t/p/w185/dGDjga8Ls8KfOAPBoPgCkKBoaxZ.jpg"},
+      {"firstname": "David", "lastname": "Lynch", "tmdb_id": 5602, "role": "Producer", "photo_url": "https://image.tmdb.org/t/p/w185/dGDjga8Ls8KfOAPBoPgCkKBoaxZ.jpg"},
+      {"firstname": "Peter", "lastname": "Deming", "tmdb_id": 5879, "role": "Cinematographer", "photo_url": null},
+      {"firstname": "Angelo", "lastname": "Badalamenti", "tmdb_id": 3238, "role": "Composer", "photo_url": "https://image.tmdb.org/t/p/w185/mUBb7Ckv9bqmEemfRdGQhwVMfaV.jpg"},
+      {"firstname": "Mary", "lastname": "Sweeney", "tmdb_id": 3233, "role": "Editor", "photo_url": null}
+    ],
+    "cast": [
+      {"firstname": "Naomi", "lastname": "Watts", "tmdb_id": 1397, "character_name": "Betty Elms / Diane Selwyn", "cast_order": 0, "photo_url": "https://image.tmdb.org/t/p/w185/8BqGiGD8XkfFRJ7YXz4qanCu1fs.jpg"},
+      {"firstname": "Laura", "lastname": "Harring", "tmdb_id": 1399, "character_name": "Rita / Camilla Rhodes", "cast_order": 1, "photo_url": "https://image.tmdb.org/t/p/w185/pM8yQArNmGFbcd2DDsLDLHh6MIA.jpg"},
+      {"firstname": "Justin", "lastname": "Theroux", "tmdb_id": 8210, "character_name": "Adam Kesher", "cast_order": 2, "photo_url": "https://image.tmdb.org/t/p/w185/dHBgTjJmLIz6dkbQiBi5rA9RqmA.jpg"},
+      {"firstname": "Ann", "lastname": "Miller", "tmdb_id": 30584, "character_name": "Coco Lenoix", "cast_order": 3, "photo_url": null},
+      {"firstname": "Robert", "lastname": "Forster", "tmdb_id": 8874, "character_name": "Detective Harry McKnight", "cast_order": 4, "photo_url": "https://image.tmdb.org/t/p/w185/wVoqF2GjfKJENVJXnMkCfxnLfCf.jpg"},
+      {"firstname": "Dan", "lastname": "Hedaya", "tmdb_id": 8875, "character_name": "Vincenzo Castigliane", "cast_order": 5, "photo_url": null},
+      {"firstname": "Brent", "lastname": "Briscoe", "tmdb_id": 153085, "character_name": "Detective Neal Domgaard", "cast_order": 6, "photo_url": null},
+      {"firstname": "Mark", "lastname": "Pellegrino", "tmdb_id": 53650, "character_name": "Joe", "cast_order": 7, "photo_url": null},
+      {"firstname": "Michael J.", "lastname": "Anderson", "tmdb_id": 22601, "character_name": "Mr. Roque", "cast_order": 8, "photo_url": null},
+      {"firstname": "Monty", "lastname": "Montgomery", "tmdb_id": 108921, "character_name": "The Cowboy", "cast_order": 9, "photo_url": null},
+      {"firstname": "Lee", "lastname": "Grant", "tmdb_id": 4432, "character_name": "Louise Bonner", "cast_order": 10, "photo_url": null},
+      {"firstname": "Scott", "lastname": "Coffey", "tmdb_id": 33174, "character_name": "Wilkins", "cast_order": 11, "photo_url": null},
+      {"firstname": "Billy", "lastname": "Ray Cyrus", "tmdb_id": 1217972, "character_name": "Gene the Pool Man", "cast_order": 12, "photo_url": null},
+      {"firstname": "Chad", "lastname": "Everett", "tmdb_id": 29909, "character_name": "Jimmy Katz", "cast_order": 13, "photo_url": null},
+      {"firstname": "Rita", "lastname": "Taggart", "tmdb_id": 5950, "character_name": "Linney James", "cast_order": 14, "photo_url": null}
+    ],
+    "studios": [
+      {"name": "Les Films Alain Sarde", "country": "FR"},
+      {"name": "Asymmetrical Productions", "country": "US"},
+      {"name": "Babbo Inc.", "country": "US"},
+      {"name": "Canal+", "country": "FR"}
+    ],
+    "languages": [
+      {"code": "en", "name": "English"},
+      {"code": "es", "name": "Spanish"}
+    ],
+    "keywords": ["dream", "hollywood", "amnesia", "mystery", "surrealism", "identity", "los angeles", "film noir"],
+    "production_countries": ["US", "FR"],
+    "streaming_platforms": [],
+    "enrichment": {
+      "categories": ["Drama", "Thriller"],
+      "historic_subcategories": [],
+      "cinema_type": ["art house"],
+      "cultural_movement": ["aesthetics", "neo-noir"],
+      "time_context": ["contemporary", "end 20th"],
+      "geography": [
+        {"continent": "North America", "country": "United States", "state_city": "Los Angeles", "place_type": "diegetic"},
+        {"continent": "North America", "country": "United States", "state_city": "Hollywood", "place_type": "diegetic"}
+      ],
+      "place_environment": ["urban"],
+      "themes": ["psychological", "dream", "art: cinema", "crime", "investigation", "identity_crisis", "accident", "mafia"],
+      "characters_type": ["tandem", "couple"],
+      "character_context": ["female", "double", "LGBT"],
+      "atmosphere": ["mysterious", "sulfurous", "disturbing", "oppressive", "hypnotic"],
+      "motivations": ["feelings", "obsession", "jealousy", "manipulation", "lie", "sex", "adultery", "vengeance"],
+      "message": ["surreal", "dreamlike", "symbolic", "metaphysical"],
+      "source": {
+        "type": "original screenplay",
+        "title": null,
+        "author": null
+      },
+      "awards": [
+        {"festival_name": "Cannes Film Festival", "category": "Best Director", "year": 2001, "result": "won"},
+        {"festival_name": "César Awards", "category": "Best Foreign Film", "year": 2002, "result": "nominated"}
+      ],
+      "confidence": {
+        "categories": 0.95,
+        "cinema_type": 0.95,
+        "cultural_movement": 0.95,
+        "time_context": 0.95,
+        "geography": 0.95,
+        "place_environment": 0.95,
+        "themes": 0.95,
+        "characters_type": 0.95,
+        "character_context": 0.95,
+        "atmosphere": 0.95,
+        "motivations": 0.95,
+        "message": 0.95,
+        "source": 0.95,
+        "awards": 0.95
+      },
+      "new_values_suggested": []
+    }
+  }
+]
