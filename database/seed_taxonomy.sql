@@ -38,6 +38,7 @@ INSERT INTO category (category_name, historic_subcategory_name) VALUES
     ('Action', NULL),
     ('Adventure', NULL),
     ('Comedy', NULL),
+    ('Documentary', NULL),
     ('Drama', NULL),
     ('Romance', NULL),
     ('Thriller', NULL),
@@ -53,7 +54,8 @@ INSERT INTO category (category_name, historic_subcategory_name) VALUES
     ('Historical', 'judicial chronicle'),
     ('Historical', 'western'),
     ('Historical', 'peplum'),
-    ('Historical', 'swashbuckler')
+    ('Historical', 'swashbuckler'),
+    ('Historical', 'event')
 ON CONFLICT (category_name, historic_subcategory_name) DO NOTHING;
 
 -- =============================================================================
@@ -131,27 +133,27 @@ ON CONFLICT (environment) DO NOTHING;
 -- TIME_CONTEXT - Historical periods and seasons
 -- =============================================================================
 
-INSERT INTO time_context (time_period) VALUES
-    -- Historical periods
-    ('undetermined'),
-    ('future'),
-    ('contemporary'),
-    ('end 20th'),
-    ('30-year post-war boom'),
-    ('WW2'),
-    ('interwar'),
-    ('WW1'),
-    ('early 20th'),
-    ('19th'),
-    ('modern age'),
-    ('medieval'),
-    ('antiquity'),
-    ('prehistoric'),
+INSERT INTO time_context (time_period, sort_order) VALUES
+    -- Chronological (future → prehistoric)
+    ('future', 1),
+    ('contemporary', 2),
+    ('end 20th', 3),
+    ('30-year post-war boom', 4),
+    ('WW2', 5),
+    ('interwar', 6),
+    ('WW1', 7),
+    ('early 20th', 8),
+    ('19th', 9),
+    ('modern age', 10),
+    ('medieval', 11),
+    ('antiquity', 12),
+    ('prehistoric', 13),
+    ('undetermined', 14),
     -- Seasons
-    ('summer'),
-    ('winter'),
-    ('autumn'),
-    ('spring')
+    ('spring', 100),
+    ('summer', 101),
+    ('autumn', 102),
+    ('winter', 103)
 ON CONFLICT (time_period) DO NOTHING;
 
 -- =============================================================================
@@ -159,85 +161,84 @@ ON CONFLICT (time_period) DO NOTHING;
 -- Hierarchical themes use "parent: sub" convention (e.g. "art: cinema")
 -- =============================================================================
 
-INSERT INTO theme_context (theme_name) VALUES
-    -- Core themes
-    ('social'),
-    ('societal'),
-    ('political'),
-    ('religion'),
-    ('business'),
-    ('trial'),
-    ('prison'),
-    ('apocalypse'),
-    ('war'),
-    ('tragedy'),
-    ('trauma'),
-    ('psychological'),
-    ('disease'),
-    ('accident'),
-    ('death'),
-    ('mourning'),
-    ('addiction/drugs'),
-    ('time passing'),
-    ('investigation'),
-    ('spy'),
-    ('crime'),
-    ('organized crime'),
-    ('delinquency'),
-    ('organized fraud'),
-    ('sex crime'),
-    ('mafia'),
-    ('gangster'),
-    ('serial killer'),
-    ('chase/escape'),
-    ('terrorism'),
-    ('sect'),
-    ('survival'),
-    ('slasher'),
-    ('futuristic'),
-    ('dystopia'),
-    ('tales and legends'),
-    ('supernatural'),
-    ('sorcery'),
-    ('alien contact'),
-    ('paranormal'),
-    ('time travel/loop'),
-    ('virtual reality'),
-    ('dream'),
-    ('nonsense'),
-    -- Art sub-types
-    ('art'),
-    ('art: music'),
-    ('art: cinema'),
-    ('art: literature'),
-    ('art: fashion'),
-    ('art: painting'),
-    ('art: sculpture'),
-    ('art: theatre'),
-    ('art: radio'),
-    -- Sport sub-types
-    ('sport'),
-    ('sport: motor'),
-    ('sport: individual'),
-    ('sport: collective'),
-    ('sport: tournament'),
-    -- More core themes
-    ('martial arts'),
-    ('nature'),
-    ('technology'),
-    ('food/cooking'),
-    ('party'),
-    ('book'),
-    -- Extended themes
-    ('identity_crisis'),
-    ('police_violence'),
-    ('evolution'),
-    ('artificial_intelligence'),
-    ('amnesia'),
-    ('corruption'),
-    ('class_struggle'),
-    ('immigration'),
-    ('censorship')
+INSERT INTO theme_context (theme_name, sort_order) VALUES
+    -- Group 1: Society (100-199)
+    ('social', 100),
+    ('class_struggle', 101),
+    ('societal', 102),
+    ('immigration', 103),
+    ('political', 104),
+    ('religion', 105),
+    ('business', 106),
+    ('censorship', 107),
+    ('trial', 108),
+    ('prison', 109),
+    ('war', 110),
+    ('tragedy', 111),
+    ('apocalypse', 112),
+    -- Group 2: Personal / Psychological (200-299)
+    ('trauma/accident', 200),
+    ('psychological', 201),
+    ('identity_crisis', 202),
+    ('disease', 203),
+    ('amnesia', 204),
+    ('death', 205),
+    ('mourning', 206),
+    ('addiction/drugs', 207),
+    ('time passing', 208),
+    ('evolution', 209),
+    -- Group 3: Crime / Thriller (300-399)
+    ('investigation', 300),
+    ('spy', 301),
+    ('crime', 302),
+    ('sex crime', 303),
+    ('organized crime', 304),
+    ('police_violence', 305),
+    ('corruption', 306),
+    ('delinquency', 307),
+    ('organized fraud', 308),
+    ('mafia', 309),
+    ('gangster', 310),
+    ('serial killer', 311),
+    ('chase/escape', 312),
+    ('terrorism', 313),
+    ('sect', 314),
+    ('survival', 315),
+    ('slasher', 316),
+    -- Group 4: Sci-fi / Fantasy (400-499)
+    ('futuristic', 400),
+    ('dystopia', 401),
+    ('tales and legends', 402),
+    ('supernatural', 403),
+    ('sorcery', 404),
+    ('alien contact', 405),
+    ('paranormal', 406),
+    ('time travel/loop', 407),
+    ('virtual reality', 408),
+    ('dream', 409),
+    ('nonsense', 410),
+    -- Group 5: Art & Sport (500-599)
+    ('art', 500),
+    ('art: music', 501),
+    ('art: cinema', 502),
+    ('art: literature', 503),
+    ('art: fashion', 504),
+    ('art: painting', 505),
+    ('art: sculpture', 506),
+    ('art: theatre', 507),
+    ('art: radio', 508),
+    ('martial arts', 509),
+    ('sport', 520),
+    ('sport: individual', 521),
+    ('sport: collective', 522),
+    ('sport: tournament', 523),
+    ('sport: motor', 524),
+    -- Group 6: Miscellaneous (600-699)
+    ('nature', 600),
+    ('AI/technology', 601),
+    ('food/cooking', 602),
+    ('party', 603),
+    ('book', 604)
 ON CONFLICT (theme_name) DO NOTHING;
 
 -- =============================================================================
@@ -353,8 +354,7 @@ INSERT INTO motivation_relation (motivation_name) VALUES
     ('fight'),
     ('odyssey'),
     ('quest'),
-    ('world saver'),
-    ('survival')
+    ('world saver')
 ON CONFLICT (motivation_name) DO NOTHING;
 
 -- =============================================================================

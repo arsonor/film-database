@@ -21,6 +21,7 @@ export interface TaxonomyItem {
   id: number;
   name: string;
   film_count: number | null;
+  sort_order: number | null;
 }
 
 export interface TaxonomyList {
@@ -64,11 +65,11 @@ export interface FilterState {
   cultural_movements: string[];
   time_periods: string[];
   place_contexts: string[];
+  studios: string[];
   location: string;
   language: string;
   year_min: number | null;
   year_max: number | null;
-  director: string;
   vu: boolean | null;
   sort_by: "year" | "title" | "duration";
   sort_order: "asc" | "desc";
@@ -105,11 +106,11 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   cultural_movements: [],
   time_periods: [],
   place_contexts: [],
+  studios: [],
   location: "",
   language: "",
   year_min: null,
   year_max: null,
-  director: "",
   vu: null,
   sort_by: "year",
   sort_order: "desc",
@@ -129,6 +130,7 @@ export const ARRAY_FILTER_KEYS = [
   "cultural_movements",
   "time_periods",
   "place_contexts",
+  "studios",
 ] as const;
 
 export type ArrayFilterKey = (typeof ARRAY_FILTER_KEYS)[number];

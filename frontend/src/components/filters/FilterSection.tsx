@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import type { TaxonomyItem } from "@/types/api";
 import { FilterChip } from "./FilterChip";
 
@@ -44,15 +45,29 @@ export function FilterSection({
       </button>
       {expanded && (
         <div className="flex flex-wrap gap-1.5 pb-2">
-          {items.map((item) => (
-            <FilterChip
-              key={item.id}
-              name={item.name}
-              count={item.film_count}
-              active={activeValues.includes(item.name)}
-              onClick={() => onToggle(item.name)}
-            />
-          ))}
+          {items.map((item, index) => {
+            const prevOrder = index > 0 ? items[index - 1]!.sort_order : null;
+            const showSeparator =
+              prevOrder !== null &&
+              prevOrder !== undefined &&
+              item.sort_order !== null &&
+              item.sort_order !== undefined &&
+              Math.floor(item.sort_order / 100) !== Math.floor(prevOrder / 100);
+
+            return (
+              <Fragment key={item.id}>
+                {showSeparator && (
+                  <Separator className="my-1" />
+                )}
+                <FilterChip
+                  name={item.name}
+                  count={item.film_count}
+                  active={activeValues.includes(item.name)}
+                  onClick={() => onToggle(item.name)}
+                />
+              </Fragment>
+            );
+          })}
         </div>
       )}
     </div>

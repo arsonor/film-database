@@ -58,15 +58,6 @@ export function ActiveFilters({
     });
   }
 
-  // Director
-  if (filters.director) {
-    chips.push({
-      key: "director",
-      label: `Director: ${filters.director}`,
-      onRemove: () => onUpdateFilters({ director: "" }),
-    });
-  }
-
   // Year range
   if (filters.year_min !== null) {
     chips.push({

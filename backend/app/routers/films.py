@@ -49,6 +49,7 @@ async def list_films(
     cultural_movements: list[str] | None = Query(None),
     time_periods: list[str] | None = Query(None),
     place_contexts: list[str] | None = Query(None),
+    studios: list[str] | None = Query(None),
     year_min: int | None = None,
     year_max: int | None = None,
     director: str | None = None,
@@ -65,9 +66,75 @@ async def list_films(
     params: dict = {}
     where_clauses: list[str] = []
 
-    # Taxonomy filters via subqueries
+    # --- Categories filter (special: composite key with historic_subcategory_name) ---
+    if categories:
+        # Separate parent-only values from specific "Parent: sub" values
+        specific_ids_conditions = []
+        parent_values = []
+        for val in categories:
+            if ": " in val:
+                # "Historical: biopic" → match category_name='Historical' AND historic_subcategory_name='biopic'
+                parent, sub = val.split(": ", 1)
+                specific_ids_conditions.append(
+                    f"(c.category_name = :cat_p_{len(specific_ids_conditions)} "
+                    f"AND c.historic_subcategory_name = :cat_s_{len(specific_ids_conditions)})"
+                )
+                params[f"cat_p_{len(specific_ids_conditions) - 1}"] = parent
+                params[f"cat_s_{len(specific_ids_conditions) - 1}"] = sub
+            else:
+                parent_values.append(val)
+
+        # For parent values: match base category OR any subcategory with that parent name
+        parent_conditions = []
+        for j, pv in enumerate(parent_values):
+            # Match base category (no subcategory) OR any subcategory of this parent
+            parent_conditions.append(f"c.category_name = :cat_parent_{j}")
+            params[f"cat_parent_{j}"] = pv
+
+        all_conditions = specific_ids_conditions + parent_conditions
+        if all_conditions:
+            or_clause = " OR ".join(all_conditions)
+            # AND logic: film must match ALL selected filter values
+            # Each parent value counts as 1 match (any of its sub/base counts)
+            # Each specific "Parent: sub" value counts as 1 match
+            num_required = len(categories)
+            # Build a CASE that maps each matched row to which filter value it satisfies
+            case_parts = []
+            for idx, val in enumerate(categories):
+                if ": " in val:
+                    parent, sub = val.split(": ", 1)
+                    case_parts.append(
+                        f"WHEN c.category_name = :cat_case_p_{idx} "
+                        f"AND c.historic_subcategory_name = :cat_case_s_{idx} "
+                        f"THEN :cat_case_v_{idx}"
+                    )
+                    params[f"cat_case_p_{idx}"] = parent
+                    params[f"cat_case_s_{idx}"] = sub
+                    params[f"cat_case_v_{idx}"] = val
+                else:
+                    case_parts.append(
+                        f"WHEN c.category_name = :cat_case_p_{idx} THEN :cat_case_v_{idx}"
+                    )
+                    params[f"cat_case_p_{idx}"] = val
+                    params[f"cat_case_v_{idx}"] = val
+
+            case_expr = "CASE " + " ".join(case_parts) + " END"
+            where_clauses.append(
+                f"""f.film_id IN (
+                    SELECT fg.film_id FROM film_genre fg
+                    JOIN category c ON fg.category_id = c.category_id
+                    WHERE {or_clause}
+                    GROUP BY fg.film_id
+                    HAVING COUNT(DISTINCT {case_expr}) = :cat_count
+                )"""
+            )
+            params["cat_count"] = num_required
+
+    # --- Generic taxonomy filters (AND logic with HAVING COUNT + parent expansion) ---
+    # Dimensions that have hierarchical "parent: sub" naming
+    HIERARCHICAL_FILTER_DIMS = {"themes"}
+
     _taxonomy_filters = [
-        (categories, "film_genre", "category_id", "category", "category_id", "category_name"),
         (themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
         (atmospheres, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
         (messages, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
@@ -78,22 +145,74 @@ async def list_films(
         (time_periods, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
         (character_contexts, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         (place_contexts, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
+        (studios, "production", "studio_id", "studio", "studio_id", "studio_name"),
+    ]
+
+    # Dimension names corresponding to _taxonomy_filters entries (for hierarchical detection)
+    _taxonomy_dim_names = [
+        "themes", "atmospheres", "messages", "characters", "motivations",
+        "cinema_types", "cultural_movements", "time_periods", "character_contexts",
+        "place_contexts", "studios",
     ]
 
     for i, (values, junc_table, junc_fk, lookup_table, lookup_pk, lookup_name) in enumerate(_taxonomy_filters):
         if not values:
             continue
         param_key = f"tax_{i}"
-        where_clauses.append(
-            f"""f.film_id IN (
-                SELECT jt.film_id FROM {junc_table} jt
-                JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                WHERE lt.{lookup_name} = ANY(:{param_key})
-            )"""
-        )
-        params[param_key] = values
+        count_key = f"tax_{i}_count"
+        dim_name = _taxonomy_dim_names[i]
 
-    # Director filter
+        # For hierarchical dimensions, expand parent values to also match children
+        is_hierarchical = dim_name in HIERARCHICAL_FILTER_DIMS
+        parent_values = []
+        if is_hierarchical:
+            parent_values = [v for v in values if ": " not in v]
+
+        if parent_values:
+            # Build WHERE that matches exact values OR children of parent values
+            parent_like_conditions = []
+            for j, pv in enumerate(parent_values):
+                pkey = f"{param_key}_parent_{j}"
+                parent_like_conditions.append(f"lt.{lookup_name} LIKE :{pkey}")
+                params[pkey] = f"{pv}: %"
+
+            # CASE maps each matched row back to which filter value it satisfies
+            # Children of "art" → map to "art"; exact matches → themselves
+            case_parts = []
+            for j, pv in enumerate(parent_values):
+                pkey = f"{param_key}_parent_{j}"
+                case_parts.append(f"WHEN lt.{lookup_name} LIKE :{pkey} THEN :tax_{i}_pv_{j}")
+                params[f"tax_{i}_pv_{j}"] = pv
+            case_parts.append(f"WHEN lt.{lookup_name} = ANY(:{param_key}) THEN lt.{lookup_name}")
+            case_expr = "CASE " + " ".join(case_parts) + " END"
+
+            or_likes = " OR ".join(parent_like_conditions)
+            where_clauses.append(
+                f"""f.film_id IN (
+                    SELECT jt.film_id FROM {junc_table} jt
+                    JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                    WHERE lt.{lookup_name} = ANY(:{param_key})
+                       OR {or_likes}
+                    GROUP BY jt.film_id
+                    HAVING COUNT(DISTINCT {case_expr}) = :{count_key}
+                )"""
+            )
+        else:
+            # Standard AND logic without parent expansion
+            where_clauses.append(
+                f"""f.film_id IN (
+                    SELECT jt.film_id FROM {junc_table} jt
+                    JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                    WHERE lt.{lookup_name} = ANY(:{param_key})
+                    GROUP BY jt.film_id
+                    HAVING COUNT(DISTINCT lt.{lookup_name}) = :{count_key}
+                )"""
+            )
+
+        params[param_key] = values
+        params[count_key] = len(values)
+
+    # Director filter (kept for API backward compatibility)
     if director:
         where_clauses.append(
             """f.film_id IN (

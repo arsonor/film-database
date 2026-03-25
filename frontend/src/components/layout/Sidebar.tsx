@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { DualRangeSlider } from "@/components/ui/dual-range-slider";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -32,6 +33,9 @@ interface SidebarProps {
 // Which dimensions start expanded
 const EXPANDED_BY_DEFAULT = new Set(["categories", "themes", "atmospheres"]);
 
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2030;
+
 export function SidebarContent({
   filters,
   taxonomies,
@@ -46,25 +50,20 @@ export function SidebarContent({
   const [showLocationResults, setShowLocationResults] = useState(false);
   const locationTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Director debounce
-  const [directorInput, setDirectorInput] = useState(filters.director);
-  const directorTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-
-  // Year range
-  const [yearMinInput, setYearMinInput] = useState(
-    filters.year_min !== null ? String(filters.year_min) : "",
-  );
-  const [yearMaxInput, setYearMaxInput] = useState(
-    filters.year_max !== null ? String(filters.year_max) : "",
-  );
+  // Year range slider local state
+  const [yearRange, setYearRange] = useState<[number, number]>([
+    filters.year_min ?? YEAR_MIN,
+    filters.year_max ?? YEAR_MAX,
+  ]);
 
   // Sync external filter changes to local inputs
   useEffect(() => {
     setLocationQuery(filters.location);
   }, [filters.location]);
+
   useEffect(() => {
-    setDirectorInput(filters.director);
-  }, [filters.director]);
+    setYearRange([filters.year_min ?? YEAR_MIN, filters.year_max ?? YEAR_MAX]);
+  }, [filters.year_min, filters.year_max]);
 
   // Location search with debounce
   const handleLocationChange = useCallback(
@@ -90,35 +89,24 @@ export function SidebarContent({
     (result: GeographySearchResult) => {
       setLocationQuery(result.label);
       setShowLocationResults(false);
-      // Use the most specific part for the filter
       const filterValue = result.state_city || result.country || result.continent || result.label;
       onUpdateFilters({ location: filterValue });
     },
     [onUpdateFilters],
   );
 
-  // Director debounce
-  const handleDirectorChange = useCallback(
-    (value: string) => {
-      setDirectorInput(value);
-      clearTimeout(directorTimeoutRef.current);
-      directorTimeoutRef.current = setTimeout(() => {
-        onUpdateFilters({ director: value || "" });
-      }, 500);
+  // Year range slider commit
+  const handleYearAfterChange = useCallback(
+    (value: [number, number]) => {
+      const yearMin = value[0] <= YEAR_MIN ? null : value[0];
+      const yearMax = value[1] >= YEAR_MAX ? null : value[1];
+      onUpdateFilters({ year_min: yearMin, year_max: yearMax });
     },
     [onUpdateFilters],
   );
 
-  // Year range with blur
-  const handleYearMinBlur = useCallback(() => {
-    const val = yearMinInput ? parseInt(yearMinInput, 10) : null;
-    onUpdateFilters({ year_min: val && !isNaN(val) ? val : null });
-  }, [yearMinInput, onUpdateFilters]);
-
-  const handleYearMaxBlur = useCallback(() => {
-    const val = yearMaxInput ? parseInt(yearMaxInput, 10) : null;
-    onUpdateFilters({ year_max: val && !isNaN(val) ? val : null });
-  }, [yearMaxInput, onUpdateFilters]);
+  // Studios data
+  const studioItems = taxonomies["studios"] || [];
 
   // Seen toggle
   const vuValue = filters.vu === null ? "all" : filters.vu ? "seen" : "unseen";
@@ -198,6 +186,31 @@ export function SidebarContent({
           </Select>
         </div>
 
+        {/* Studios dropdown */}
+        <div className="border-b border-border pb-3 pt-2">
+          <label className="mb-2 block text-sm font-medium text-foreground">Studio</label>
+          <Select
+            value={filters.studios.length === 1 ? filters.studios[0]! : "__all__"}
+            onValueChange={(val) =>
+              onUpdateFilters({ studios: val === "__all__" ? [] : [val] })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All studios" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All studios</SelectItem>
+              {studioItems
+                .filter((s) => (s.film_count ?? 0) > 0)
+                .map((studio) => (
+                  <SelectItem key={studio.id} value={studio.name}>
+                    {studio.name} ({studio.film_count})
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Seen toggle */}
         <div className="border-b border-border pb-3 pt-2">
           <label className="mb-2 block text-sm font-medium text-foreground">Seen</label>
@@ -217,45 +230,22 @@ export function SidebarContent({
           </Select>
         </div>
 
-        {/* Year range */}
-        <div className="border-b border-border pb-3 pt-2">
+        {/* Year range dual slider */}
+        <div className="pb-3 pt-2">
           <label className="mb-2 block text-sm font-medium text-foreground">Year Range</label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              value={yearMinInput}
-              onChange={(e) => setYearMinInput(e.target.value)}
-              onBlur={handleYearMinBlur}
-              onKeyDown={(e) => e.key === "Enter" && handleYearMinBlur()}
-              placeholder="From"
-              className="h-8 text-xs"
-              min={1888}
-              max={2030}
-            />
-            <span className="text-xs text-muted-foreground">—</span>
-            <Input
-              type="number"
-              value={yearMaxInput}
-              onChange={(e) => setYearMaxInput(e.target.value)}
-              onBlur={handleYearMaxBlur}
-              onKeyDown={(e) => e.key === "Enter" && handleYearMaxBlur()}
-              placeholder="To"
-              className="h-8 text-xs"
-              min={1888}
-              max={2030}
+          <div className="px-1">
+            <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+              <span>{yearRange[0] <= YEAR_MIN ? "—" : yearRange[0]}</span>
+              <span>{yearRange[1] >= YEAR_MAX ? "—" : yearRange[1]}</span>
+            </div>
+            <DualRangeSlider
+              min={YEAR_MIN}
+              max={YEAR_MAX}
+              value={yearRange}
+              onChange={setYearRange}
+              onAfterChange={handleYearAfterChange}
             />
           </div>
-        </div>
-
-        {/* Director filter */}
-        <div className="pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Director</label>
-          <Input
-            value={directorInput}
-            onChange={(e) => handleDirectorChange(e.target.value)}
-            placeholder="Search director..."
-            className="h-8 text-xs"
-          />
         </div>
       </div>
     </ScrollArea>

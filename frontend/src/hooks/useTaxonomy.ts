@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { fetchTaxonomy } from "@/api/client";
 import { TAXONOMY_DIMENSIONS, type TaxonomyItem } from "@/types/api";
 
+// Extra dimensions to fetch that aren't chip-based (used as dropdowns)
+const EXTRA_DIMENSIONS = ["studios"] as const;
+
 export function useTaxonomy() {
   const [taxonomies, setTaxonomies] = useState<Record<string, TaxonomyItem[]>>({});
   const [loading, setLoading] = useState(true);
@@ -11,8 +14,9 @@ export function useTaxonomy() {
 
     async function loadAll() {
       try {
+        const allDimensions = [...TAXONOMY_DIMENSIONS, ...EXTRA_DIMENSIONS];
         const results = await Promise.all(
-          TAXONOMY_DIMENSIONS.map((dim) => fetchTaxonomy(dim)),
+          allDimensions.map((dim) => fetchTaxonomy(dim)),
         );
         if (!cancelled) {
           const map: Record<string, TaxonomyItem[]> = {};

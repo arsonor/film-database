@@ -34,6 +34,7 @@ export function dimensionLabel(dimension: string): string {
     cultural_movements: "Cultural Movements",
     time_periods: "Time Periods",
     place_contexts: "Place Contexts",
+    studios: "Studios",
   };
   return labels[dimension] ?? capitalize(dimension.replace(/_/g, " "));
 }

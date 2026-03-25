@@ -25,12 +25,15 @@ DIMENSION_MAP = {
     "time_periods": ("time_context", "time_context_id", "time_period", "film_period", "time_context_id"),
     "place_contexts": ("place_context", "place_context_id", "environment", "film_place", "place_context_id"),
     "streaming_platforms": ("stream_platform", "platform_id", "platform_name", "film_exploitation", "platform_id"),
+    "studios": ("studio", "studio_id", "studio_name", "production", "studio_id"),
     "person_jobs": ("person_job", "job_id", "role_name", None, None),
 }
 
 # Dimensions that use hierarchical naming with "parent: sub" convention
-HIERARCHICAL_DIMENSIONS = {"themes"}
+HIERARCHICAL_DIMENSIONS = {"themes", "categories"}
 
+# Dimensions with sort_order columns for custom display ordering
+SORTED_DIMENSIONS = {"themes", "time_periods"}
 
 # Special dimensions not in DIMENSION_MAP
 SPECIAL_DIMENSIONS = {"languages"}
@@ -61,51 +64,80 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
         ]
         return TaxonomyList(dimension=dimension, items=items)
 
+    # Special handling for categories: show subcategories with "parent: sub" display
+    if dimension == "categories":
+        result = await db.execute(text("""
+            SELECT lt.category_id,
+                   CASE
+                       WHEN lt.historic_subcategory_name IS NOT NULL
+                       THEN lt.category_name || ': ' || lt.historic_subcategory_name
+                       ELSE lt.category_name
+                   END AS display_name,
+                   COUNT(jt.film_id) AS film_count
+            FROM category lt
+            LEFT JOIN film_genre jt ON lt.category_id = jt.category_id
+            GROUP BY lt.category_id, lt.category_name, lt.historic_subcategory_name
+            ORDER BY lt.category_name, lt.historic_subcategory_name NULLS FIRST
+        """))
+        items = [
+            TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+            for row in result.fetchall()
+        ]
+        # Hierarchical aggregation for categories
+        _aggregate_hierarchical(items)
+        return TaxonomyList(dimension=dimension, items=items)
+
     lookup_table, id_col, name_col, junc_table, junc_fk = DIMENSION_MAP[dimension]
 
-    # Special handling for categories: filter out subcategory rows for cleaner output
-    extra_where = ""
-    if dimension == "categories":
-        extra_where = "WHERE lt.historic_subcategory_name IS NULL"
+    # Build ORDER BY based on whether dimension has sort_order
+    has_sort_order = dimension in SORTED_DIMENSIONS
+    if has_sort_order:
+        order_by = f"lt.sort_order, lt.{name_col}"
+    else:
+        order_by = f"lt.{name_col}"
+
+    # Build select columns
+    sort_order_col = ", lt.sort_order" if has_sort_order else ", NULL AS sort_order"
 
     if junc_table:
         sql = f"""
             SELECT lt.{id_col}, lt.{name_col},
                    COUNT(jt.film_id) AS film_count
+                   {sort_order_col}
             FROM {lookup_table} lt
             LEFT JOIN {junc_table} jt ON lt.{id_col} = jt.{junc_fk}
-            {extra_where}
-            GROUP BY lt.{id_col}, lt.{name_col}
-            ORDER BY lt.{name_col}
+            GROUP BY lt.{id_col}, lt.{name_col}{', lt.sort_order' if has_sort_order else ''}
+            ORDER BY {order_by}
         """
     else:
         sql = f"""
             SELECT lt.{id_col}, lt.{name_col}, 0 AS film_count
+                   {sort_order_col}
             FROM {lookup_table} lt
-            ORDER BY lt.{name_col}
+            ORDER BY {order_by}
         """
 
     result = await db.execute(text(sql))
     items = [
-        TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+        TaxonomyItem(id=row[0], name=row[1], film_count=row[2], sort_order=row[3])
         for row in result.fetchall()
     ]
 
     # For hierarchical dimensions, aggregate sub-item counts into parent items.
-    # Convention: sub-items use "parent: sub" naming (e.g. "art: cinema", "sport: motor").
-    # Parent items (e.g. "art") get the sum of all their sub-item counts added
-    # to their own direct count, so they reflect total usage across the group.
     if dimension in HIERARCHICAL_DIMENSIONS:
-        # Collect sub-item counts per parent prefix
-        parent_extra: dict[str, int] = {}
-        for item in items:
-            if ": " in item.name:
-                parent = item.name.split(": ", 1)[0]
-                parent_extra[parent] = parent_extra.get(parent, 0) + (item.film_count or 0)
-
-        # Add aggregated sub-counts to matching parent items
-        for item in items:
-            if ": " not in item.name and item.name in parent_extra:
-                item.film_count = (item.film_count or 0) + parent_extra[item.name]
+        _aggregate_hierarchical(items)
 
     return TaxonomyList(dimension=dimension, items=items)
+
+
+def _aggregate_hierarchical(items: list[TaxonomyItem]) -> None:
+    """Aggregate sub-item counts into parent items for hierarchical naming."""
+    parent_extra: dict[str, int] = {}
+    for item in items:
+        if ": " in item.name:
+            parent = item.name.split(": ", 1)[0]
+            parent_extra[parent] = parent_extra.get(parent, 0) + (item.film_count or 0)
+
+    for item in items:
+        if ": " not in item.name and item.name in parent_extra:
+            item.film_count = (item.film_count or 0) + parent_extra[item.name]

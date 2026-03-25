@@ -327,7 +327,8 @@ CREATE INDEX IF NOT EXISTS idx_film_place_place_context_id ON film_place(place_c
 -- Time periods
 CREATE TABLE IF NOT EXISTS time_context (
     time_context_id SERIAL PRIMARY KEY,
-    time_period TEXT NOT NULL UNIQUE
+    time_period TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE time_context IS 'Historical periods and seasons (contemporary, medieval, WW2, summer, etc.)';
@@ -353,7 +354,8 @@ CREATE INDEX IF NOT EXISTS idx_film_period_time_context_id ON film_period(time_c
 -- Thematic elements
 CREATE TABLE IF NOT EXISTS theme_context (
     theme_context_id SERIAL PRIMARY KEY,
-    theme_name TEXT NOT NULL UNIQUE
+    theme_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE theme_context IS 'Thematic elements and subject matter (war, crime, politics, etc.)';

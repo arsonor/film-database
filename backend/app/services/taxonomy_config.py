@@ -10,13 +10,14 @@ Used by ClaudeEnricher to build prompts and validate outputs.
 # =============================================================================
 
 VALID_CATEGORIES = [
-    "Action", "Adventure", "Comedy", "Drama", "Romance", "Thriller",
-    "Horror", "Science-Fiction", "Fantasy", "Musical", "Disaster", "Historical",
+    "Action", "Adventure", "Comedy", "Documentary", "Drama", "Romance",
+    "Thriller", "Horror", "Science-Fiction", "Fantasy", "Musical",
+    "Disaster", "Historical",
 ]
 
 VALID_HISTORIC_SUBCATEGORIES = [
     "biopic", "human interest story", "judicial chronicle",
-    "western", "peplum", "swashbuckler",
+    "western", "peplum", "swashbuckler", "event",
 ]
 
 VALID_CINEMA_TYPES = [
@@ -47,29 +48,31 @@ VALID_TIME_CONTEXTS = [
 ]
 
 VALID_THEMES = [
-    # Core themes
-    "social", "societal", "political", "religion", "business", "trial",
-    "prison", "apocalypse", "war", "tragedy", "trauma", "psychological",
-    "disease", "accident", "death", "mourning", "addiction/drugs",
-    "time passing", "investigation", "spy", "crime", "organized crime",
-    "delinquency", "organized fraud", "sex crime", "mafia", "gangster",
-    "serial killer", "chase/escape", "terrorism", "sect", "survival",
-    "slasher", "futuristic", "dystopia", "tales and legends", "supernatural",
+    # Group 1: Society
+    "social", "class_struggle", "societal", "immigration", "political",
+    "religion", "business", "censorship", "trial", "prison", "war",
+    "tragedy", "apocalypse",
+    # Group 2: Personal / Psychological
+    "trauma/accident", "psychological", "identity_crisis", "disease",
+    "amnesia", "death", "mourning", "addiction/drugs", "time passing",
+    "evolution",
+    # Group 3: Crime / Thriller
+    "investigation", "spy", "crime", "sex crime", "organized crime",
+    "police_violence", "corruption", "delinquency", "organized fraud",
+    "mafia", "gangster", "serial killer", "chase/escape", "terrorism",
+    "sect", "survival", "slasher",
+    # Group 4: Sci-fi / Fantasy
+    "futuristic", "dystopia", "tales and legends", "supernatural",
     "sorcery", "alien contact", "paranormal", "time travel/loop",
     "virtual reality", "dream", "nonsense",
-    # Art sub-types (hierarchical: "parent: sub")
+    # Group 5: Art & Sport (hierarchical: "parent: sub")
     "art", "art: music", "art: cinema", "art: literature", "art: fashion",
     "art: painting", "art: sculpture", "art: theatre", "art: radio",
-    # Sport sub-types (hierarchical: "parent: sub")
-    "sport", "sport: motor", "sport: individual", "sport: collective",
-    "sport: tournament",
-    # More core themes
-    "martial arts", "nature", "technology", "food/cooking",
-    "party", "book",
-    # Extended themes
-    "identity_crisis", "police_violence", "evolution",
-    "artificial_intelligence", "amnesia", "corruption", "class_struggle",
-    "immigration", "censorship",
+    "martial arts",
+    "sport", "sport: individual", "sport: collective",
+    "sport: tournament", "sport: motor",
+    # Group 6: Miscellaneous
+    "nature", "AI/technology", "food/cooking", "party", "book",
 ]
 
 VALID_CHARACTERS_TYPES = [
@@ -104,7 +107,7 @@ VALID_MOTIVATIONS = [
     "jealousy", "sex", "harassment", "lie", "doubt/dilemma", "rivalry",
     "power", "perversion", "manipulation", "redemption", "obsession",
     "vengeance", "rebellion/revolt", "fight", "odyssey", "quest",
-    "world saver", "survival",
+    "world saver",
 ]
 
 VALID_MESSAGES = [
@@ -160,13 +163,13 @@ REFERENCE_EXAMPLES = {
             ],
             "place_environment": ["space", "desert"],
             "themes": [
-                "futuristic", "alien contact", "technology", "death",
+                "futuristic", "alien contact", "AI/technology", "death",
                 "time passing", "evolution",
             ],
             "characters_type": ["solitary", "tandem"],
             "character_context": ["android", "alien"],
             "atmosphere": ["contemplative", "oppressive", "mysterious", "disturbing"],
-            "motivations": ["quest", "odyssey", "power", "doubt/dilemma", "survival"],
+            "motivations": ["quest", "odyssey", "power", "doubt/dilemma"],
             "message": ["philosophical", "metaphysical", "symbolic", "surreal"],
             "source": {
                 "type": "novel",
@@ -270,7 +273,7 @@ REFERENCE_EXAMPLES = {
             "place_environment": ["urban"],
             "themes": [
                 "psychological", "dream", "art: cinema", "crime",
-                "investigation", "identity_crisis", "accident", "mafia",
+                "investigation", "identity_crisis", "trauma/accident", "mafia",
             ],
             "characters_type": ["tandem", "couple"],
             "character_context": ["female", "double", "LGBT"],
