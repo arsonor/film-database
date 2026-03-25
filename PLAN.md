@@ -11,7 +11,7 @@
 | 4.5 | Fix: Awards + Streaming support | ✅ DONE | Awards via Claude enrichment, Streaming via TMDB watch/providers |
 | 5 | Backend API (FastAPI) | ✅ DONE | 12 files, 3 routers, 13 taxonomy dimensions, fix: transaction + theme hierarchy |
 | 5.5 | API: Geography search + Language filter + missing filter params | ✅ DONE | New geography endpoint, language taxonomy+filter, character_contexts+place_contexts filters |
-| 6 | Frontend: browse + search + filters | 🔲 TODO | React + Tailwind + shadcn/ui, poster grid, filter sidebar |
+| 6 | Frontend: browse + search + filters | ✅ DONE | Vite + React + TS + Tailwind + shadcn/ui, dark theme, 11 taxonomy filters + location/language |
 | 7 | Film detail view + edit | 🔲 TODO | Full detail panel, tag editing |
 | 8 | Add Film workflow | 🔲 TODO | TMDB search → Claude enrich → save |
 | 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
@@ -124,15 +124,6 @@ Full REST API bridging the database and the frontend. Exposes all film data with
 
 ## Step 5.5: API Enhancements — Geography, Language & Missing Filters ✅
 
-### Problem
-The frontend needs additional filtering capabilities that are missing from the Step 5 API:
-
-1. **Geography:** The `country` filter only searches `geography.country` via ILIKE. There's no way to find all films set in "Paris" or "Los Angeles" (state_city level), no autocomplete endpoint, and no taxonomy-style listing of locations with film counts.
-
-2. **Language:** There's no language filter at all. The `language` table and `film_language` junction exist, but neither a taxonomy endpoint nor a filter param were implemented. Filtering by original language (e.g., "all Japanese films") is a natural use case.
-
-3. **Missing taxonomy filter params:** The `GET /api/films` endpoint is missing filter params for `character_contexts` and `place_contexts`, even though both dimensions have taxonomy endpoints and junction tables. The frontend needs these to offer complete filtering.
-
 ### Files Created (2)
 - `backend/app/routers/geography.py` — GET /api/geography/search?q= + GET /api/geography/countries
 - `backend/app/schemas/geography.py` — GeographySearchResult, CountryItem
@@ -144,95 +135,54 @@ The frontend needs additional filtering capabilities that are missing from the S
 
 ---
 
-## Step 6: Frontend — Browse, Search & Filter
-
-### Objective
-Build the main frontend interface: a responsive film browser with poster grid, taxonomy-based filter sidebar, search bar, active filter chips, sorting, and pagination. This view is the primary way to explore the film database.
+## Step 6: Frontend — Browse, Search & Filter ✅
 
 ### Tech Stack
-- **Vite + React 18 + TypeScript**
-- **Tailwind CSS** for utility styling
-- **shadcn/ui** for pre-built UI components (Button, Badge, Input, Select, ScrollArea, Sheet, Skeleton, etc.)
-- **Lucide React** for icons (ships with shadcn/ui)
-- API calls: native `fetch` with typed wrapper (no heavy libraries)
+- Vite + React 18 + TypeScript + Tailwind CSS + shadcn/ui + Lucide React icons
+- Dark theme: charcoal background (#0f0f0f), amber accent (#f59e0b), Letterboxd/Criterion aesthetic
+- API via Vite proxy: `/api` → `http://localhost:8000`
 
-### Architecture
+### Files Created
 
-```
-frontend/
-├── src/
-│   ├── api/
-│   │   └── client.ts          # Typed API client (fetch wrapper)
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Header.tsx      # Top bar with search + sort controls
-│   │   │   ├── Sidebar.tsx     # Filter sidebar (desktop) + Sheet (mobile)
-│   │   │   └── Layout.tsx      # Main layout shell
-│   │   ├── films/
-│   │   │   ├── FilmGrid.tsx    # Responsive poster grid
-│   │   │   ├── FilmCard.tsx    # Individual poster card
-│   │   │   └── Pagination.tsx  # Page navigation
-│   │   └── filters/
-│   │       ├── FilterSection.tsx   # Collapsible section for one taxonomy
-│   │       ├── ActiveFilters.tsx   # Removable filter chip bar
-│   │       └── FilterChip.tsx      # Individual clickable/removable chip
-│   ├── hooks/
-│   │   ├── useFilms.ts         # Film list fetching + state
-│   │   ├── useTaxonomy.ts      # Taxonomy data fetching
-│   │   └── useFilterState.ts   # Filter state management + URL sync
-│   ├── types/
-│   │   └── api.ts              # TypeScript types matching API schemas
-│   ├── lib/
-│   │   └── utils.ts            # shadcn/ui cn() utility + helpers
-│   ├── App.tsx                 # Root with routing
-│   └── main.tsx                # Vite entry point
-├── index.html
-├── package.json
-├── tsconfig.json
-├── tailwind.config.js
-├── postcss.config.js
-├── vite.config.ts
-└── components.json             # shadcn/ui config
-```
+**Pages (2):**
+- `frontend/src/pages/BrowsePage.tsx` — Main browse page assembling all components
+- `frontend/src/pages/FilmDetailPage.tsx` — Placeholder for step 7
 
-### UI Design — Filter Sidebar
+**Layout components (3):**
+- `frontend/src/components/layout/Layout.tsx` — Fixed header + sidebar + main content area
+- `frontend/src/components/layout/Header.tsx` — Search bar (debounced), sort dropdown, sort toggle, stats badge, mobile filter button
+- `frontend/src/components/layout/Sidebar.tsx` — 11 taxonomy filter sections + location autocomplete + language dropdown + director input + year range + seen toggle. Sheet drawer on mobile.
 
-Taxonomy chip sections (11):
-1. Categories
-2. Themes
-3. Atmospheres
-4. Character Types (characters_type)
-5. Character Contexts (character_context — archetypes, age, gender…)
-6. Motivations
-7. Messages
-8. Cinema Types
-9. Cultural Movements
-10. Time Periods
-11. Place Contexts (urban, space, road movie…)
+**Film components (3):**
+- `frontend/src/components/films/FilmGrid.tsx` — Responsive CSS grid (2-6 columns), skeleton loading, empty state
+- `frontend/src/components/films/FilmCard.tsx` — Poster (2:3 aspect), title, year, director, category badges, seen indicator, hover scale
+- `frontend/src/components/films/Pagination.tsx` — Prev/next + page numbers with ellipsis, scroll to top
 
-Special filter inputs:
-12. Location — autocomplete text input backed by `GET /api/geography/search?q=`
-13. Language — dropdown or autocomplete backed by `GET /api/taxonomy/languages`
-14. Director — free text input (debounced)
-15. Year range — two number inputs (min/max)
-16. Seen toggle — 3-state: All / Seen / Unseen
+**Filter components (3):**
+- `frontend/src/components/filters/FilterSection.tsx` — Collapsible taxonomy section with chevron, active count badge
+- `frontend/src/components/filters/FilterChip.tsx` — Clickable badge with name + count, amber fill when active
+- `frontend/src/components/filters/ActiveFilters.tsx` — Removable chips bar above grid with "Clear all"
 
-*(Full implementation details — scaffolding, components, hooks, theming, technical notes — in PROMPTS.md Step 6 Prompt, sections A through J)*
+**Hooks (3):**
+- `frontend/src/hooks/useFilterState.ts` — Central state synced to URL query params (bookmarkable views, browser back/forward)
+- `frontend/src/hooks/useFilms.ts` — Fetches /api/films with debounced search (300ms)
+- `frontend/src/hooks/useTaxonomy.ts` — Fetches 11 taxonomy dimensions on mount, cached
 
-### Validation
+**API & types (2):**
+- `frontend/src/api/client.ts` — Typed fetch wrapper, repeated keys for array params
+- `frontend/src/types/api.ts` — TypeScript interfaces matching backend Pydantic schemas
 
-After implementation:
-1. `cd frontend && npm install && npm run dev` → starts on http://localhost:3000
-2. Backend must be running on http://localhost:8000
-3. Film grid shows the 3 seeded films with poster images
-4. Clicking a category chip in sidebar filters the grid
-5. Search bar filters by typing (e.g., "Kubrick" → shows 2001)
-6. Active filters appear as removable chips above the grid
-7. Sort by title/year works correctly
-8. Pagination works (test with per_page=2)
-9. URL updates when filters change (browser back button works)
-10. Mobile responsive: sidebar becomes slide-in drawer
-11. Loading skeletons display during API calls
+**shadcn/ui components (8):** badge, button, input, scroll-area, select, separator, sheet, skeleton
+
+**Config:** vite.config.ts (port 3000, API proxy), components.json (New York style, Zinc base), tailwind + CSS variables for dark theme
+
+### Also in this step
+- `scripts/refresh_posters.py` — New utility to refresh poster/backdrop URLs from TMDB API (CDN paths expire)
+- `scripts/data/reference_films_fallback.json` — Fixed La Haine tmdb_id (3405 → 406)
+
+### Filter Sidebar (16 filter controls)
+Taxonomy chip sections (11): Categories, Themes, Atmospheres, Character Types, Character Contexts, Motivations, Messages, Cinema Types, Cultural Movements, Time Periods, Place Contexts
+Special inputs (5): Location autocomplete, Language dropdown, Director text, Year range (min/max), Seen toggle (3-state)
 
 ---
 
@@ -250,6 +200,13 @@ psql -U postgres -d film_database -f database/seed_taxonomy.sql
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 ### Seed Data
