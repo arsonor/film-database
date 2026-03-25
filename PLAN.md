@@ -122,7 +122,7 @@ Full REST API bridging the database and the frontend. Exposes all film data with
 
 ---
 
-## Step 5.5: API Enhancements — Geography, Language & Missing Filters
+## Step 5.5: API Enhancements — Geography, Language & Missing Filters ✅
 
 ### Problem
 The frontend needs additional filtering capabilities that are missing from the Step 5 API:
@@ -133,101 +133,14 @@ The frontend needs additional filtering capabilities that are missing from the S
 
 3. **Missing taxonomy filter params:** The `GET /api/films` endpoint is missing filter params for `character_contexts` and `place_contexts`, even though both dimensions have taxonomy endpoints and junction tables. The frontend needs these to offer complete filtering.
 
-### Solution
+### Files Created (2)
+- `backend/app/routers/geography.py` — GET /api/geography/search?q= + GET /api/geography/countries
+- `backend/app/schemas/geography.py` — GeographySearchResult, CountryItem
 
-#### A. Geography Search Endpoint — new `GET /api/geography/search?q=`
-
-A new endpoint in a new router (`backend/app/routers/geography.py`) that searches across all 3 geography levels:
-
-```
-GET /api/geography/search?q=paris
-```
-
-Returns matching locations with film counts:
-```json
-[
-  { "geography_id": 12, "label": "Paris, France, Europe", "film_count": 3, "continent": "Europe", "country": "France", "state_city": "Paris" },
-  { "geography_id": 45, "label": "France, Europe", "film_count": 5, "continent": "Europe", "country": "France", "state_city": null }
-]
-```
-
-The search uses ILIKE on `continent`, `country`, AND `state_city` simultaneously. Results ordered by film_count DESC. Limit to 20 results.
-
-Also add: `GET /api/geography/countries` — returns all distinct countries with film counts, sorted by count DESC. Useful for a quick filter dropdown.
-
-#### B. Enhanced Location Filter on `GET /api/films`
-
-Replace the current `country` parameter with a broader `location` parameter that searches across all geography levels:
-
-```
-GET /api/films?location=Paris
-```
-
-This translates to:
-```sql
-f.film_id IN (
-    SELECT fsp.film_id FROM film_set_place fsp
-    JOIN geography g ON fsp.geography_id = g.geography_id
-    WHERE g.country ILIKE :location
-       OR g.state_city ILIKE :location
-       OR g.continent ILIKE :location
-)
-```
-
-**Keep backward compatibility:** also accept `country` as an alias for `location` (so existing API calls don't break).
-
-#### C. Language Taxonomy + Filter
-
-**Taxonomy endpoint:** Add `"languages"` to the `DIMENSION_MAP` in taxonomy.py. This uses `language` as the lookup table and `film_language` as the junction table. The query counts distinct films per language (via `is_original = TRUE` for original language).
-
-But language is slightly special: `film_language` links films to languages via titles (a film can have multiple title entries per language — original + dubbing). For filtering purposes, the most useful concept is **original language** (the language the film was made in). So the taxonomy should show languages that appear as `is_original = TRUE`, with a count of how many films have that language as their original.
-
-Since this doesn't fit the generic DIMENSION_MAP pattern exactly, implement it as a dedicated query inside the taxonomy endpoint (similar to how `categories` has special handling for subcategories).
-
-**Filter param:** Add `language: str | None = None` to `GET /api/films`. This filters films where the original language matches:
-```sql
-f.film_id IN (
-    SELECT fl.film_id FROM film_language fl
-    JOIN language l ON fl.language_id = l.language_id
-    WHERE fl.is_original = TRUE
-      AND l.language_name ILIKE :language
-)
-```
-
-#### D. Missing Taxonomy Filter Params
-
-Add two new filter params to `GET /api/films`:
-
-- `character_contexts: list[str] | None = Query(None)` — filters via `film_character_context` junction + `character_context` lookup
-- `place_contexts: list[str] | None = Query(None)` — filters via `film_place` junction + `place_context` lookup
-
-These follow the exact same `ANY(:param)` subquery pattern as existing taxonomy filters. Just add them to the `_taxonomy_filters` list.
-
-### Files to Modify
-
-| File | Changes |
-|------|---------|
-| `backend/app/routers/films.py` | Add `character_contexts`, `place_contexts`, `language`, `location` filter params. Replace `country` with `location` (keep `country` as alias). Add entries to `_taxonomy_filters` list. |
-| `backend/app/routers/taxonomy.py` | Add `"languages"` dimension with special handling for `is_original` filtering. |
-| `backend/app/routers/geography.py` | **NEW FILE.** Geography search endpoint + countries list endpoint. |
-| `backend/app/schemas/geography.py` | **NEW FILE.** Pydantic schemas: `GeographySearchResult`, `CountryItem`. |
-| `backend/app/main.py` | Include the new geography router. |
-
-### Validation
-
-After implementation:
-1. `uvicorn backend.app.main:app --reload` — starts without errors
-2. `GET /api/geography/search?q=paris` — returns Paris geography entries with film counts
-3. `GET /api/geography/search?q=france` — returns France + all French cities
-4. `GET /api/geography/countries` — returns country list with film counts
-5. `GET /api/films?location=France` — returns films set in France (same as old `country=France`)
-6. `GET /api/films?location=Paris` — returns films set in Paris (state_city match — was impossible before)
-7. `GET /api/films?country=France` — still works (backward compat alias)
-8. `GET /api/taxonomy/languages` — returns language list with film counts (based on original language)
-9. `GET /api/films?language=English` — returns films with English as original language
-10. `GET /api/films?character_contexts=psychopath` — returns films with that character context
-11. `GET /api/films?place_contexts=urban` — returns films with urban place context
-12. All existing filters still work unchanged
+### Files Modified (3)
+- `backend/app/routers/films.py` — Added location, language, character_contexts, place_contexts filter params
+- `backend/app/routers/taxonomy.py` — Added "languages" dimension with is_original filtering
+- `backend/app/main.py` — Included geography router
 
 ---
 
@@ -282,7 +195,7 @@ frontend/
 └── components.json             # shadcn/ui config
 ```
 
-### UI Design — Filter Sidebar (12 filter sections)
+### UI Design — Filter Sidebar
 
 Taxonomy chip sections (11):
 1. Categories
@@ -304,7 +217,7 @@ Special filter inputs:
 15. Year range — two number inputs (min/max)
 16. Seen toggle — 3-state: All / Seen / Unseen
 
-*(Full UI spec, grid, pagination, theming details preserved in PLAN.md Step 6)*
+*(Full implementation details — scaffolding, components, hooks, theming, technical notes — in PROMPTS.md Step 6 Prompt, sections A through J)*
 
 ### Validation
 
