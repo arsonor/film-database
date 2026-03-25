@@ -9,8 +9,9 @@
 | 3 | Claude enrichment module | ✅ DONE | claude_enricher.py, taxonomy_config.py, enrichment_runner.py, db_inserter.py, test_enrichment_pipeline.py |
 | 4 | Seed 3 reference films | ✅ DONE | 3 films inserted + verify_db.py ALL CHECKS PASSED |
 | 4.5 | Fix: Awards + Streaming support | ✅ DONE | Awards via Claude enrichment, Streaming via TMDB watch/providers |
-| 5 | Backend API (FastAPI) | ✅ DONE | SQLAlchemy ORM, CRUD, filtering, search, taxonomy endpoints |
-| 6 | Frontend: search grid + filters | 🔲 TODO | Poster grid, filter sidebar |
+| 5 | Backend API (FastAPI) | ✅ DONE | 12 files, 3 routers, 13 taxonomy dimensions, fix: transaction + theme hierarchy |
+| 5.5 | API: Geography search + Language filter + missing filter params | ✅ DONE | New geography endpoint, language taxonomy+filter, character_contexts+place_contexts filters |
+| 6 | Frontend: browse + search + filters | 🔲 TODO | React + Tailwind + shadcn/ui, poster grid, filter sidebar |
 | 7 | Film detail view + edit | 🔲 TODO | Full detail panel, tag editing |
 | 8 | Add Film workflow | 🔲 TODO | TMDB search → Claude enrich → save |
 | 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
@@ -81,58 +82,244 @@ python scripts/verify_db.py
 
 ---
 
-## Step 5: Backend API (FastAPI)
+## Step 5: Backend API (FastAPI) ✅
 
 ### Objective
-Build the full REST API that serves as the bridge between the database and the future frontend. This API must expose all film data with rich filtering, support CRUD operations, and provide taxonomy endpoints for filter dropdowns.
+Full REST API bridging the database and the frontend. Exposes all film data with rich filtering, CRUD operations, taxonomy endpoints for filter dropdowns, and person filmography.
+
+### Files Created (12)
+- `backend/app/__init__.py` — Package init
+- `backend/app/database.py` — Async SQLAlchemy engine + session factory + get_db dependency
+- `backend/app/models/__init__.py` — 38 SQLAlchemy ORM models mirroring schema.sql
+- `backend/app/schemas/film.py` — FilmListItem, FilmDetail, FilmCreate, FilmUpdate, PaginatedFilms + sub-schemas
+- `backend/app/schemas/taxonomy.py` — TaxonomyItem, TaxonomyList
+- `backend/app/schemas/person.py` — PersonSummary, PersonDetail, FilmographyEntry
+- `backend/app/schemas/__init__.py` — Package init
+- `backend/app/routers/films.py` — GET list (paginated+filtered), GET detail, POST create, PUT update, GET stats
+- `backend/app/routers/taxonomy.py` — GET /taxonomy/{dimension} (13 dimensions via single dynamic endpoint)
+- `backend/app/routers/persons.py` — GET search, GET detail with filmography
+- `backend/app/routers/__init__.py` — Package init
+- `backend/app/main.py` — FastAPI app with CORS (localhost:3000), lifespan, router includes
+
+### Also Modified
+- `database/seed_taxonomy.sql` — Added sport sub-themes (sport: motor, sport: individual, sport: collective, sport: tournament)
+- `backend/app/services/taxonomy_config.py` — Synced sport sub-themes in VALID_THEMES
+- `backend/STEP5_VALIDATION.md` — 24-point test checklist
 
 ### Architecture Decisions
-- **Async throughout:** SQLAlchemy 2.0 async with asyncpg (already installed)
-- **Raw SQL preferred for complex queries:** The schema uses many junction tables; SQLAlchemy ORM for models but raw SQL (via `text()`) for complex multi-join filter queries to keep them readable and performant
-- **Pydantic v2** for request/response schemas
-- **CORS enabled** for local frontend dev (localhost:3000)
+- Raw SQL via `text()` for complex filtered list query (avoids cartesian products from 15+ JOINs)
+- Batch loading for list endpoint: categories + directors loaded in 2 extra queries instead of N+1
+- `ANY(:param)` array binding for taxonomy filter subqueries
+- Create endpoint follows exact same insertion pattern as `scripts/db_inserter.py`
+- Update endpoint uses clear-and-reinsert for junction tables
 
-### Planned Deliverables
+### Fixes Applied During Validation
+- **Transaction bug:** Removed nested `db.begin()` in create/update endpoints — SQLAlchemy async session auto-begins a transaction; replaced with `await db.commit()` at the end
+- **Theme hierarchy:** Taxonomy endpoint now aggregates sub-theme film counts into parent items (e.g., "art" shows sum of all "art: *" sub-themes)
 
-**Core files:**
-- `backend/app/main.py` — FastAPI app with CORS, lifespan (DB pool startup/shutdown), router includes
-- `backend/app/database.py` — Async engine + session factory using DATABASE_URL from .env
-- `backend/app/models/__init__.py` — SQLAlchemy ORM models reflecting schema.sql (Film, Person, PersonJob, Crew, Casting, Studio, Production, Language, FilmLanguage, Category, FilmGenre, CinemaType, FilmTechnique, CulturalMovement, FilmMovement, Geography, FilmSetPlace, TimePeriod, FilmPeriod, PlaceContext, FilmPlace, ThemeContext, FilmTheme, CharactersType, FilmCharacters, CharacterContext, FilmCharacterContext, Atmosphere, FilmAtmosphere, MessageConveyed, FilmMessage, Motivation, FilmMotivation, Source, FilmOrigin, StreamPlatform, FilmExploitation, Award, FilmSequel)
-- `backend/app/schemas/film.py` — Pydantic schemas: FilmListItem (compact for grid), FilmDetail (full with all relations), FilmCreate, FilmUpdate, FilmSearchParams
-- `backend/app/schemas/taxonomy.py` — TaxonomyItem, TaxonomyList
-- `backend/app/schemas/person.py` — PersonSummary, PersonDetail
-- `backend/app/routers/films.py` — Film endpoints: list (paginated + filtered), detail, search, create, update
-- `backend/app/routers/taxonomy.py` — Taxonomy endpoints: one per dimension (categories, themes, atmospheres, etc.)
-- `backend/app/routers/persons.py` — Person filmography endpoint
+### Known Limitation
+- Person details (gender, date_of_birth, nationality) always null — TMDB mapper only extracts name/photo. Needs future enhancement to call TMDB `/person/{id}` endpoint.
 
-**Key endpoints:**
+---
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `GET /api/films` | GET | Paginated list with multi-filter: categories, themes, atmosphere, time_period, director, year range, search query. Returns FilmListItem[] |
-| `GET /api/films/{id}` | GET | Full film detail with all junction data (cast, crew, themes, etc.). Returns FilmDetail |
-| `GET /api/films/search` | GET | Full-text search across original_title, all film_language titles, person names, summary |
-| `POST /api/films` | POST | Create film from TMDB data + enrichment JSON |
-| `PUT /api/films/{id}` | PUT | Update film metadata and tag junctions |
-| `GET /api/taxonomy/{dimension}` | GET | List all values for a taxonomy dimension (e.g., /api/taxonomy/categories) |
-| `GET /api/persons/{id}` | GET | Person detail with filmography |
-| `GET /api/stats` | GET | DB statistics: film count, genre distribution, decade distribution |
+## Step 5.5: API Enhancements — Geography, Language & Missing Filters
 
-**Filtering logic for `GET /api/films`:**
-- Multiple filter params: `?categories=Drama,Thriller&atmosphere=mysterious&year_min=1990&year_max=2005&director=David+Lynch`
-- All filters are AND-combined
-- Multi-value within a dimension is OR (e.g., categories=Drama,Thriller → Drama OR Thriller)
-- Pagination: `?page=1&per_page=20`
-- Sorting: `?sort_by=year&sort_order=desc` (supported: year, title, duration, budget, revenue)
+### Problem
+The frontend needs additional filtering capabilities that are missing from the Step 5 API:
+
+1. **Geography:** The `country` filter only searches `geography.country` via ILIKE. There's no way to find all films set in "Paris" or "Los Angeles" (state_city level), no autocomplete endpoint, and no taxonomy-style listing of locations with film counts.
+
+2. **Language:** There's no language filter at all. The `language` table and `film_language` junction exist, but neither a taxonomy endpoint nor a filter param were implemented. Filtering by original language (e.g., "all Japanese films") is a natural use case.
+
+3. **Missing taxonomy filter params:** The `GET /api/films` endpoint is missing filter params for `character_contexts` and `place_contexts`, even though both dimensions have taxonomy endpoints and junction tables. The frontend needs these to offer complete filtering.
+
+### Solution
+
+#### A. Geography Search Endpoint — new `GET /api/geography/search?q=`
+
+A new endpoint in a new router (`backend/app/routers/geography.py`) that searches across all 3 geography levels:
+
+```
+GET /api/geography/search?q=paris
+```
+
+Returns matching locations with film counts:
+```json
+[
+  { "geography_id": 12, "label": "Paris, France, Europe", "film_count": 3, "continent": "Europe", "country": "France", "state_city": "Paris" },
+  { "geography_id": 45, "label": "France, Europe", "film_count": 5, "continent": "Europe", "country": "France", "state_city": null }
+]
+```
+
+The search uses ILIKE on `continent`, `country`, AND `state_city` simultaneously. Results ordered by film_count DESC. Limit to 20 results.
+
+Also add: `GET /api/geography/countries` — returns all distinct countries with film counts, sorted by count DESC. Useful for a quick filter dropdown.
+
+#### B. Enhanced Location Filter on `GET /api/films`
+
+Replace the current `country` parameter with a broader `location` parameter that searches across all geography levels:
+
+```
+GET /api/films?location=Paris
+```
+
+This translates to:
+```sql
+f.film_id IN (
+    SELECT fsp.film_id FROM film_set_place fsp
+    JOIN geography g ON fsp.geography_id = g.geography_id
+    WHERE g.country ILIKE :location
+       OR g.state_city ILIKE :location
+       OR g.continent ILIKE :location
+)
+```
+
+**Keep backward compatibility:** also accept `country` as an alias for `location` (so existing API calls don't break).
+
+#### C. Language Taxonomy + Filter
+
+**Taxonomy endpoint:** Add `"languages"` to the `DIMENSION_MAP` in taxonomy.py. This uses `language` as the lookup table and `film_language` as the junction table. The query counts distinct films per language (via `is_original = TRUE` for original language).
+
+But language is slightly special: `film_language` links films to languages via titles (a film can have multiple title entries per language — original + dubbing). For filtering purposes, the most useful concept is **original language** (the language the film was made in). So the taxonomy should show languages that appear as `is_original = TRUE`, with a count of how many films have that language as their original.
+
+Since this doesn't fit the generic DIMENSION_MAP pattern exactly, implement it as a dedicated query inside the taxonomy endpoint (similar to how `categories` has special handling for subcategories).
+
+**Filter param:** Add `language: str | None = None` to `GET /api/films`. This filters films where the original language matches:
+```sql
+f.film_id IN (
+    SELECT fl.film_id FROM film_language fl
+    JOIN language l ON fl.language_id = l.language_id
+    WHERE fl.is_original = TRUE
+      AND l.language_name ILIKE :language
+)
+```
+
+#### D. Missing Taxonomy Filter Params
+
+Add two new filter params to `GET /api/films`:
+
+- `character_contexts: list[str] | None = Query(None)` — filters via `film_character_context` junction + `character_context` lookup
+- `place_contexts: list[str] | None = Query(None)` — filters via `film_place` junction + `place_context` lookup
+
+These follow the exact same `ANY(:param)` subquery pattern as existing taxonomy filters. Just add them to the `_taxonomy_filters` list.
+
+### Files to Modify
+
+| File | Changes |
+|------|---------|
+| `backend/app/routers/films.py` | Add `character_contexts`, `place_contexts`, `language`, `location` filter params. Replace `country` with `location` (keep `country` as alias). Add entries to `_taxonomy_filters` list. |
+| `backend/app/routers/taxonomy.py` | Add `"languages"` dimension with special handling for `is_original` filtering. |
+| `backend/app/routers/geography.py` | **NEW FILE.** Geography search endpoint + countries list endpoint. |
+| `backend/app/schemas/geography.py` | **NEW FILE.** Pydantic schemas: `GeographySearchResult`, `CountryItem`. |
+| `backend/app/main.py` | Include the new geography router. |
 
 ### Validation
+
 After implementation:
-1. `uvicorn backend.app.main:app --reload` should start without errors
-2. `GET /docs` → Swagger UI should list all endpoints
-3. `GET /api/films` → Should return the 3 seeded films
-4. `GET /api/films?categories=Drama` → Should filter correctly
-5. `GET /api/films/1` → Should return full film detail with all junctions populated
-6. `GET /api/taxonomy/categories` → Should return all seeded category values
+1. `uvicorn backend.app.main:app --reload` — starts without errors
+2. `GET /api/geography/search?q=paris` — returns Paris geography entries with film counts
+3. `GET /api/geography/search?q=france` — returns France + all French cities
+4. `GET /api/geography/countries` — returns country list with film counts
+5. `GET /api/films?location=France` — returns films set in France (same as old `country=France`)
+6. `GET /api/films?location=Paris` — returns films set in Paris (state_city match — was impossible before)
+7. `GET /api/films?country=France` — still works (backward compat alias)
+8. `GET /api/taxonomy/languages` — returns language list with film counts (based on original language)
+9. `GET /api/films?language=English` — returns films with English as original language
+10. `GET /api/films?character_contexts=psychopath` — returns films with that character context
+11. `GET /api/films?place_contexts=urban` — returns films with urban place context
+12. All existing filters still work unchanged
+
+---
+
+## Step 6: Frontend — Browse, Search & Filter
+
+### Objective
+Build the main frontend interface: a responsive film browser with poster grid, taxonomy-based filter sidebar, search bar, active filter chips, sorting, and pagination. This view is the primary way to explore the film database.
+
+### Tech Stack
+- **Vite + React 18 + TypeScript**
+- **Tailwind CSS** for utility styling
+- **shadcn/ui** for pre-built UI components (Button, Badge, Input, Select, ScrollArea, Sheet, Skeleton, etc.)
+- **Lucide React** for icons (ships with shadcn/ui)
+- API calls: native `fetch` with typed wrapper (no heavy libraries)
+
+### Architecture
+
+```
+frontend/
+├── src/
+│   ├── api/
+│   │   └── client.ts          # Typed API client (fetch wrapper)
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Header.tsx      # Top bar with search + sort controls
+│   │   │   ├── Sidebar.tsx     # Filter sidebar (desktop) + Sheet (mobile)
+│   │   │   └── Layout.tsx      # Main layout shell
+│   │   ├── films/
+│   │   │   ├── FilmGrid.tsx    # Responsive poster grid
+│   │   │   ├── FilmCard.tsx    # Individual poster card
+│   │   │   └── Pagination.tsx  # Page navigation
+│   │   └── filters/
+│   │       ├── FilterSection.tsx   # Collapsible section for one taxonomy
+│   │       ├── ActiveFilters.tsx   # Removable filter chip bar
+│   │       └── FilterChip.tsx      # Individual clickable/removable chip
+│   ├── hooks/
+│   │   ├── useFilms.ts         # Film list fetching + state
+│   │   ├── useTaxonomy.ts      # Taxonomy data fetching
+│   │   └── useFilterState.ts   # Filter state management + URL sync
+│   ├── types/
+│   │   └── api.ts              # TypeScript types matching API schemas
+│   ├── lib/
+│   │   └── utils.ts            # shadcn/ui cn() utility + helpers
+│   ├── App.tsx                 # Root with routing
+│   └── main.tsx                # Vite entry point
+├── index.html
+├── package.json
+├── tsconfig.json
+├── tailwind.config.js
+├── postcss.config.js
+├── vite.config.ts
+└── components.json             # shadcn/ui config
+```
+
+### UI Design — Filter Sidebar (12 filter sections)
+
+Taxonomy chip sections (11):
+1. Categories
+2. Themes
+3. Atmospheres
+4. Character Types (characters_type)
+5. Character Contexts (character_context — archetypes, age, gender…)
+6. Motivations
+7. Messages
+8. Cinema Types
+9. Cultural Movements
+10. Time Periods
+11. Place Contexts (urban, space, road movie…)
+
+Special filter inputs:
+12. Location — autocomplete text input backed by `GET /api/geography/search?q=`
+13. Language — dropdown or autocomplete backed by `GET /api/taxonomy/languages`
+14. Director — free text input (debounced)
+15. Year range — two number inputs (min/max)
+16. Seen toggle — 3-state: All / Seen / Unseen
+
+*(Full UI spec, grid, pagination, theming details preserved in PLAN.md Step 6)*
+
+### Validation
+
+After implementation:
+1. `cd frontend && npm install && npm run dev` → starts on http://localhost:3000
+2. Backend must be running on http://localhost:8000
+3. Film grid shows the 3 seeded films with poster images
+4. Clicking a category chip in sidebar filters the grid
+5. Search bar filters by typing (e.g., "Kubrick" → shows 2001)
+6. Active filters appear as removable chips above the grid
+7. Sort by title/year works correctly
+8. Pagination works (test with per_page=2)
+9. URL updates when filters change (browser back button works)
+10. Mobile responsive: sidebar becomes slide-in drawer
+11. Loading skeletons display during API calls
 
 ---
 

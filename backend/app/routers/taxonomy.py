@@ -32,13 +32,34 @@ DIMENSION_MAP = {
 HIERARCHICAL_DIMENSIONS = {"themes"}
 
 
+# Special dimensions not in DIMENSION_MAP
+SPECIAL_DIMENSIONS = {"languages"}
+ALL_DIMENSIONS = set(DIMENSION_MAP.keys()) | SPECIAL_DIMENSIONS
+
+
 @router.get("/taxonomy/{dimension}", response_model=TaxonomyList)
 async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
-    if dimension not in DIMENSION_MAP:
+    if dimension not in ALL_DIMENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown dimension: '{dimension}'. Valid: {', '.join(sorted(DIMENSION_MAP.keys()))}",
+            detail=f"Unknown dimension: '{dimension}'. Valid: {', '.join(sorted(ALL_DIMENSIONS))}",
         )
+
+    # Special handling for languages: count films where this is the original language
+    if dimension == "languages":
+        result = await db.execute(text("""
+            SELECT l.language_id, l.language_name,
+                   COUNT(DISTINCT fl.film_id) AS film_count
+            FROM language l
+            LEFT JOIN film_language fl ON l.language_id = fl.language_id AND fl.is_original = TRUE
+            GROUP BY l.language_id, l.language_name
+            ORDER BY film_count DESC, l.language_name
+        """))
+        items = [
+            TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+            for row in result.fetchall()
+        ]
+        return TaxonomyList(dimension=dimension, items=items)
 
     lookup_table, id_col, name_col, junc_table, junc_fk = DIMENSION_MAP[dimension]
 

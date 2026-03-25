@@ -43,14 +43,18 @@ async def list_films(
     atmospheres: list[str] | None = Query(None),
     messages: list[str] | None = Query(None),
     characters: list[str] | None = Query(None),
+    character_contexts: list[str] | None = Query(None),
     motivations: list[str] | None = Query(None),
     cinema_types: list[str] | None = Query(None),
     cultural_movements: list[str] | None = Query(None),
     time_periods: list[str] | None = Query(None),
+    place_contexts: list[str] | None = Query(None),
     year_min: int | None = None,
     year_max: int | None = None,
     director: str | None = None,
+    location: str | None = None,
     country: str | None = None,
+    language: str | None = None,
     vu: bool | None = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -72,6 +76,8 @@ async def list_films(
         (cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         (cultural_movements, "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         (time_periods, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
+        (character_contexts, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
+        (place_contexts, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
     ]
 
     for i, (values, junc_table, junc_fk, lookup_table, lookup_pk, lookup_name) in enumerate(_taxonomy_filters):
@@ -100,16 +106,31 @@ async def list_films(
         )
         params["director"] = f"%{director}%"
 
-    # Country filter
-    if country:
+    # Location filter (replaces old country filter; country kept as alias)
+    loc = location or country
+    if loc:
         where_clauses.append(
             """f.film_id IN (
                 SELECT fsp.film_id FROM film_set_place fsp
                 JOIN geography g ON fsp.geography_id = g.geography_id
-                WHERE g.country ILIKE :country
+                WHERE g.country ILIKE :location
+                   OR g.state_city ILIKE :location
+                   OR g.continent ILIKE :location
             )"""
         )
-        params["country"] = f"%{country}%"
+        params["location"] = f"%{loc}%"
+
+    # Language filter (original language)
+    if language:
+        where_clauses.append(
+            """f.film_id IN (
+                SELECT fl.film_id FROM film_language fl
+                JOIN language l ON fl.language_id = l.language_id
+                WHERE fl.is_original = TRUE
+                  AND l.language_name ILIKE :language
+            )"""
+        )
+        params["language"] = f"%{language}%"
 
     # Year range
     if year_min is not None:
