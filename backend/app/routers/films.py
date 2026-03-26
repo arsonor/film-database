@@ -636,6 +636,23 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # =============================================================================
+# PATCH /api/films/{film_id}/vu — Quick seen/unseen toggle
+# =============================================================================
+
+
+@router.patch("/films/{film_id}/vu")
+async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        text("UPDATE film SET vu = :vu WHERE film_id = :fid RETURNING film_id"),
+        {"fid": film_id, "vu": vu},
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Film not found")
+    await db.commit()
+    return {"film_id": film_id, "vu": vu}
+
+
+# =============================================================================
 # POST /api/films — Create a new film
 # =============================================================================
 

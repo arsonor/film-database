@@ -1,3 +1,97 @@
+// =============================================================================
+// Film Detail types
+// =============================================================================
+
+export interface FilmTitle {
+  language_code: string;
+  language_name: string;
+  title: string;
+  is_original: boolean;
+}
+
+export interface CrewMember {
+  person_id: number;
+  firstname: string | null;
+  lastname: string;
+  role: string;
+  photo_url: string | null;
+}
+
+export interface CastMember {
+  person_id: number;
+  firstname: string | null;
+  lastname: string;
+  character_name: string | null;
+  cast_order: number | null;
+  photo_url: string | null;
+}
+
+export interface FilmSetPlace {
+  continent: string | null;
+  country: string | null;
+  state_city: string | null;
+  place_type: string;
+}
+
+export interface SourceOut {
+  source_type: string;
+  source_title: string | null;
+  author: string | null;
+}
+
+export interface AwardOut {
+  festival_name: string;
+  category: string | null;
+  year: number | null;
+  result: string | null;
+}
+
+export interface FilmRelation {
+  related_film_id: number;
+  related_film_title: string;
+  relation_type: string;
+}
+
+export interface FilmDetail {
+  film_id: number;
+  original_title: string;
+  duration: number | null;
+  color: boolean;
+  first_release_date: string | null;
+  summary: string | null;
+  vu: boolean;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  budget: number | null;
+  revenue: number | null;
+  titles: FilmTitle[];
+  categories: string[];
+  cinema_types: string[];
+  cultural_movements: string[];
+  themes: string[];
+  characters: string[];
+  character_contexts: string[];
+  motivations: string[];
+  atmospheres: string[];
+  messages: string[];
+  time_periods: string[];
+  place_contexts: string[];
+  set_places: FilmSetPlace[];
+  crew: CrewMember[];
+  cast: CastMember[];
+  studios: string[];
+  sources: SourceOut[];
+  awards: AwardOut[];
+  streaming_platforms: string[];
+  sequels: FilmRelation[];
+}
+
+// =============================================================================
+// Film List types
+// =============================================================================
+
 export interface FilmListItem {
   film_id: number;
   original_title: string;

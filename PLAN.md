@@ -12,8 +12,8 @@
 | 5 | Backend API (FastAPI) | ✅ DONE | 12 files, 3 routers, 13 taxonomy dimensions, fix: transaction + theme hierarchy |
 | 5.5 | API: Geography search + Language filter + missing filter params | ✅ DONE | New geography endpoint, language taxonomy+filter, character_contexts+place_contexts filters |
 | 6 | Frontend: browse + search + filters | ✅ DONE | Vite + React + TS + Tailwind + shadcn/ui, dark theme, 11 taxonomy filters + location/language |
-| 6.5 | Taxonomy refinements + filter UX fixes | 🔄 IN PROGRESS | AND logic, sort_order, theme merges, Historical subcategories, studios, dual-slider |
-| 7 | Film detail view + edit | 🔲 TODO | Full detail panel, tag editing |
+| 6.5 | Taxonomy refinements + filter UX fixes | ✅ DONE | AND logic, sort_order, theme merges, Historical subcategories, studios filter, dual-slider |
+| 7 | Film detail view + edit | 🔄 IN PROGRESS | Full detail page, tag editing, vu toggle, external links, person navigation |
 | 8 | Add Film workflow | 🔲 TODO | TMDB search → Claude enrich → save |
 | 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
 | 10 | Claude-powered recommendations | 🔲 TODO | External film suggestions |
@@ -65,209 +65,282 @@
 
 *(see PLAN.md git history for details)*
 
+## Step 6.5: Taxonomy Refinements + Filter UX Fixes ✅
+
+- Migration `006_sort_order.sql` — sort_order columns, theme merges (trauma/accident, AI/technology), motivation cleanup
+- Backend: AND logic (HAVING COUNT) in all taxonomy filters, parent expansion for hierarchical dims (themes, categories)
+- Backend: Categories filter handles composite "Parent: sub" format, studios filter + taxonomy dimension
+- Frontend: Director filter removed, dual-handle year range slider, studios dropdown, theme/time group separators
+
 ---
 
-## Step 6.5: Taxonomy Refinements + Filter UX Fixes
+## Step 7: Film Detail View + Edit
 
-### Problem
-After testing the frontend with real data, several taxonomy and UX improvements are needed:
+### Goal
+Build a rich, visually compelling film detail page that displays all metadata from the `GET /api/films/{film_id}` endpoint. Include tag editing capabilities, a quick seen/unseen toggle, clickable person names/photos, external links, and a placeholder for the future "Similar Films" recommendation carousel (steps 9-10).
 
-1. **AND logic:** Multi-selecting filters within a dimension should require ALL selected values (AND), not just any of them (OR).
-2. **Parent theme expansion:** Selecting "art" should match films tagged with "art: cinema", "art: music", etc. Same for "sport". Same for "Historical" matching "Historical: biopic", etc.
-3. **Categories:** Add "Documentary" as a new base category. Add "Historical: event" as a new subcategory. Expose Historical subcategories in the sidebar using the "parent: sub" convention.
-4. **Themes:** Merge "trauma" + "accident" → "trauma/accident". Merge "technology" + "artificial_intelligence" → "AI/technology". Add a `sort_order` column to control display order with thematic groupings.
-5. **Time periods:** Add `sort_order` column. Chronological order (future → prehistoric) + seasons separately.
-6. **Motivations:** Remove "survival" (already in themes).
-7. **Studios filter:** Add studios as a new filter dimension (taxonomy endpoint + film list filter param + frontend dropdown).
-8. **Remove Director filter:** Redundant with main search bar.
-9. **Year range:** Replace two input boxes with a dual-handle range slider.
+### A. Frontend API Client + Types — `frontend/src/api/client.ts` + `frontend/src/types/api.ts`
 
-### A. Schema Migration — `database/migrations/006_sort_order.sql`
+**Types (`api.ts`):** Add full TypeScript interfaces matching the backend `FilmDetail` response:
 
-Add `sort_order` column to taxonomy tables that need custom ordering:
+```typescript
+export interface FilmTitle {
+  language_code: string;
+  language_name: string;
+  title: string;
+  is_original: boolean;
+}
 
-```sql
-ALTER TABLE theme_context ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
-ALTER TABLE time_context ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+export interface CrewMember {
+  person_id: number;
+  firstname: string | null;
+  lastname: string;
+  role: string;
+  photo_url: string | null;
+}
+
+export interface CastMember {
+  person_id: number;
+  firstname: string | null;
+  lastname: string;
+  character_name: string | null;
+  cast_order: number | null;
+  photo_url: string | null;
+}
+
+export interface FilmSetPlace {
+  continent: string | null;
+  country: string | null;
+  state_city: string | null;
+  place_type: string;
+}
+
+export interface SourceOut {
+  source_type: string;
+  source_title: string | null;
+  author: string | null;
+}
+
+export interface AwardOut {
+  festival_name: string;
+  category: string | null;
+  year: number | null;
+  result: string | null;
+}
+
+export interface FilmRelation {
+  related_film_id: number;
+  related_film_title: string;
+  relation_type: string;
+}
+
+export interface FilmDetail {
+  film_id: number;
+  original_title: string;
+  duration: number | null;
+  color: boolean;
+  first_release_date: string | null;
+  summary: string | null;
+  vu: boolean;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  imdb_id: string | null;
+  tmdb_id: number | null;
+  budget: number | null;
+  revenue: number | null;
+  titles: FilmTitle[];
+  categories: string[];
+  cinema_types: string[];
+  cultural_movements: string[];
+  themes: string[];
+  characters: string[];
+  character_contexts: string[];
+  motivations: string[];
+  atmospheres: string[];
+  messages: string[];
+  time_periods: string[];
+  place_contexts: string[];
+  set_places: FilmSetPlace[];
+  crew: CrewMember[];
+  cast: CastMember[];
+  studios: string[];
+  sources: SourceOut[];
+  awards: AwardOut[];
+  streaming_platforms: string[];
+  sequels: FilmRelation[];
+}
 ```
 
-### B. Seed Data Changes — `database/seed_taxonomy.sql`
+**API client (`client.ts`):** Add functions:
+```typescript
+export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
+  return fetchJson<FilmDetail>(`${BASE}/films/${filmId}`);
+}
 
-**Categories:**
-- Add `('Documentary', NULL)`
-- Add `('Historical', 'event')`
+export async function updateFilm(filmId: number, data: Partial<FilmDetail>): Promise<void> {
+  const res = await fetch(`${BASE}/films/${filmId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new ApiError(res.status, `Update failed: ${res.statusText}`);
+}
 
-**Themes — merges:**
-- Rename `trauma` → `trauma/accident` (UPDATE in migration)
-- Delete `accident` (migrate any film_theme rows first)
-- Rename `technology` → `AI/technology` (UPDATE in migration)
-- Delete `artificial_intelligence` (migrate any film_theme rows first)
-
-**Themes — sort_order values** (thematic groupings):
-```
-Group 1 - Society (sort_order 100-199):
-  social(100), class struggle(101), societal(102), immigration(103), political(104), 
-  religion(105), business(106), censorship(107), trial(108), prison(109), 
-  war(110), tragedy(111), apocalypse(112)
-
-Group 2 - Personal/Psychological (200-299):
-  trauma/accident(200), psychological(201), identity crisis(202), disease(203), 
-  amnesia(204), death(205), mourning(206), addiction/drugs(207), 
-  time passing(208), evolution(209)
-
-Group 3 - Crime/Thriller (300-399):
-  investigation(300), spy(301), crime(302), sex crime(303), organized crime(304), 
-  police violence(305), corruption(306), delinquency(307), organized fraud(308), 
-  mafia(309), gangster(310), serial killer(311), chase/escape(312), 
-  terrorism(313), sect(314), survival(315), slasher(316)
-
-Group 4 - Sci-fi/Fantasy (400-499):
-  futuristic(400), dystopia(401), tales and legends(402), supernatural(403), 
-  sorcery(404), alien contact(405), paranormal(406), time travel/loop(407), 
-  virtual reality(408), dream(409), nonsense(410)
-
-Group 5 - Art & Sport (500-599):
-  art(500), art: music(501), art: cinema(502), art: literature(503), 
-  art: fashion(504), art: painting(505), art: sculpture(506), art: theatre(507), 
-  art: radio(508), martial arts(509),
-  sport(520), sport: individual(521), sport: collective(522), 
-  sport: tournament(523), sport: motor(524)
-
-Group 6 - Misc (600-699):
-  nature(600), AI/technology(601), food/cooking(602), party(603), book(604)
+export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
+  return updateFilm(filmId, { vu } as any);
+}
 ```
 
-**Time periods — sort_order values:**
-```
-Chronological (sort_order 1-20):
-  future(1), contemporary(2), end 20th(3), 30-year post-war boom(4), WW2(5), 
-  interwar(6), WW1(7), early 20th(8), 19th(9), modern age(10), 
-  medieval(11), antiquity(12), prehistoric(13), undetermined(14)
+### B. Hook — `frontend/src/hooks/useFilmDetail.ts`
 
-Seasons (sort_order 100-103):
-  spring(100), summer(101), autumn(102), winter(103)
-```
-
-**Motivations:**
-- Remove `survival`
-
-### C. Taxonomy Config — `backend/app/services/taxonomy_config.py`
-
-Sync all changes: add Documentary, add Historical: event, rename merged themes, remove survival from motivations, add studios references.
-
-### D. Backend: Filter Logic — `backend/app/routers/films.py`
-
-**AND logic (HAVING COUNT):** Replace the current `ANY(:param)` subquery with:
-```sql
-f.film_id IN (
-    SELECT jt.film_id FROM {junc_table} jt
-    JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-    WHERE lt.{lookup_name} = ANY(:{param_key})
-    GROUP BY jt.film_id
-    HAVING COUNT(DISTINCT lt.{lookup_name}) = :{param_key}_count
-)
-```
-Pass `params[f"{param_key}_count"] = len(values)` alongside the array.
-
-**Parent expansion for hierarchical dimensions (themes, categories):**
-When filtering themes/categories, if a selected value has no `: ` in it AND children exist with that prefix, expand the match:
-```sql
-WHERE lt.{lookup_name} = ANY(:{param_key})
-   OR lt.{lookup_name} LIKE ANY(
-       SELECT unnest(:{param_key_parents}) || ': %'
-   )
-```
-Build `param_key_parents` from values that are known parent prefixes (no `: ` in them).
-
-**Categories filter — special handling:** Categories uses `category_name` + `historic_subcategory_name`. The taxonomy now returns display names like `"Historical: biopic"`. The filter needs to handle this format:
-- If the filter value contains `: `, split it and match both columns: `category_name = 'Historical' AND historic_subcategory_name = 'biopic'`
-- If the filter value has no `: `, match base category: `category_name = 'Historical' AND historic_subcategory_name IS NULL`
-- Parent expansion: selecting `"Historical"` should also match all subcategories
-
-**Studios filter:** Add `studios: list[str] | None = Query(None)` param. Subquery through `production` junction + `studio` lookup:
-```sql
-f.film_id IN (
-    SELECT pr.film_id FROM production pr
-    JOIN studio s ON pr.studio_id = s.studio_id
-    WHERE s.studio_name = ANY(:studios)
-    GROUP BY pr.film_id
-    HAVING COUNT(DISTINCT s.studio_name) = :studios_count
-)
+Create a hook that fetches the full film detail:
+```typescript
+export function useFilmDetail(filmId: number) {
+  // Returns { film, loading, error, refetch }
+  // Fetches on mount and when filmId changes
+  // Provides a refetch function for after edits
+}
 ```
 
-**Remove `director` param** from the endpoint signature and filter logic.
+### C. Film Detail Page — `frontend/src/pages/FilmDetailPage.tsx`
 
-### E. Backend: Taxonomy Endpoint — `backend/app/routers/taxonomy.py`
+Replace the current placeholder with a full detail page. The page layout has two main zones:
 
-**Categories:** Replace the simple `WHERE historic_subcategory_name IS NULL` filter with a query that returns all categories using the `"parent: sub"` display convention:
-```sql
-SELECT lt.category_id, 
-       CASE 
-           WHEN lt.historic_subcategory_name IS NOT NULL 
-           THEN lt.category_name || ': ' || lt.historic_subcategory_name
-           ELSE lt.category_name
-       END AS display_name,
-       COUNT(jt.film_id) AS film_count
-FROM category lt
-LEFT JOIN film_genre jt ON lt.category_id = jt.category_id
-GROUP BY lt.category_id, lt.category_name, lt.historic_subcategory_name
-ORDER BY lt.category_name, lt.historic_subcategory_name NULLS FIRST
-```
+**1. Hero section (top):**
+- Full-width backdrop image (`backdrop_url`) with gradient overlay fading to background
+- Overlaid on the left: large poster image (`poster_url`), roughly 300px wide
+- Overlaid on the right of poster: primary info block:
+  - Original title (large heading)
+  - Localized titles below (smaller, muted — list the non-original titles from `titles[]`)
+  - Year · Duration · Color/B&W
+  - Categories as badges
+  - Director name(s) (from crew where role="Director")
+  - **Seen/Unseen toggle button** — prominently placed, clickable (calls `toggleVu`). Green Eye icon if seen, grey outline if unseen. Clicking toggles immediately (optimistic update) then syncs with API.
+  - **External links row:** small icon buttons linking to:
+    - TMDB: `https://www.themoviedb.org/movie/{tmdb_id}`
+    - IMDb: `https://www.imdb.com/title/{imdb_id}` (if `imdb_id` exists)
+    - Allociné: `https://www.google.com/search?q=allocine+{encodeURIComponent(original_title)}+{year}` (Google search fallback since Allociné has no direct TMDB mapping)
+    - Wikipedia: `https://en.wikipedia.org/wiki/Special:Search/{encodeURIComponent(original_title)}_(film)`
 
-Add `"categories"` to `HIERARCHICAL_DIMENSIONS` for parent count aggregation.
+**2. Content sections (below hero), organized in a responsive grid/column layout:**
 
-**Studios:** Add `"studios"` to `DIMENSION_MAP`:
+Each section is a card or always-open section with a consistent heading. Use a reusable section component.
+
+- **Synopsis** — `summary` text, full paragraph
+- **Cast & Crew**
+  - Cast: horizontal scrollable row of person cards (photo thumbnail from TMDB, actor name, character name). Photos use `https://image.tmdb.org/t/p/w185{photo_url}` if photo_url starts with `/`. Each card is **clickable** → navigates to `/browse?q={firstname}+{lastname}` (sets the search bar to the person's name so it shows all their films)
+  - Crew: grouped by role. Director, Writer, Cinematographer, Composer listed with name + photo. Same click behavior.
+- **Classification** — a compact tag cloud / grouped badges showing:
+  - Cinema types, Cultural movements
+  - Each tag group has an **Edit** button nearby (pencil icon) that opens an inline edit mode (or a dialog) for that dimension — described in section F below
+- **Context & Themes** — Tags displayed as badges:
+  - Themes, Characters, Character Contexts, Motivations, Atmosphere, Messages
+  - Same edit capability
+- **Setting** — Time periods + Place contexts + Geography (set_places formatted as "Country, City (diegetic)" etc.)
+- **Production** — Studios list, Source/Origin info, Budget & Revenue (formatted as currency if available)
+- **Awards** — Table or list: Festival | Category | Year | Won/Nominated, with a trophy icon for wins
+- **Streaming** — Platform badges (Netflix, Prime Video, etc.)
+- **Related Films** — If `sequels[]` is non-empty, show linked film titles with relation type (sequel, prequel, remake…). Each links to `/films/{related_film_id}`.
+- **Similar Films** *(placeholder)* — An empty section with a subtle message: "Recommendations coming soon" and a placeholder carousel skeleton. This will be populated in steps 9-10 with the recommendation engine output. Keep the component structure ready: `SimilarFilmsCarousel` that accepts a `filmId` prop and will eventually call a `/api/films/{id}/recommendations` endpoint.
+
+### D. Person Navigation — Click to Browse
+
+When a person (cast or crew) is clicked, navigate to `/browse?q={encodeURIComponent(fullName)}`. This leverages the existing full-text search which already searches across casting and crew person names. The `BrowsePage` will receive the `q` param from the URL and display matching films.
+
+Verify in `useFilterState.ts` that the `q` param is properly read from the URL on page load (it should already work since search is URL-synced).
+
+### E. Seen/Unseen Quick Toggle
+
+The seen/unseen button in the hero section should:
+1. Show current state visually (filled green Eye for seen, outline Eye for unseen)
+2. On click: optimistically update the UI immediately
+3. Send `PUT /api/films/{film_id}` with `{ vu: newValue }`
+4. On error: revert the optimistic update and show a brief toast/notification
+5. The backend `update_film` endpoint already supports partial updates including `vu`
+
+### F. Tag Editing — Edit Mode for Taxonomy Dimensions
+
+Add an **Edit** button (pencil icon) on each taxonomy section header. When clicked:
+1. The section switches to "edit mode" — the existing tags become removable (X button on each)
+2. A combobox/autocomplete appears below, fetching values from `GET /api/taxonomy/{dimension}` to suggest available tags to add
+3. **Save** button sends `PUT /api/films/{film_id}` with the updated array for that dimension
+4. **Cancel** button reverts to the original values
+
+Implementation approach:
+- Create a reusable `EditableTagSection` component that wraps any taxonomy dimension
+- Props: `filmId`, `dimension` (taxonomy key), `currentValues` (string[]), `onSaved` (callback to refetch)
+- Uses the existing `fetchTaxonomy` to get all possible values for the dimension
+- On save, calls `updateFilm` with just the changed dimension field
+
+This keeps editing lightweight — no need for a full-page edit form. Each section is independently editable.
+
+### G. Backend: PATCH for Quick vu Toggle (Optional Optimization)
+
+The existing `PUT /api/films/{film_id}` works for all updates, but for a single boolean toggle it sends a lot of unnecessary NULL fields. Consider adding a lightweight endpoint:
+
 ```python
-"studios": ("studio", "studio_id", "studio_name", "production", "studio_id"),
+@router.patch("/films/{film_id}/vu")
+async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        text("UPDATE film SET vu = :vu WHERE film_id = :fid RETURNING film_id"),
+        {"fid": film_id, "vu": vu}
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Film not found")
+    await db.commit()
+    return {"film_id": film_id, "vu": vu}
 ```
 
-**Sort order:** For dimensions with `sort_order` columns (themes, time_periods), change ORDER BY from `lt.{name_col}` to `lt.sort_order, lt.{name_col}`. Add a set `SORTED_DIMENSIONS = {"themes", "time_periods"}` and conditionally use the sort_order column.
+If implemented, the frontend `toggleVu` function uses `PATCH /api/films/{film_id}/vu?vu=true` instead of PUT.
 
-### F. Frontend: Remove Director Filter
+### H. UI Component Library — New Components Needed
 
-Remove the Director filter section from `Sidebar.tsx`. Remove `director` from `FilterState`, `DEFAULT_FILTER_STATE`, and the API client query builder. Clean up `useFilterState.ts`, `ActiveFilters.tsx`, and `Header.tsx` if director is referenced.
-
-### G. Frontend: Year Range Dual Slider
-
-Replace the two year input boxes in `Sidebar.tsx` with a dual-handle range slider.
-
-Install a lightweight slider library:
+**Install additional shadcn/ui components** (if not already present):
 ```bash
-cd frontend && npm install react-slider
+cd frontend
+npx shadcn@latest add dialog
+npx shadcn@latest add tabs
+npx shadcn@latest add tooltip
+npx shadcn@latest add toggle
+npx shadcn@latest add command   # for combobox/autocomplete in edit mode
+npx shadcn@latest add popover   # for combobox
+npx shadcn@latest add toast     # for edit save feedback
 ```
 
-Or build a custom dual-range component with two HTML `<input type="range">` elements and Tailwind styling. The range should span 1900–2030 (or dynamically from min/max years in the DB). Two draggable handles for min and max year. Display the selected range values above or below the slider.
+**Custom components to create:**
+- `PersonCard` — Thumbnail photo + name + role/character, clickable
+- `SectionHeading` — Consistent section title with optional edit button
+- `EditableTagSection` — View/edit mode toggle for taxonomy tags
+- `ExternalLinks` — Row of icon buttons for TMDB, IMDb, Allociné, Wikipedia
+- `AwardsTable` — Formatted awards display
+- `SimilarFilmsCarousel` — Placeholder skeleton for future recommendations
 
-### H. Frontend: Studios Filter
+### Design Guidelines
 
-Add a Studios dropdown in the sidebar (same pattern as Language dropdown). Fetch `GET /api/taxonomy/studios` on mount. Display as a Select component with studio names + film counts.
-
-Add `studios` to `FilterState` as `string[]`, to `TAXONOMY_DIMENSIONS`, `ARRAY_FILTER_KEYS`, and the API client query builder.
-
-### I. Frontend: Theme/Time Grouping Display
-
-The taxonomy endpoint now returns items sorted by `sort_order`. Themes have gaps between groups (100s, 200s, 300s...). The frontend `FilterSection` component should detect these group boundaries and insert a visual separator (a thin `<hr>` or `<Separator>` from shadcn/ui) between groups.
-
-Logic: iterate through items, when `sort_order` jumps by ≥50 (i.e. different hundreds group), insert a separator. The `TaxonomyItem` type needs a new optional field `sort_order: number | null` from the API.
+Maintain the existing dark theme (charcoal #0f0f0f, amber #f59e0b accent). The detail page should feel like a blend of Letterboxd's film detail and TMDB's rich metadata display:
+- Backdrop image with strong gradient overlay (bottom → background color)
+- Poster with subtle shadow/border
+- Muted color palette for text, amber for interactive elements (buttons, links, edit icons)
+- Smooth transitions between view and edit modes
+- Mobile responsive: poster + info stack vertically on small screens, cast scrolls horizontally
 
 ### Validation
 
 After implementation:
-1. Server starts without errors
-2. `GET /api/taxonomy/categories` — shows Historical subcategories and Documentary
-3. `GET /api/taxonomy/themes` — sorted by thematic groups, trauma/accident merged, AI/technology merged
-4. `GET /api/taxonomy/time_periods` — chronological order, seasons at end
-5. `GET /api/taxonomy/studios` — returns studios with film counts
-6. `GET /api/taxonomy/motivations` — survival is gone
-7. `GET /api/films?themes=art` — returns films tagged with any art sub-theme
-8. `GET /api/films?categories=Historical` — returns films with any Historical subcategory
-9. `GET /api/films?themes=social&themes=political` — returns only films with BOTH themes (AND)
-10. `GET /api/films?studios=Metro-Goldwyn-Mayer` — filters by studio
-11. Frontend: Director filter removed from sidebar
-12. Frontend: Year range shows a dual-handle slider
-13. Frontend: Studios dropdown appears in sidebar
-14. Frontend: Theme section shows visual separators between groups
-15. Frontend: Time periods show in chronological order, seasons separated
+1. Navigate to `/films/1` (or any seeded film) — full detail renders
+2. Backdrop image displays with gradient overlay
+3. Poster shows on the left in desktop, stacks on mobile
+4. All taxonomy sections populated with correct data
+5. Cast section shows photos, names, characters in a scrollable row
+6. Crew section shows director, writer, cinematographer grouped by role
+7. Click any person → navigates to `/browse?q=PersonName` → browse page shows their films
+8. Seen/unseen toggle: click toggles icon + sends API update
+9. External links: TMDB and IMDb links open correct pages in new tab
+10. Edit mode on any taxonomy section: can remove tags, add from dropdown, save
+11. Awards section displays correctly (or empty if no awards)
+12. "Similar Films" placeholder section visible with "coming soon" message
+13. Back button returns to browse page preserving previous filter state
+14. Mobile responsive: all sections readable on phone screen
 
 ---
 

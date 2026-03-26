@@ -21,6 +21,24 @@ export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+export function formatPersonName(firstname: string | null, lastname: string): string {
+  return firstname ? `${firstname} ${lastname}` : lastname;
+}
+
+export function formatCurrency(amount: number | null): string {
+  if (!amount) return "—";
+  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return `$${amount.toLocaleString()}`;
+}
+
+export function tmdbImageUrl(path: string | null, size = "w500"): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+}
+
 export function dimensionLabel(dimension: string): string {
   const labels: Record<string, string> = {
     categories: "Categories",

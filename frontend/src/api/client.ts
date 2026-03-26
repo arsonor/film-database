@@ -1,4 +1,5 @@
 import type {
+  FilmDetail,
   FilterState,
   GeographySearchResult,
   PaginatedFilms,
@@ -79,4 +80,24 @@ export async function searchGeography(q: string): Promise<GeographySearchResult[
   return fetchJson<GeographySearchResult[]>(
     `${BASE}/geography/search?q=${encodeURIComponent(q)}`,
   );
+}
+
+export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
+  return fetchJson<FilmDetail>(`${BASE}/films/${filmId}`);
+}
+
+export async function updateFilm(filmId: number, data: Record<string, unknown>): Promise<void> {
+  const res = await fetch(`${BASE}/films/${filmId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new ApiError(res.status, `Update failed: ${res.statusText}`);
+}
+
+export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
+  const res = await fetch(`${BASE}/films/${filmId}/vu?vu=${vu}`, {
+    method: "PATCH",
+  });
+  if (!res.ok) throw new ApiError(res.status, `Toggle failed: ${res.statusText}`);
 }
