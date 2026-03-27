@@ -18,6 +18,7 @@ import { toggleVu } from "@/api/client";
 import { PersonCard } from "@/components/films/PersonCard";
 import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
+import { EditableFinancials } from "@/components/films/EditableFinancials";
 import { EditableTagSection } from "@/components/films/EditableTagSection";
 import { SimilarFilmsCarousel } from "@/components/films/SimilarFilmsCarousel";
 import { SectionHeading } from "@/components/films/SectionHeading";
@@ -340,6 +341,12 @@ export function FilmDetailPage() {
           <div className="grid gap-6 sm:grid-cols-2">
             <EditableTagSection
               filmId={film.film_id}
+              dimension="categories"
+              currentValues={film.categories}
+              onSaved={refetch}
+            />
+            <EditableTagSection
+              filmId={film.film_id}
               dimension="cinema_types"
               currentValues={film.cinema_types}
               onSaved={refetch}
@@ -480,25 +487,12 @@ export function FilmDetailPage() {
             )}
 
             {/* Budget & Revenue */}
-            {(film.budget || film.revenue) && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-muted-foreground">Financials</h3>
-                <div className="space-y-1 text-sm">
-                  {film.budget ? (
-                    <p>
-                      <span className="text-muted-foreground">Budget: </span>
-                      <span className="text-foreground">{formatCurrency(film.budget)}</span>
-                    </p>
-                  ) : null}
-                  {film.revenue ? (
-                    <p>
-                      <span className="text-muted-foreground">Revenue: </span>
-                      <span className="text-foreground">{formatCurrency(film.revenue)}</span>
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-            )}
+            <EditableFinancials
+              filmId={film.film_id}
+              budget={film.budget}
+              revenue={film.revenue}
+              onSaved={refetch}
+            />
           </div>
         </section>
 
@@ -506,7 +500,7 @@ export function FilmDetailPage() {
 
         {/* Awards */}
         <section>
-          <AwardsTable awards={film.awards} />
+          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={refetch} />
         </section>
 
         <Separator />

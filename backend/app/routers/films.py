@@ -1035,6 +1035,28 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     {"fid": film_id, "pid": pid},
                 )
 
+    # Awards
+    if update.awards is not None:
+        await db.execute(text("DELETE FROM award WHERE film_id = :fid"), {"fid": film_id})
+        for award in update.awards:
+            if not isinstance(award, dict) or not award.get("festival_name"):
+                continue
+            if award.get("result") not in ("won", "nominated"):
+                continue
+            await db.execute(
+                text("""
+                    INSERT INTO award (film_id, festival_name, category, award_year, result)
+                    VALUES (:fid, :festival, :category, :year, :result)
+                """),
+                {
+                    "fid": film_id,
+                    "festival": award["festival_name"],
+                    "category": award.get("category"),
+                    "year": award.get("year"),
+                    "result": award["result"],
+                },
+            )
+
     await db.commit()
     return {"film_id": film_id, "message": "Film updated successfully"}
 
@@ -1113,12 +1135,13 @@ async def _find_or_create_person(db: AsyncSession, person: dict) -> int:
 
     r = await db.execute(
         text("""
-            INSERT INTO person (firstname, lastname, tmdb_id, photo_url)
-            VALUES (:firstname, :lastname, :tmdb_id, :photo_url)
+            INSERT INTO person (firstname, lastname, tmdb_id, photo_url, gender)
+            VALUES (:firstname, :lastname, :tmdb_id, :photo_url, :gender)
             ON CONFLICT (tmdb_id) DO UPDATE SET
                 firstname = EXCLUDED.firstname,
                 lastname = EXCLUDED.lastname,
-                photo_url = COALESCE(EXCLUDED.photo_url, person.photo_url)
+                photo_url = COALESCE(EXCLUDED.photo_url, person.photo_url),
+                gender = COALESCE(EXCLUDED.gender, person.gender)
             RETURNING person_id
         """),
         {
@@ -1126,6 +1149,7 @@ async def _find_or_create_person(db: AsyncSession, person: dict) -> int:
             "lastname": person.get("lastname", ""),
             "tmdb_id": tmdb_id,
             "photo_url": person.get("photo_url"),
+            "gender": person.get("gender"),
         },
     )
     return r.scalar_one()

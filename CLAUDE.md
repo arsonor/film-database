@@ -257,6 +257,13 @@ python scripts/refresh_person_photos.py --diagnose    # check current state
 python scripts/refresh_person_photos.py --dry-run     # preview changes
 ```
 
+### Refresh Streaming Platforms
+```bash
+python scripts/refresh_streaming.py
+python scripts/refresh_streaming.py --dry-run
+python scripts/refresh_streaming.py --country BE    # Belgium instead of France
+```
+
 ### Git Workflow
 ```bash
 git add .

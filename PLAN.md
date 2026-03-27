@@ -15,7 +15,8 @@
 | 6.5 | Taxonomy refinements + filter UX fixes | ✅ DONE | AND logic, sort_order, theme merges, Historical subcategories, studios filter, dual-slider |
 | 7 | Film detail view + edit | ✅ DONE | Full detail page, tag editing, vu toggle, external links, person navigation, person photo fix |
 | 8 | Add Film workflow | ✅ DONE | TMDB search → Claude enrich → review → save, enrichment prompt improvements, new taxonomy values |
-| 8.5 | Auto-link franchise sequels | 🔄 IN PROGRESS | TMDB collection → film_sequel auto-creation |
+| 8.5 | Auto-link franchise sequels | ✅ DONE | TMDB collection → film_sequel auto-creation, backfill script, refresh_streaming script |
+| 8.6 | Editable categories, financials & awards | 🔄 IN PROGRESS | Make categories, budget/revenue, awards editable on detail page |
 | 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
 | 10 | Claude-powered recommendations | 🔲 TODO | External film suggestions |
 | 11 | Bulk ingestion (~2500 films) | 🔲 TODO | Parse Films_list.docx, batch process |
@@ -93,77 +94,112 @@
 - Underscore-to-space renames across 9 values (migration 008)
 - Fixed Mulholland Drive reference example (missing comma bug)
 
+## Step 8.5: Auto-link Franchise Sequels via TMDB Collection ✅
+
+- Migration 009: `tmdb_collection_id` column on film table + index
+- `tmdb_service.py`: captures `belongs_to_collection` from TMDB API response
+- `tmdb_mapper.py`: extracts `tmdb_collection_id` into film dict
+- `films.py` create endpoint: stores collection_id + auto-links siblings via `film_sequel`
+- `schema.sql`: updated for fresh installs
+- New scripts: `backfill_collection_ids.py` (backfill existing films), `refresh_streaming.py` (refresh streaming platforms from TMDB)
+
 ---
 
-## Step 8.5: Auto-link Franchise Sequels via TMDB Collection
+## Step 8.6: Editable Categories, Financials & Awards
 
 ### Goal
 
-When a film is added to the database, automatically detect if it belongs to a TMDB collection (franchise like Lord of the Rings, Star Wars, etc.) and create `film_sequel` relationships with any other films from the same collection already in the DB. The detail page already reads and displays these relationships — this step just populates the data.
+Make three currently read-only sections on the film detail page editable: categories (as tags), budget/revenue (as number inputs), and awards (toggle won/nominated). These are fields that Claude or TMDB can get wrong and the user needs to be able to correct.
 
-### A. Schema: Add `tmdb_collection_id` to film table
+### A. Categories — Frontend Only (Simple)
 
-Migration `database/migrations/009_collection_id.sql` (already created):
-```sql
-ALTER TABLE film ADD COLUMN IF NOT EXISTS tmdb_collection_id INTEGER;
-CREATE INDEX IF NOT EXISTS idx_film_tmdb_collection_id ON film(tmdb_collection_id);
+**Problem:** Categories are shown as badges in the hero section but not in the editable Classification section below. The backend `PUT /api/films/{id}` already handles `update.categories` — just need the UI.
+
+**Fix in `FilmDetailPage.tsx`:** Add an `EditableTagSection` for `categories` in the Classification section, alongside cinema_types and cultural_movements:
+```tsx
+<EditableTagSection
+  filmId={film.film_id}
+  dimension="categories"
+  currentValues={film.categories}
+  onSaved={refetch}
+/>
 ```
 
-Also update `database/schema.sql` for fresh installs: add `tmdb_collection_id INTEGER,` after the `revenue` line in the film CREATE TABLE, and add the index.
+**Note:** Categories in the hero section stay as read-only badges (they update when `refetch` is called after editing in the section below).
 
-### B. TMDB Service: Capture collection data
+### B. Budget & Revenue — Frontend Only (Simple)
 
-In `backend/app/services/tmdb_service.py`, method `get_film_details()`: add `belongs_to_collection` to the return dict. The TMDB API already returns this field:
-```json
-{ "belongs_to_collection": { "id": 119, "name": "The Lord of the Rings Collection" } }
-```
+**Problem:** Budget and revenue are displayed as read-only text in the Production section. The backend `PUT /api/films/{id}` already accepts `budget` and `revenue` in `FilmUpdate` — just need editable inputs.
 
-Add to the return dict:
+**Fix:** Create a small `EditableFinancials` component (or inline it in `FilmDetailPage.tsx`) in the Production section. Pattern:
+- View mode: shows formatted currency (using existing `formatCurrency`)
+- Edit mode (pencil icon toggle): two number inputs for budget and revenue, with Save/Cancel buttons
+- Save sends `PUT /api/films/{id}` with `{ budget: number, revenue: number }`
+- Values are stored in USD as integers (no decimals). Input should accept raw numbers (e.g. `160000000` for $160M) or optionally support shorthand entry
+
+Component should handle:
+- Null values gracefully (show "—" in view mode, empty input in edit mode)
+- The pencil icon and save/cancel pattern should match `EditableTagSection` for visual consistency
+
+### C. Awards — Backend + Frontend (Medium)
+
+**Problem:** Awards are displayed in a read-only `AwardsTable`. The user cannot toggle won/nominated or remove incorrect awards. The backend `FilmUpdate` schema has no `awards` field, and the `update_film` endpoint doesn't handle awards.
+
+**Backend changes:**
+
+1. **`backend/app/schemas/film.py`** — Add `awards` field to `FilmUpdate`:
 ```python
-"belongs_to_collection": data.get("belongs_to_collection"),
+class FilmUpdate(BaseModel):
+    # ... existing fields ...
+    awards: list[dict] | None = None  # [{"festival_name": "...", "category": "...", "year": 2001, "result": "won|nominated"}]
 ```
 
-### C. TMDB Mapper: Pass collection ID through
-
-In `backend/app/services/tmdb_mapper.py`, method `map_film_to_db()`: extract collection ID and add to the `film` dict:
+2. **`backend/app/routers/films.py`** — In `update_film()`, add awards handling after the existing streaming_platforms block, using the same clear-and-reinsert pattern:
 ```python
-collection = tmdb_data.get("belongs_to_collection")
-if collection and isinstance(collection, dict):
-    film["tmdb_collection_id"] = collection.get("id")
-else:
-    film["tmdb_collection_id"] = None
-```
-
-### D. Film Creation: Store collection_id + auto-link sequels
-
-In `backend/app/routers/films.py`, endpoint `create_film()`:
-
-1. Add `tmdb_collection_id` to the INSERT INTO film statement and params
-2. After all existing junction inserts (before `await db.commit()`), add auto-linking:
-
-```python
-tmdb_collection_id = film.get("tmdb_collection_id")
-if tmdb_collection_id:
-    coll_result = await db.execute(
-        text("SELECT film_id FROM film WHERE tmdb_collection_id = :cid AND film_id != :fid"),
-        {"cid": tmdb_collection_id, "fid": film_id},
-    )
-    sibling_ids = [row[0] for row in coll_result.fetchall()]
-    for sibling_id in sibling_ids:
+if update.awards is not None:
+    await db.execute(text("DELETE FROM award WHERE film_id = :fid"), {"fid": film_id})
+    for award in update.awards:
+        if not isinstance(award, dict) or not award.get("festival_name"):
+            continue
+        if award.get("result") not in ("won", "nominated"):
+            continue
         await db.execute(
-            text("""INSERT INTO film_sequel (film_id, related_film_id, relation_type)
-                    VALUES (:fid, :rid, 'sequel') ON CONFLICT DO NOTHING"""),
-            {"fid": min(sibling_id, film_id), "rid": max(sibling_id, film_id)},
+            text("""
+                INSERT INTO award (film_id, festival_name, category, award_year, result)
+                VALUES (:fid, :festival, :category, :year, :result)
+            """),
+            {
+                "fid": film_id,
+                "festival": award["festival_name"],
+                "category": award.get("category"),
+                "year": award.get("year"),
+                "result": award["result"],
+            },
         )
 ```
 
+**Frontend changes:**
+
+3. **`frontend/src/components/films/AwardsTable.tsx`** — Make it editable. Add props for `filmId` and `onSaved` callback. When editing:
+- Each award row gets a toggle button to switch between "Won" and "Nominated" (or a small dropdown)
+- Each row gets an X button to remove it
+- A Save/Cancel button pair at the bottom
+- Save sends `PUT /api/films/{id}` with `{ awards: [...] }` (the full awards array)
+
+4. **`frontend/src/api/client.ts`** — The existing `updateFilm` function already sends arbitrary partial data to PUT — no change needed.
+
 ### Validation
 
-1. Run migration: `psql -U postgres -d film_database -f database/migrations/009_collection_id.sql`
-2. Restart backend
-3. Add "The Lord of the Rings: The Return of the King" (Fellowship + Two Towers already in DB)
-4. Detail page for Return of the King shows Related Films with links to the other two
-5. Fellowship and Two Towers detail pages also show the new links
-6. Adding a non-franchise film creates no sequel relationships
+After implementation:
+1. Film detail page: Categories section appears in Classification with edit pencil
+2. Edit categories: remove a tag, add one from dropdown, save → hero badges update
+3. Production section: Budget & Revenue show pencil icon
+4. Edit financials: change budget value, save → formatted currency updates
+5. Awards section: pencil icon → each row shows won/nominated toggle + X remove
+6. Toggle an award from "Nominated" to "Won" → save → trophy icon changes to gold
+7. Remove an award → save → row disappears
+8. All edits persist after page reload
 
 ---
+
+

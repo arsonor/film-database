@@ -34,6 +34,10 @@ PROVIDER_NAME_MAP = {
     "Arte": "Arte",
 }
 
+# TMDB gender codes → our DB gender values
+# TMDB: 0=not set, 1=female, 2=male, 3=non-binary
+TMDB_GENDER_MAP = {1: "F", 2: "M"}
+
 
 class TMDBMapper:
     """Maps raw TMDB data into database-ready structures."""
@@ -263,6 +267,7 @@ class TMDBMapper:
                 "tmdb_id": tmdb_id,
                 "role": role,
                 "photo_url": photo_url,
+                "gender": TMDB_GENDER_MAP.get(member.get("gender")),
             })
 
         return crew
@@ -284,6 +289,7 @@ class TMDBMapper:
                 "character_name": member.get("character", ""),
                 "cast_order": member.get("order", 999),
                 "photo_url": photo_url,
+                "gender": TMDB_GENDER_MAP.get(member.get("gender")),
             })
 
         return cast
