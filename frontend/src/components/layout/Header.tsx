@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowDownAZ,
   ArrowUpAZ,
   Film,
   Filter,
+  Plus,
   Search,
   X,
 } from "lucide-react";
@@ -36,6 +38,7 @@ export function Header({
   onSortChange,
   onOpenMobileFilters,
 }: HeaderProps) {
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState(filters.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -101,8 +104,17 @@ export function Header({
         )}
       </div>
 
-      {/* Right: Sort */}
+      {/* Right: Add + Sort */}
       <div className="hidden items-center gap-2 sm:flex">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => navigate("/add")}
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden lg:inline">Add Film</span>
+        </Button>
         <Select
           value={filters.sort_by}
           onValueChange={(val) =>

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.database import engine
-from backend.app.routers import films, geography, persons, taxonomy
+from backend.app.routers import add_film, films, geography, persons, taxonomy
 
 
 @asynccontextmanager
@@ -36,3 +36,4 @@ app.include_router(films.router, prefix="/api")
 app.include_router(taxonomy.router, prefix="/api")
 app.include_router(persons.router, prefix="/api")
 app.include_router(geography.router, prefix="/api")
+app.include_router(add_film.router, prefix="/api")

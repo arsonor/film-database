@@ -72,9 +72,10 @@ INSERT INTO cinema_type (technique_name) VALUES
     ('found footage'),
     ('motion capture'),
     ('multi-sequence'),
-    ('black_and_white'),
-    ('slow_cinema'),
-    ('non_linear_narrative')
+    ('black and white'),
+    ('slow cinema'),
+    ('non linear narrative'),
+    ('costume')
 ON CONFLICT (technique_name) DO NOTHING;
 
 -- =============================================================================
@@ -126,7 +127,9 @@ INSERT INTO place_context (environment) VALUES
     ('building'),
     ('household/house/apartment'),
     ('jail'),
-    ('hospital')
+    ('hospital'),
+    ('military'),
+    ('ship')
 ON CONFLICT (environment) DO NOTHING;
 
 -- =============================================================================
@@ -164,7 +167,7 @@ ON CONFLICT (time_period) DO NOTHING;
 INSERT INTO theme_context (theme_name, sort_order) VALUES
     -- Group 1: Society (100-199)
     ('social', 100),
-    ('class_struggle', 101),
+    ('class struggle', 101),
     ('societal', 102),
     ('immigration', 103),
     ('political', 104),
@@ -179,7 +182,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     -- Group 2: Personal / Psychological (200-299)
     ('trauma/accident', 200),
     ('psychological', 201),
-    ('identity_crisis', 202),
+    ('identity crisis', 202),
     ('disease', 203),
     ('amnesia', 204),
     ('death', 205),
@@ -193,7 +196,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('crime', 302),
     ('sex crime', 303),
     ('organized crime', 304),
-    ('police_violence', 305),
+    ('police violence', 305),
     ('corruption', 306),
     ('delinquency', 307),
     ('organized fraud', 308),
@@ -282,6 +285,7 @@ INSERT INTO character_context (context_name) VALUES
     ('pirate'),
     ('viking'),
     ('barbarian'),
+    ('soldier'),
     ('psychopath'),
     ('madness'),
     ('idiot'),
@@ -297,9 +301,9 @@ INSERT INTO character_context (context_name) VALUES
     ('android'),
     ('alien'),
     -- Extended archetypes
-    ('unreliable_narrator'),
+    ('unreliable narrator'),
     ('antihero'),
-    ('femme_fatale')
+    ('femme fatale')
 ON CONFLICT (context_name) DO NOTHING;
 
 -- =============================================================================
@@ -354,7 +358,9 @@ INSERT INTO motivation_relation (motivation_name) VALUES
     ('fight'),
     ('odyssey'),
     ('quest'),
-    ('world saver')
+    ('world saver'),
+    ('communication'),
+    ('invasion')
 ON CONFLICT (motivation_name) DO NOTHING;
 
 -- =============================================================================
@@ -377,10 +383,13 @@ INSERT INTO message_conveyed (message_name) VALUES
     ('slang dialogs'),
     ('black comedy'),
     -- Extended messages
-    ('anti_establishment'),
+    ('anti establishment'),
     ('feminist'),
     ('absurdist'),
-    ('ecological')
+    ('ecological'),
+    ('patriotic'),
+    ('history revisited'),
+    ('traditionalist/way of life')
 ON CONFLICT (message_name) DO NOTHING;
 
 -- =============================================================================

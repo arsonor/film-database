@@ -693,7 +693,11 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
             "original_title": film.get("original_title"),
             "duration": film.get("duration"),
             "color": film.get("color", True),
-            "first_release_date": film.get("first_release_date"),
+            "first_release_date": (
+                date.fromisoformat(film["first_release_date"])
+                if isinstance(film.get("first_release_date"), str)
+                else film.get("first_release_date")
+            ),
             "summary": film.get("summary"),
             "poster_url": film.get("poster_url"),
             "backdrop_url": film.get("backdrop_url"),

@@ -23,7 +23,7 @@ VALID_HISTORIC_SUBCATEGORIES = [
 VALID_CINEMA_TYPES = [
     "silent", "animation", "mixed animation", "art house", "blockbuster",
     "sequence-shot", "found footage", "motion capture", "multi-sequence",
-    "black_and_white", "slow_cinema", "non_linear_narrative",
+    "black and white", "slow cinema", "non linear narrative", "costume",
 ]
 
 VALID_CULTURAL_MOVEMENTS = [
@@ -37,7 +37,7 @@ VALID_PLACE_ENVIRONMENTS = [
     "no particular", "urban", "country-style", "maritime", "naval", "island",
     "forest", "mountains", "desert", "beach", "space", "huis clos",
     "road movie", "school/university", "company/factory", "building",
-    "household/house/apartment", "jail", "hospital",
+    "household/house/apartment", "jail", "hospital", "military", "ship",
 ]
 
 VALID_TIME_CONTEXTS = [
@@ -49,16 +49,16 @@ VALID_TIME_CONTEXTS = [
 
 VALID_THEMES = [
     # Group 1: Society
-    "social", "class_struggle", "societal", "immigration", "political",
+    "social", "class struggle", "societal", "immigration", "political",
     "religion", "business", "censorship", "trial", "prison", "war",
     "tragedy", "apocalypse",
     # Group 2: Personal / Psychological
-    "trauma/accident", "psychological", "identity_crisis", "disease",
+    "trauma/accident", "psychological", "identity crisis", "disease",
     "amnesia", "death", "mourning", "addiction/drugs", "time passing",
     "evolution",
     # Group 3: Crime / Thriller
     "investigation", "spy", "crime", "sex crime", "organized crime",
-    "police_violence", "corruption", "delinquency", "organized fraud",
+    "police violence", "corruption", "delinquency", "organized fraud",
     "mafia", "gangster", "serial killer", "chase/escape", "terrorism",
     "sect", "survival", "slasher",
     # Group 4: Sci-fi / Fantasy
@@ -86,11 +86,11 @@ VALID_CHARACTER_CONTEXTS = [
     "double", "interracial",
     # Character Archetypes
     "super hero", "vigilante", "cop", "detective", "samourai", "pirate",
-    "viking", "barbarian", "psychopath", "madness", "idiot", "looser",
+    "viking", "barbarian", "soldier", "psychopath", "madness", "idiot", "looser",
     "prostitute", "freak/disabled", "monster/terrestrial creature",
     "ghost/spirit", "evil", "witch", "vampire", "zombie", "android", "alien",
     # Extended archetypes
-    "unreliable_narrator", "antihero", "femme_fatale",
+    "unreliable narrator", "antihero", "femme fatale",
 ]
 
 VALID_ATMOSPHERES = [
@@ -107,7 +107,7 @@ VALID_MOTIVATIONS = [
     "jealousy", "sex", "harassment", "lie", "doubt/dilemma", "rivalry",
     "power", "perversion", "manipulation", "redemption", "obsession",
     "vengeance", "rebellion/revolt", "fight", "odyssey", "quest",
-    "world saver",
+    "world saver", "communication", "invasion",
 ]
 
 VALID_MESSAGES = [
@@ -116,7 +116,8 @@ VALID_MESSAGES = [
     "dreamlike", "surreal", "symbolic", "philosophical", "metaphysical",
     "dialogs", "slang dialogs", "black comedy",
     # Extended messages
-    "anti_establishment", "feminist", "absurdist", "ecological",
+    "anti establishment", "feminist", "absurdist", "ecological",
+    "patriotic", "history revisited", "traditionalist/way of life",
 ]
 
 VALID_SOURCE_TYPES = [
@@ -155,7 +156,7 @@ REFERENCE_EXAMPLES = {
         "enrichment": {
             "categories": ["Science-Fiction", "Drama", "Adventure"],
             "historic_subcategories": [],
-            "cinema_type": ["blockbuster", "art house"],
+            "cinema_type": ["blockbuster", "art house", "slow cinema"],
             "cultural_movement": ["new hollywood", "aesthetics"],
             "time_context": ["prehistoric", "30-year post-war boom", "future"],
             "geography": [
@@ -168,7 +169,7 @@ REFERENCE_EXAMPLES = {
             ],
             "characters_type": ["solitary", "tandem"],
             "character_context": ["android", "alien"],
-            "atmosphere": ["contemplative", "oppressive", "mysterious", "disturbing"],
+            "atmosphere": ["contemplative", "oppressive", "mysterious", "disturbing", "psychedelic"],
             "motivations": ["quest", "odyssey", "power", "doubt/dilemma"],
             "message": ["philosophical", "metaphysical", "symbolic", "surreal"],
             "source": {
@@ -208,23 +209,23 @@ REFERENCE_EXAMPLES = {
         "enrichment": {
             "categories": ["Drama", "Thriller"],
             "historic_subcategories": [],
-            "cinema_type": ["art house", "black_and_white"],
+            "cinema_type": ["art house", "black and white"],
             "cultural_movement": ["realism", "generational"],
-            "time_context": ["contemporary", "end 20th"],
+            "time_context": ["end 20th"],
             "geography": [
                 {"continent": "Europe", "country": "France", "state_city": "Île-de-France", "place_type": "diegetic"},
                 {"continent": "Europe", "country": "France", "state_city": "Paris", "place_type": "diegetic"},
             ],
-            "place_environment": ["urban"],
+            "place_environment": ["urban", "building"],
             "themes": [
                 "social", "societal", "political", "delinquency",
-                "tragedy", "death", "police_violence",
+                "tragedy", "death", "police_violence", "immigration", "trauma/accident",
             ],
             "characters_type": ["trio", "buddies"],
-            "character_context": ["interracial", "teenager"],
+            "character_context": ["interracial", "teenager", "cop"],
             "atmosphere": ["violent", "oppressive", "depressive/sad"],
             "motivations": [
-                "friendship", "solidarity", "rebellion/revolt", "vengeance",
+                "friendship", "solidarity", "rebellion/revolt", "vengeance", "fight",
             ],
             "message": ["political", "humanist", "slang dialogs", "black comedy"],
             "source": {
@@ -263,9 +264,9 @@ REFERENCE_EXAMPLES = {
         "enrichment": {
             "categories": ["Drama", "Thriller"],
             "historic_subcategories": [],
-            "cinema_type": ["art house"],
+            "cinema_type": ["art house", "non linear narrative"],
             "cultural_movement": ["aesthetics", "neo-noir"],
-            "time_context": ["contemporary", "end 20th"],
+            "time_context": ["contemporary"],
             "geography": [
                 {"continent": "North America", "country": "United States", "state_city": "Los Angeles", "place_type": "diegetic"},
                 {"continent": "North America", "country": "United States", "state_city": "Hollywood", "place_type": "diegetic"},
@@ -273,7 +274,7 @@ REFERENCE_EXAMPLES = {
             "place_environment": ["urban"],
             "themes": [
                 "psychological", "dream", "art: cinema", "crime",
-                "investigation", "identity_crisis", "trauma/accident", "mafia",
+                "investigation", "identity crisis", "amnesia", "trauma/accident", "mafia",
             ],
             "characters_type": ["tandem", "couple"],
             "character_context": ["female", "double", "LGBT"],

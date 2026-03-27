@@ -1,9 +1,11 @@
 import type {
+  EnrichmentPreview,
   FilmDetail,
   FilterState,
   GeographySearchResult,
   PaginatedFilms,
   StatsResponse,
+  TMDBSearchResult,
   TaxonomyList,
 } from "@/types/api";
 import { ARRAY_FILTER_KEYS } from "@/types/api";
@@ -100,4 +102,48 @@ export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
     method: "PATCH",
   });
   if (!res.ok) throw new ApiError(res.status, `Toggle failed: ${res.statusText}`);
+}
+
+// =============================================================================
+// Add Film workflow
+// =============================================================================
+
+export async function searchTMDB(
+  title: string,
+  year?: number,
+): Promise<TMDBSearchResult[]> {
+  const params = new URLSearchParams({ title });
+  if (year) params.set("year", String(year));
+  const data = await fetchJson<{ results: TMDBSearchResult[] }>(
+    `${BASE}/add-film/search?${params}`,
+  );
+  return data.results;
+}
+
+export async function enrichFilm(tmdbId: number): Promise<EnrichmentPreview> {
+  const res = await fetch(`${BASE}/add-film/enrich`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tmdb_id: tmdbId }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || `Enrich failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function saveFilm(
+  data: EnrichmentPreview,
+): Promise<{ film_id: number }> {
+  const res = await fetch(`${BASE}/films`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || `Save failed: ${res.statusText}`);
+  }
+  return res.json();
 }

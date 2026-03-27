@@ -28,17 +28,27 @@ logger = logging.getLogger(__name__)
 
 ENRICHMENT_SYSTEM_PROMPT = """You are a film classification expert. Given metadata about a film, you classify it into a precise custom taxonomy. You must be accurate, thorough, and use your deep knowledge of cinema.
 
-Rules:
+Core principles:
 - ONLY use values from the provided valid value lists unless no existing value fits, in which case prefix new suggestions with [NEW].
 - Be comprehensive: assign ALL relevant values, not just the most obvious ones.
-- For "fight" in motivations: only use this if the film contains actual physical combat/confrontation scenes, not metaphorical struggles.
-- For place context: differentiate between diegetic (narrative location), shooting (real filming location), and fictional locations when you can determine this.
-- For time_context: a film can span multiple time periods.
-- For characters: classify both the group structure (solitary, tandem, trio...) AND relevant character archetypes/contexts.
-- For atmosphere: select multiple values if the film shifts tone across its runtime.
-- For source: identify if it's based on a novel, true story, play, original screenplay, etc.
+- A dimension can have ZERO values if nothing is truly pertinent. Do not force tags. An empty list is better than a wrong tag.
 - Provide a confidence score (0.0-1.0) for each dimension. Use lower scores when you're uncertain or the film is obscure.
-- Respond ONLY with the JSON structure specified. No preamble, no markdown backticks."""
+- Respond ONLY with the JSON structure specified. No preamble, no markdown backticks.
+
+Tag selection philosophy — tags must characterize the film as a whole:
+- Each tag should represent a DEFINING or SIGNIFICANT aspect of the film, not an incidental detail.
+- Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
+Ex:For themes like "death": only tag if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
+- For motivations: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
+- For cultural_movement: include "Collection" if the film is part of a major franchise with sequels/prequels.
+
+Source rules:
+- Identify if based on a novel, true story, play, original screenplay, etc.
+- For adaptations, include the source title and author when known.
+
+Awards rules:
+- Only include awards you are confident about. Fewer correct entries are better than invented ones.
+- Focus on: Academy Awards, Cannes, Venice, Berlin, César, BAFTA, Golden Globes."""
 
 
 class ClaudeEnricher:
@@ -332,24 +342,29 @@ Valid: {', '.join(dims['cinema_type'])}
 
 ### Cultural Movement
 Valid: {', '.join(dims['cultural_movement'])}
+Note: Use "Collection" for films that are part of a major franchise (sequels, prequels, shared universe).
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
+IMPORTANT: For films released after 2000 set in their present day, use ONLY "contemporary". Do NOT add "end 20th".
 
 ### Place Context — Geography
 Provide as: continent > country > state/city
 Specify place_type for each: diegetic (in-film), shooting (real location), or fictional
 
-### Place Context — Environment (pick all that apply)
+### Place Context — Environment (pick all that apply, but ONLY if they characterize the film's overall setting)
 Valid: {', '.join(dims['place_environment'])}
+IMPORTANT: "huis clos" = entire film confined to one space. "road movie" = journey structures the narrative. Other environments should be significant/recurring settings, not just briefly visited locations.
 
-### Themes (pick all that apply — be thorough)
+### Themes (pick all that apply — be thorough, but only CENTRAL themes)
 Valid: {', '.join(dims['themes'])}
+IMPORTANT: Each theme must be a defining aspect of the film. "death" = death is a central narrative thread, not just an incidental event.
 
-### Characters — Group Structure (pick main one)
+### Characters — Group Structure (pick all that apply)
 Valid: {', '.join(dims['characters_type'])}
+Note: Include "couple" when a romantic relationship is central to the story.
 
-### Characters — Context & Archetypes (pick all that apply)
+### Characters — Context & Archetypes (pick all that apply, or leave empty if none are pertinent)
 Valid: {', '.join(dims['character_context'])}
 
 ### Atmosphere (pick all that apply)
@@ -357,6 +372,7 @@ Valid: {', '.join(dims['atmosphere'])}
 
 ### Motivations & Relations (pick all that apply)
 Valid: {', '.join(dims['motivations'])}
+Note: "fight" = physical combat/action scenes are significant in the film.
 
 ### Message Conveyed (pick all that apply)
 Valid: {', '.join(dims['message'])}

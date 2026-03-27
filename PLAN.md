@@ -13,8 +13,8 @@
 | 5.5 | API: Geography search + Language filter + missing filter params | ✅ DONE | New geography endpoint, language taxonomy+filter, character_contexts+place_contexts filters |
 | 6 | Frontend: browse + search + filters | ✅ DONE | Vite + React + TS + Tailwind + shadcn/ui, dark theme, 11 taxonomy filters + location/language |
 | 6.5 | Taxonomy refinements + filter UX fixes | ✅ DONE | AND logic, sort_order, theme merges, Historical subcategories, studios filter, dual-slider |
-| 7 | Film detail view + edit | 🔄 IN PROGRESS | Full detail page, tag editing, vu toggle, external links, person navigation |
-| 8 | Add Film workflow | 🔲 TODO | TMDB search → Claude enrich → save |
+| 7 | Film detail view + edit | ✅ DONE | Full detail page, tag editing, vu toggle, external links, person navigation, person photo fix |
+| 8 | Add Film workflow | 🔄 IN PROGRESS | TMDB search → Claude enrich → review → save |
 | 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
 | 10 | Claude-powered recommendations | 🔲 TODO | External film suggestions |
 | 11 | Bulk ingestion (~2500 films) | 🔲 TODO | Parse Films_list.docx, batch process |
@@ -72,275 +72,258 @@
 - Backend: Categories filter handles composite "Parent: sub" format, studios filter + taxonomy dimension
 - Frontend: Director filter removed, dual-handle year range slider, studios dropdown, theme/time group separators
 
+## Step 7: Film Detail View + Edit ✅
+
+- Full detail page with cinematic hero section (backdrop gradient, poster, meta, vu toggle, external links)
+- Cast/crew sections with TMDB photos, clickable → `/browse?q=Name`
+- All taxonomy sections with inline editing (EditableTagSection)
+- Awards table, streaming badges, related films, similar films placeholder
+- Backend: PATCH `/films/{id}/vu` for lightweight toggle
+- Bug fixes: tag dropdown cap removed (was limited to 15), person photo tmdb_id mismatch fixed
+- New script: `refresh_person_photos.py` (name-based matching against TMDB movie credits)
+
 ---
 
-## Step 7: Film Detail View + Edit
+## Step 8: Add Film Workflow
 
 ### Goal
-Build a rich, visually compelling film detail page that displays all metadata from the `GET /api/films/{film_id}` endpoint. Include tag editing capabilities, a quick seen/unseen toggle, clickable person names/photos, external links, and a placeholder for the future "Similar Films" recommendation carousel (steps 9-10).
 
-### A. Frontend API Client + Types — `frontend/src/api/client.ts` + `frontend/src/types/api.ts`
+Let the user add a new film to the database from the frontend through a guided 3-step process: **Search → Enrich → Save**. This connects the three backend pipelines (TMDB service, Claude enrichment, DB insertion) built in steps 2-4 into a single interactive flow exposed via API endpoints and a frontend wizard.
 
-**Types (`api.ts`):** Add full TypeScript interfaces matching the backend `FilmDetail` response:
+This step also serves as an end-to-end integration test for the full pipeline before bulk ingestion at step 11.
 
-```typescript
-export interface FilmTitle {
-  language_code: string;
-  language_name: string;
-  title: string;
-  is_original: boolean;
-}
+### A. Backend: New Router — `backend/app/routers/add_film.py`
 
-export interface CrewMember {
-  person_id: number;
-  firstname: string | null;
-  lastname: string;
-  role: string;
-  photo_url: string | null;
-}
+Create a new router with three endpoints that orchestrate the add-film pipeline:
 
-export interface CastMember {
-  person_id: number;
-  firstname: string | null;
-  lastname: string;
-  character_name: string | null;
-  cast_order: number | null;
-  photo_url: string | null;
-}
+**1. `GET /api/add-film/search?title=...&year=...`** — Search TMDB for candidates
 
-export interface FilmSetPlace {
-  continent: string | null;
-  country: string | null;
-  state_city: string | null;
-  place_type: string;
-}
-
-export interface SourceOut {
-  source_type: string;
-  source_title: string | null;
-  author: string | null;
-}
-
-export interface AwardOut {
-  festival_name: string;
-  category: string | null;
-  year: number | null;
-  result: string | null;
-}
-
-export interface FilmRelation {
-  related_film_id: number;
-  related_film_title: string;
-  relation_type: string;
-}
-
-export interface FilmDetail {
-  film_id: number;
-  original_title: string;
-  duration: number | null;
-  color: boolean;
-  first_release_date: string | null;
-  summary: string | null;
-  vu: boolean;
-  poster_url: string | null;
-  backdrop_url: string | null;
-  imdb_id: string | null;
-  tmdb_id: number | null;
-  budget: number | null;
-  revenue: number | null;
-  titles: FilmTitle[];
-  categories: string[];
-  cinema_types: string[];
-  cultural_movements: string[];
-  themes: string[];
-  characters: string[];
-  character_contexts: string[];
-  motivations: string[];
-  atmospheres: string[];
-  messages: string[];
-  time_periods: string[];
-  place_contexts: string[];
-  set_places: FilmSetPlace[];
-  crew: CrewMember[];
-  cast: CastMember[];
-  studios: string[];
-  sources: SourceOut[];
-  awards: AwardOut[];
-  streaming_platforms: string[];
-  sequels: FilmRelation[];
-}
+Uses the existing `TMDBService.search_film()`. Returns a list of candidates:
+```python
+@router.get("/add-film/search")
+async def search_tmdb(
+    title: str = Query(..., min_length=1),
+    year: int | None = None,
+):
+    # Initialize TMDBService with TMDB_API_KEY from env
+    # Call search_film(title, year) in both fr-FR and en-US
+    # Deduplicate by tmdb_id
+    # Return list of SearchResult (tmdb_id, title, original_title, release_date, overview, poster_url)
 ```
 
-**API client (`client.ts`):** Add functions:
-```typescript
-export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
-  return fetchJson<FilmDetail>(`${BASE}/films/${filmId}`);
-}
-
-export async function updateFilm(filmId: number, data: Partial<FilmDetail>): Promise<void> {
-  const res = await fetch(`${BASE}/films/${filmId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new ApiError(res.status, `Update failed: ${res.statusText}`);
-}
-
-export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
-  return updateFilm(filmId, { vu } as any);
-}
+Schema for the response:
+```python
+class TMDBSearchResult(BaseModel):
+    tmdb_id: int
+    title: str
+    original_title: str
+    release_date: str | None
+    overview: str | None
+    poster_url: str | None
 ```
 
-### B. Hook — `frontend/src/hooks/useFilmDetail.ts`
+Before returning results, check which `tmdb_id`s already exist in the DB and mark them (so the frontend can show "already in database" on those candidates).
 
-Create a hook that fetches the full film detail:
-```typescript
-export function useFilmDetail(filmId: number) {
-  // Returns { film, loading, error, refetch }
-  // Fetches on mount and when filmId changes
-  // Provides a refetch function for after edits
-}
+**2. `POST /api/add-film/enrich`** — Fetch TMDB details + run Claude enrichment
+
+Takes a `tmdb_id`, runs the full pipeline:
+```python
+@router.post("/add-film/enrich")
+async def enrich_film(tmdb_id: int = Body(...)):
+    # 1. Check if film already exists in DB → 409 if so
+    # 2. TMDBService.get_film_details(tmdb_id) → raw TMDB data
+    # 3. TMDBService.get_film_details_fr(tmdb_id) → French data
+    # 4. TMDBMapper.map_film_to_db(tmdb_data, fr_data) → mapped data
+    # 5. TMDBService.get_watch_providers(tmdb_id) → streaming platforms
+    # 6. TMDBMapper.map_watch_providers(providers) → platform names
+    # 7. ClaudeEnricher.enrich_film(mapped_data) → enrichment dict
+    # 8. Merge everything into a single preview payload and return it
 ```
 
-### C. Film Detail Page — `frontend/src/pages/FilmDetailPage.tsx`
+This is the most complex endpoint — it's where all three services converge. It should:
+- Return the full preview data: film core fields, titles, cast, crew, studios, enrichment (all taxonomy tags), streaming platforms, awards
+- NOT save anything to the database yet — this is just a preview
+- Handle errors gracefully: if Claude enrichment fails, return TMDB data with empty enrichment so the user can still add tags manually
+- Include a `streaming_platforms` field from the TMDB watch/providers response
 
-Replace the current placeholder with a full detail page. The page layout has two main zones:
+The response should match the structure expected by `POST /api/films` (the existing `FilmCreate` schema) so the frontend can send it directly to the save endpoint after the user reviews and edits.
 
-**1. Hero section (top):**
-- Full-width backdrop image (`backdrop_url`) with gradient overlay fading to background
-- Overlaid on the left: large poster image (`poster_url`), roughly 300px wide
-- Overlaid on the right of poster: primary info block:
-  - Original title (large heading)
-  - Localized titles below (smaller, muted — list the non-original titles from `titles[]`)
-  - Year · Duration · Color/B&W
-  - Categories as badges
-  - Director name(s) (from crew where role="Director")
-  - **Seen/Unseen toggle button** — prominently placed, clickable (calls `toggleVu`). Green Eye icon if seen, grey outline if unseen. Clicking toggles immediately (optimistic update) then syncs with API.
-  - **External links row:** small icon buttons linking to:
-    - TMDB: `https://www.themoviedb.org/movie/{tmdb_id}`
-    - IMDb: `https://www.imdb.com/title/{imdb_id}` (if `imdb_id` exists)
-    - Allociné: `https://www.google.com/search?q=allocine+{encodeURIComponent(original_title)}+{year}` (Google search fallback since Allociné has no direct TMDB mapping)
-    - Wikipedia: `https://en.wikipedia.org/wiki/Special:Search/{encodeURIComponent(original_title)}_(film)`
+**3. `POST /api/add-film/save`** — Save the enriched film to DB
 
-**2. Content sections (below hero), organized in a responsive grid/column layout:**
+This can simply delegate to the existing `POST /api/films` endpoint (or call the same logic internally). The frontend sends the (potentially user-edited) payload from step 2.
 
-Each section is a card or always-open section with a consistent heading. Use a reusable section component.
+Alternatively, the existing `POST /api/films` endpoint may already be sufficient — the frontend can call it directly. Evaluate whether a separate `/add-film/save` endpoint adds value (e.g., for additional validation, or to set `vu = false` by default) or if reusing `POST /api/films` is cleaner.
 
-- **Synopsis** — `summary` text, full paragraph
-- **Cast & Crew**
-  - Cast: horizontal scrollable row of person cards (photo thumbnail from TMDB, actor name, character name). Photos use `https://image.tmdb.org/t/p/w185{photo_url}` if photo_url starts with `/`. Each card is **clickable** → navigates to `/browse?q={firstname}+{lastname}` (sets the search bar to the person's name so it shows all their films)
-  - Crew: grouped by role. Director, Writer, Cinematographer, Composer listed with name + photo. Same click behavior.
-- **Classification** — a compact tag cloud / grouped badges showing:
-  - Cinema types, Cultural movements
-  - Each tag group has an **Edit** button nearby (pencil icon) that opens an inline edit mode (or a dialog) for that dimension — described in section F below
-- **Context & Themes** — Tags displayed as badges:
-  - Themes, Characters, Character Contexts, Motivations, Atmosphere, Messages
-  - Same edit capability
-- **Setting** — Time periods + Place contexts + Geography (set_places formatted as "Country, City (diegetic)" etc.)
-- **Production** — Studios list, Source/Origin info, Budget & Revenue (formatted as currency if available)
-- **Awards** — Table or list: Festival | Category | Year | Won/Nominated, with a trophy icon for wins
-- **Streaming** — Platform badges (Netflix, Prime Video, etc.)
-- **Related Films** — If `sequels[]` is non-empty, show linked film titles with relation type (sequel, prequel, remake…). Each links to `/films/{related_film_id}`.
-- **Similar Films** *(placeholder)* — An empty section with a subtle message: "Recommendations coming soon" and a placeholder carousel skeleton. This will be populated in steps 9-10 with the recommendation engine output. Keep the component structure ready: `SimilarFilmsCarousel` that accepts a `filmId` prop and will eventually call a `/api/films/{id}/recommendations` endpoint.
+### B. Backend: Service Initialization
 
-### D. Person Navigation — Click to Browse
+The existing services (`TMDBService`, `TMDBMapper`, `ClaudeEnricher`) were designed for CLI script usage. They need to be usable from FastAPI request handlers:
 
-When a person (cast or crew) is clicked, navigate to `/browse?q={encodeURIComponent(fullName)}`. This leverages the existing full-text search which already searches across casting and crew person names. The `BrowsePage` will receive the `q` param from the URL and display matching films.
+- `TMDBService` needs `TMDB_API_KEY` from env — create a dependency or initialize in the router
+- `ClaudeEnricher` needs `ANTHROPIC_API_KEY` from env — same pattern
+- `TMDBMapper` takes a `TMDBService` instance
 
-Verify in `useFilterState.ts` that the `q` param is properly read from the URL on page load (it should already work since search is URL-synced).
+Consider a simple approach: instantiate them at module level in the router (reading from env), or create a lightweight dependency injection pattern. No need for a full DI framework — keep it simple.
 
-### E. Seen/Unseen Quick Toggle
+**Important:** `TMDBService` uses `httpx.AsyncClient` which should be properly managed (not recreated per request). Either use `TMDBService` as a context manager in each request, or create a long-lived instance in the app lifespan.
 
-The seen/unseen button in the hero section should:
-1. Show current state visually (filled green Eye for seen, outline Eye for unseen)
-2. On click: optimistically update the UI immediately
-3. Send `PUT /api/films/{film_id}` with `{ vu: newValue }`
-4. On error: revert the optimistic update and show a brief toast/notification
-5. The backend `update_film` endpoint already supports partial updates including `vu`
+### C. Backend: Schemas — `backend/app/schemas/add_film.py`
 
-### F. Tag Editing — Edit Mode for Taxonomy Dimensions
-
-Add an **Edit** button (pencil icon) on each taxonomy section header. When clicked:
-1. The section switches to "edit mode" — the existing tags become removable (X button on each)
-2. A combobox/autocomplete appears below, fetching values from `GET /api/taxonomy/{dimension}` to suggest available tags to add
-3. **Save** button sends `PUT /api/films/{film_id}` with the updated array for that dimension
-4. **Cancel** button reverts to the original values
-
-Implementation approach:
-- Create a reusable `EditableTagSection` component that wraps any taxonomy dimension
-- Props: `filmId`, `dimension` (taxonomy key), `currentValues` (string[]), `onSaved` (callback to refetch)
-- Uses the existing `fetchTaxonomy` to get all possible values for the dimension
-- On save, calls `updateFilm` with just the changed dimension field
-
-This keeps editing lightweight — no need for a full-page edit form. Each section is independently editable.
-
-### G. Backend: PATCH for Quick vu Toggle (Optional Optimization)
-
-The existing `PUT /api/films/{film_id}` works for all updates, but for a single boolean toggle it sends a lot of unnecessary NULL fields. Consider adding a lightweight endpoint:
+Create Pydantic schemas for the add-film endpoints:
 
 ```python
-@router.patch("/films/{film_id}/vu")
-async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        text("UPDATE film SET vu = :vu WHERE film_id = :fid RETURNING film_id"),
-        {"fid": film_id, "vu": vu}
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Film not found")
-    await db.commit()
-    return {"film_id": film_id, "vu": vu}
+class TMDBSearchResult(BaseModel):
+    tmdb_id: int
+    title: str
+    original_title: str
+    release_date: str | None
+    overview: str | None
+    poster_url: str | None
+    already_in_db: bool = False
+
+class TMDBSearchResponse(BaseModel):
+    results: list[TMDBSearchResult]
+
+class EnrichRequest(BaseModel):
+    tmdb_id: int
+
+class EnrichmentPreview(BaseModel):
+    """Full preview of what will be saved — matches FilmCreate structure."""
+    film: dict              # Core film fields
+    titles: list[dict]
+    categories: list[str]
+    historic_subcategories: list[str]
+    crew: list[dict]        # With tmdb_id, firstname, lastname, role, photo_url
+    cast: list[dict]        # With tmdb_id, firstname, lastname, character_name, cast_order, photo_url
+    studios: list[dict]     # With name, country
+    streaming_platforms: list[str]
+    enrichment: dict        # All taxonomy classifications from Claude
+    keywords: list[str]     # TMDB keywords (for reference)
+    production_countries: list[str]
 ```
 
-If implemented, the frontend `toggleVu` function uses `PATCH /api/films/{film_id}/vu?vu=true` instead of PUT.
+### D. Frontend: New Page — `frontend/src/pages/AddFilmPage.tsx`
 
-### H. UI Component Library — New Components Needed
+A new page at route `/add` with a multi-step wizard. The page has three distinct states/steps:
 
-**Install additional shadcn/ui components** (if not already present):
-```bash
-cd frontend
-npx shadcn@latest add dialog
-npx shadcn@latest add tabs
-npx shadcn@latest add tooltip
-npx shadcn@latest add toggle
-npx shadcn@latest add command   # for combobox/autocomplete in edit mode
-npx shadcn@latest add popover   # for combobox
-npx shadcn@latest add toast     # for edit save feedback
+**Step 1 — Search:**
+- Search form: text input for title + optional year input
+- "Search TMDB" button
+- Results grid: poster thumbnails, title, year, overview snippet
+- Each result is clickable (unless marked "already in database", in which case show a link to the existing detail page)
+- Clicking a result triggers enrichment (step 2)
+
+**Step 2 — Review & Edit:**
+- Loading state while enrichment runs (can take 5-15 seconds due to Claude API call)
+- Display a progress indicator: "Fetching from TMDB...", "Classifying with AI...", "Almost ready..."
+- Once loaded, show a preview of the film in a layout similar to the detail page but in "edit mode":
+  - Film poster + title + year + duration (read-only from TMDB)
+  - Synopsis (editable textarea)
+  - Cast & crew list (read-only, from TMDB — no need to edit these)
+  - All taxonomy sections in edit mode by default (reuse `EditableTagSection` or similar pattern):
+    - Categories, Cinema types, Cultural movements
+    - Themes, Characters, Character contexts, Motivations, Atmospheres, Messages
+    - Time periods, Place contexts, Geography
+    - Studios, Source, Financials
+  - Streaming platforms (editable list)
+  - Awards (from Claude enrichment, editable)
+- "Back to Search" button to go back to step 1
+- **"Add to Database"** button to proceed to step 3
+
+**Step 3 — Save & Redirect:**
+- Send the (possibly edited) payload to `POST /api/films` (or `POST /api/add-film/save`)
+- Show success message
+- Redirect to the new film's detail page (`/films/{new_film_id}`)
+- On error: show error message, stay on step 2 so the user can retry
+
+### E. Frontend: Navigation — Add Button in Header
+
+Add a "+" or "Add Film" button in the `Header` component that navigates to `/add`. Use a subtle but accessible placement (e.g., next to the search bar or in the right section alongside sort controls).
+
+### F. Frontend: Route — `App.tsx`
+
+Add the new route:
+```tsx
+<Route path="/add" element={<AddFilmPage />} />
 ```
 
-**Custom components to create:**
-- `PersonCard` — Thumbnail photo + name + role/character, clickable
-- `SectionHeading` — Consistent section title with optional edit button
-- `EditableTagSection` — View/edit mode toggle for taxonomy tags
-- `ExternalLinks` — Row of icon buttons for TMDB, IMDb, Allociné, Wikipedia
-- `AwardsTable` — Formatted awards display
-- `SimilarFilmsCarousel` — Placeholder skeleton for future recommendations
+### G. Frontend: API Client — `frontend/src/api/client.ts`
 
-### Design Guidelines
+Add functions for the add-film workflow:
+```typescript
+export async function searchTMDB(title: string, year?: number): Promise<TMDBSearchResult[]>
+export async function enrichFilm(tmdbId: number): Promise<EnrichmentPreview>
+export async function saveFilm(data: EnrichmentPreview): Promise<{ film_id: number }>
+```
 
-Maintain the existing dark theme (charcoal #0f0f0f, amber #f59e0b accent). The detail page should feel like a blend of Letterboxd's film detail and TMDB's rich metadata display:
-- Backdrop image with strong gradient overlay (bottom → background color)
-- Poster with subtle shadow/border
-- Muted color palette for text, amber for interactive elements (buttons, links, edit icons)
-- Smooth transitions between view and edit modes
-- Mobile responsive: poster + info stack vertically on small screens, cast scrolls horizontally
+### H. Frontend: Types — `frontend/src/types/api.ts`
+
+Add interfaces:
+```typescript
+export interface TMDBSearchResult {
+    tmdb_id: number;
+    title: string;
+    original_title: string;
+    release_date: string | null;
+    overview: string | null;
+    poster_url: string | null;
+    already_in_db: boolean;
+}
+
+export interface EnrichmentPreview {
+    film: Record<string, any>;
+    titles: Record<string, any>[];
+    categories: string[];
+    historic_subcategories: string[];
+    crew: Record<string, any>[];
+    cast: Record<string, any>[];
+    studios: Record<string, any>[];
+    streaming_platforms: string[];
+    enrichment: Record<string, any>;
+    keywords: string[];
+    production_countries: string[];
+}
+```
+
+### Implementation Order
+
+1. Backend first: create `add_film.py` router with search + enrich + save endpoints, register in `main.py`
+2. Backend schemas: `add_film.py` in schemas
+3. Test backend manually: `GET /api/add-film/search?title=Inception`, then `POST /api/add-film/enrich` with the returned tmdb_id
+4. Frontend: types + API client functions
+5. Frontend: `AddFilmPage.tsx` with the 3-step wizard
+6. Frontend: header button + route
+
+### Important Technical Notes
+
+1. **Claude API timeout:** The enrichment call can take 5-15 seconds. The FastAPI endpoint should have a generous timeout, and the frontend should show a clear loading state.
+
+2. **Error handling for Claude:** If the Anthropic API key is missing or Claude fails, the enrich endpoint should still return the TMDB data with an empty enrichment dict and a flag indicating enrichment failed, so the user can manually tag the film.
+
+3. **Duplicate prevention:** The search endpoint checks existing tmdb_ids. The enrich endpoint returns 409 if the film already exists. The save endpoint also has tmdb_id uniqueness check (already in `POST /api/films`).
+
+4. **Service lifecycle:** `TMDBService` creates an `httpx.AsyncClient`. Either initialize it once in the app lifespan and store on `app.state`, or create/close it per request using `async with TMDBService(api_key) as tmdb:`.
+
+5. **Streaming platforms:** The `get_watch_providers()` call uses country="FR" by default (matching the user's location). The `map_watch_providers()` method in `TMDBMapper` maps TMDB provider names to our `stream_platform` table names.
+
+6. **Existing `POST /api/films`:** Already handles full film creation including all junctions. The `FilmCreate` schema accepts `film`, `titles`, `crew`, `cast`, `studios`, `enrichment`, `streaming_platforms`. The `EnrichmentPreview` from the enrich endpoint should be compatible with this schema.
+
+7. **Person photo_url:** The `TMDBMapper._map_cast()` and `_map_crew()` methods already build full TMDB CDN URLs from `profile_path`. The person `tmdb_id` comes directly from the TMDB credits response — this is the correct ID (unlike the fallback JSON which had wrong IDs).
 
 ### Validation
 
 After implementation:
-1. Navigate to `/films/1` (or any seeded film) — full detail renders
-2. Backdrop image displays with gradient overlay
-3. Poster shows on the left in desktop, stacks on mobile
-4. All taxonomy sections populated with correct data
-5. Cast section shows photos, names, characters in a scrollable row
-6. Crew section shows director, writer, cinematographer grouped by role
-7. Click any person → navigates to `/browse?q=PersonName` → browse page shows their films
-8. Seen/unseen toggle: click toggles icon + sends API update
-9. External links: TMDB and IMDb links open correct pages in new tab
-10. Edit mode on any taxonomy section: can remove tags, add from dropdown, save
-11. Awards section displays correctly (or empty if no awards)
-12. "Similar Films" placeholder section visible with "coming soon" message
-13. Back button returns to browse page preserving previous filter state
-14. Mobile responsive: all sections readable on phone screen
+1. Navigate to `/add` — search form displays
+2. Type "Inception" → search returns TMDB candidates with posters
+3. Click a result → loading state appears ("Classifying with AI...")
+4. Preview loads: film info + all taxonomy tags from Claude
+5. All taxonomy sections are editable (can remove/add tags)
+6. Click "Add to Database" → film is saved
+7. Redirect to new film's detail page → all data correct
+8. Navigate to `/browse` → new film appears in the grid
+9. Try adding same film again → "already in database" shown on search result
+10. Try a French film title (e.g., "Les Quatre Cents Coups") → TMDB finds it via fr-FR locale
+11. If Claude API is down/missing: enrich still returns TMDB data, user can tag manually
+12. Mobile responsive: all steps usable on phone screen
 
 ---
 
@@ -358,6 +341,11 @@ psql -U postgres -d film_database -f database/seed_taxonomy.sql
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r backend/requirements.txt
+```
+
+### Backend
+```bash
+uvicorn backend.app.main:app --reload
 ```
 
 ### Frontend

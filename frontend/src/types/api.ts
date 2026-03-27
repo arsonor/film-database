@@ -1,4 +1,34 @@
 // =============================================================================
+// Add Film workflow types
+// =============================================================================
+
+export interface TMDBSearchResult {
+  tmdb_id: number;
+  title: string;
+  original_title: string;
+  release_date: string | null;
+  overview: string | null;
+  poster_url: string | null;
+  already_in_db: boolean;
+}
+
+export interface EnrichmentPreview {
+  film: Record<string, unknown>;
+  titles: Record<string, unknown>[];
+  categories: string[];
+  historic_subcategories: string[];
+  crew: Record<string, unknown>[];
+  cast: Record<string, unknown>[];
+  studios: Record<string, unknown>[];
+  streaming_platforms: string[];
+  enrichment: Record<string, unknown>;
+  keywords: string[];
+  production_countries: string[];
+  languages: Record<string, unknown>[];
+  enrichment_failed: boolean;
+}
+
+// =============================================================================
 // Film Detail types
 // =============================================================================
 
