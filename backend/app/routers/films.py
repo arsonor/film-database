@@ -683,10 +683,12 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
         text("""
             INSERT INTO film (
                 original_title, duration, color, first_release_date, summary,
-                poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue
+                poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue,
+                tmdb_collection_id
             ) VALUES (
                 :original_title, :duration, :color, :first_release_date, :summary,
-                :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue
+                :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue,
+                :tmdb_collection_id
             ) RETURNING film_id
         """),
         {
@@ -705,6 +707,7 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
             "tmdb_id": tmdb_id,
             "budget": film.get("budget"),
             "revenue": film.get("revenue"),
+            "tmdb_collection_id": film.get("tmdb_collection_id"),
         },
     )
     film_id = result.scalar_one()
@@ -911,6 +914,29 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
             text("INSERT INTO film_set_place (film_id, geography_id, place_type) VALUES (:fid, :gid, :pt) ON CONFLICT DO NOTHING"),
             {"fid": film_id, "gid": geo_id, "pt": place_type},
         )
+
+    # Auto-link franchise sequels via TMDB collection
+    tmdb_collection_id = film.get("tmdb_collection_id")
+    if tmdb_collection_id:
+        coll_result = await db.execute(
+            text("""
+                SELECT film_id FROM film
+                WHERE tmdb_collection_id = :cid AND film_id != :fid
+            """),
+            {"cid": tmdb_collection_id, "fid": film_id},
+        )
+        sibling_ids = [row[0] for row in coll_result.fetchall()]
+        for sibling_id in sibling_ids:
+            await db.execute(
+                text("""
+                    INSERT INTO film_sequel (film_id, related_film_id, relation_type)
+                    VALUES (:fid, :rid, 'sequel')
+                    ON CONFLICT DO NOTHING
+                """),
+                {"fid": min(sibling_id, film_id), "rid": max(sibling_id, film_id)},
+            )
+        if sibling_ids:
+            logger.info("Auto-linked %d sequel(s) via collection %d", len(sibling_ids), tmdb_collection_id)
 
     await db.commit()
     return {"film_id": film_id, "message": "Film created successfully"}

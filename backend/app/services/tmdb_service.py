@@ -308,6 +308,8 @@ class TMDBService:
             ],
             # French title
             "french_title": french_title,
+            # Collection (franchise)
+            "belongs_to_collection": data.get("belongs_to_collection"),
         }
 
     async def get_watch_providers(self, tmdb_id: int, country: str = "FR") -> list[dict]:

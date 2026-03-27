@@ -83,14 +83,14 @@ VALID_CHARACTERS_TYPES = [
 VALID_CHARACTER_CONTEXTS = [
     # Character Context
     "childhood", "teenager", "elderly", "female", "LGBT", "cross-dressing",
-    "double", "interracial",
+    "double", "interracial", "ordinary", "poor/marginal", "wealthy",
     # Character Archetypes
     "super hero", "vigilante", "cop", "detective", "samourai", "pirate",
-    "viking", "barbarian", "soldier", "psychopath", "madness", "idiot", "looser",
+    "viking", "barbarian", "soldier", "psychopath", "madness", "idiot", "genius", "looser",
     "prostitute", "freak/disabled", "monster/terrestrial creature",
     "ghost/spirit", "evil", "witch", "vampire", "zombie", "android", "alien",
     # Extended archetypes
-    "unreliable narrator", "antihero", "femme fatale",
+    "unreliable narrator", "antihero", "femme fatale", "star/celebrity",
 ]
 
 VALID_ATMOSPHERES = [
@@ -222,7 +222,7 @@ REFERENCE_EXAMPLES = {
                 "tragedy", "death", "police_violence", "immigration", "trauma/accident",
             ],
             "characters_type": ["trio", "buddies"],
-            "character_context": ["interracial", "teenager", "cop"],
+            "character_context": ["interracial", "poor/marginal", "teenager", "cop"],
             "atmosphere": ["violent", "oppressive", "depressive/sad"],
             "motivations": [
                 "friendship", "solidarity", "rebellion/revolt", "vengeance", "fight",

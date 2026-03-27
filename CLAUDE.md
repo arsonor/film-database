@@ -204,3 +204,116 @@ film-database/
 | `/taxonomy/{type}` | GET | List all values for a taxonomy dimension |
 | `/persons/{id}` | GET | Person filmography |
 | `/films/enrich` | POST | Trigger Claude-based enrichment for a film |
+
+
+## Quick Reference — Common Commands
+
+All commands run from the project root: `G:\Users\Martin\GITHUB\film-database`
+
+### Start / Restart Backend (FastAPI)
+```bash
+# Activate virtual environment first (if not already active)
+.\.venv\Scripts\Activate.ps1
+
+# Start (or restart by pressing Ctrl+C first if already running)
+uvicorn backend.app.main:app --reload
+```
+The `--reload` flag auto-restarts on Python file changes, but does NOT reload when `.env` changes or when new dependencies are installed. In those cases, press **Ctrl+C** and re-run the command.
+
+Backend runs at: http://localhost:8000
+API docs (Swagger): http://localhost:8000/docs
+
+### Start / Restart Frontend (Vite + React)
+```bash
+cd frontend
+npm run dev
+```
+Vite hot-reloads on file changes automatically. Press **Ctrl+C** and re-run if you need a full restart.
+
+Frontend runs at: http://localhost:3000
+
+### Run a Database Migration
+```bash
+psql -U postgres -d film_database -f database/migrations/009_collection_id.sql
+```
+Replace the filename with the migration you need to run. Always restart the backend after schema or seed changes.
+
+### Seed / Reset Database (from scratch)
+```bash
+psql -U postgres -d film_database -f database/schema.sql
+psql -U postgres -d film_database -f database/seed_taxonomy.sql
+python scripts/seed_reference_films.py --offline
+python scripts/verify_db.py
+```
+
+### Refresh Image URLs from TMDB
+```bash
+# Film posters & backdrops
+python scripts/refresh_posters.py
+
+# Person photos (fixes tmdb_ids + updates photos via name matching)
+python scripts/refresh_person_photos.py
+python scripts/refresh_person_photos.py --diagnose    # check current state
+python scripts/refresh_person_photos.py --dry-run     # preview changes
+```
+
+### Git Workflow
+```bash
+git add .
+git commit -m "Step X: description"
+git push origin main
+```
+
+---
+
+## First-Time Setup
+
+### Prerequisites
+- **PostgreSQL** installed and running
+- **Python 3.11+** with pip
+- **Node.js 18+** with npm
+
+### 1. Database
+```bash
+createdb -U postgres film_database
+psql -U postgres -d film_database -f database/schema.sql
+psql -U postgres -d film_database -f database/seed_taxonomy.sql
+```
+
+### 2. Python Backend
+```bash
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend/requirements.txt
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+```
+
+### 4. Environment Variables
+Copy `.env.example` to `.env` and fill in:
+- `DATABASE_URL=postgresql+asyncpg://postgres:postgre26@localhost:5432/film_database`
+- `TMDB_API_KEY` — get from https://www.themoviedb.org/settings/api
+- `ANTHROPIC_API_KEY` — get from https://console.anthropic.com/ (Settings → API Keys)
+
+### 5. Seed Reference Data
+```bash
+python scripts/seed_reference_films.py --offline
+python scripts/verify_db.py
+```
+
+### 6. Launch
+Open two terminals:
+```bash
+# Terminal 1 — Backend
+.\.venv\Scripts\Activate.ps1
+uvicorn backend.app.main:app --reload
+
+# Terminal 2 — Frontend
+cd frontend
+npm run dev
+```
+Open http://localhost:3000 in your browser.

@@ -276,6 +276,9 @@ INSERT INTO character_context (context_name) VALUES
     ('cross-dressing'),
     ('double'),
     ('interracial'),
+    ('ordinary'),
+    ('poor/marginal'),
+    ('wealthy')
     -- Character Archetypes
     ('super hero'),
     ('vigilante'),
@@ -289,6 +292,7 @@ INSERT INTO character_context (context_name) VALUES
     ('psychopath'),
     ('madness'),
     ('idiot'),
+    ('genius')
     ('looser'),
     ('prostitute'),
     ('freak/disabled'),
@@ -304,6 +308,7 @@ INSERT INTO character_context (context_name) VALUES
     ('unreliable narrator'),
     ('antihero'),
     ('femme fatale')
+    ('star/celebrity')
 ON CONFLICT (context_name) DO NOTHING;
 
 -- =============================================================================

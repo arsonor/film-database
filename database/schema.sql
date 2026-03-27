@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS film (
     tmdb_id INTEGER UNIQUE,
     budget BIGINT,                             -- Production budget in USD
     revenue BIGINT,                            -- Worldwide box office in USD
+    tmdb_collection_id INTEGER,                -- TMDB collection ID for franchise auto-linking
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -60,6 +61,7 @@ CREATE TRIGGER film_updated_at_trigger
 CREATE INDEX IF NOT EXISTS idx_film_tmdb_id ON film(tmdb_id);
 CREATE INDEX IF NOT EXISTS idx_film_imdb_id ON film(imdb_id);
 CREATE INDEX IF NOT EXISTS idx_film_original_title ON film(original_title);
+CREATE INDEX IF NOT EXISTS idx_film_tmdb_collection_id ON film(tmdb_collection_id);
 CREATE INDEX IF NOT EXISTS idx_film_first_release_date ON film(first_release_date);
 
 -- =============================================================================

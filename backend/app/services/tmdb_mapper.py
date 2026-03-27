@@ -87,6 +87,13 @@ class TMDBMapper:
             "revenue": revenue if revenue else None,  # 0 → None (unknown)
         }
 
+        # --- Collection (franchise) ---
+        collection = tmdb_data.get("belongs_to_collection")
+        if collection and isinstance(collection, dict):
+            film["tmdb_collection_id"] = collection.get("id")
+        else:
+            film["tmdb_collection_id"] = None
+
         # --- Titles ---
         titles = self._build_titles(tmdb_data, fr_data)
 

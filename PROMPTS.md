@@ -101,131 +101,137 @@
 
 ---
 
-## Step 8 Prompt — Add Film Workflow
+## Step 8 Prompt — Add Film Workflow ✅ DONE
 
-Read CLAUDE.md for full project context. Then read PLAN.md for the Step 8 specification (sections A through H). Then read ALL of the following files to understand the current codebase:
+*(see git history for original prompt)*
 
-**Backend — Existing services (the pipeline to wire up):**
-- `backend/app/services/tmdb_service.py` — `TMDBService` class: `search_film(title, year)`, `get_film_details(tmdb_id)`, `get_film_details_fr(tmdb_id)`, `get_watch_providers(tmdb_id)`, `build_poster_url()`. Uses `httpx.AsyncClient`, has rate limiting built in. Needs `api_key` in constructor.
-- `backend/app/services/tmdb_mapper.py` — `TMDBMapper` class: `map_film_to_db(tmdb_data, fr_data)` returns dict with keys: `film`, `titles`, `categories`, `historic_subcategories`, `crew`, `cast`, `studios`, `languages`, `keywords`, `production_countries`, `streaming_platforms`. Also `map_watch_providers(providers)`.
-- `backend/app/services/claude_enricher.py` — `ClaudeEnricher` class: `enrich_film(tmdb_mapped_data)` takes the mapper output, calls Claude API, returns enrichment dict with all taxonomy classifications. Needs `api_key` in constructor. Can take 5-15 seconds.
-- `backend/app/services/taxonomy_config.py` — Valid taxonomy values used for Claude prompt and validation.
+### Step 8 Summary
+- Backend: `add_film.py` router with GET `/add-film/search` (TMDB dual-locale search + dedup + already_in_db flag) and POST `/add-film/enrich` (TMDB details + French data + watch providers → TMDBMapper → ClaudeEnricher, graceful failure with enrichment_failed flag). Registered in main.py.
+- Backend: `schemas/add_film.py` with TMDBSearchResult, TMDBSearchResponse, EnrichRequest, EnrichmentPreview (with enrichment_failed flag)
+- Frontend: `AddFilmPage.tsx` 3-step wizard — Search (title + year, TMDB results grid with posters, "already in database" badges) → Enriching (animated loading with rotating progress messages) → Review (full editable preview with InlineTagEditor per taxonomy dimension, streaming, awards) → Save via existing POST `/api/films` → redirect to `/films/{new_id}`
+- Frontend: Header "+" / "Add Film" button, `/add` route in App.tsx, searchTMDB/enrichFilm/saveFilm in api/client.ts, TMDBSearchResult/EnrichmentPreview in types/api.ts
+- Enrichment quality improvements: rewritten claude_enricher.py system prompt with tag selection philosophy (tags must characterize the film as a whole, not incidental details), explicit time period rules (no contemporary+end 20th for post-2000), place/environment centrality rules, empty dimensions allowed, inline notes per taxonomy section
+- New taxonomy values via migration 007: soldier, military, ship, communication, invasion, patriotic, history revisited, traditionalist/way of life, costume
+- Underscore-to-space renames via migration 008: class struggle, identity crisis, police violence, black and white, non linear narrative, slow cinema, unreliable narrator, femme fatale, anti establishment
+- Fixed Mulholland Drive reference example in taxonomy_config.py (missing comma between "amnesia" and "investigation")
+- All three synced: seed_taxonomy.sql + taxonomy_config.py + migrations
 
-**Backend — Existing API (reuse for save):**
-- `backend/app/routers/films.py` — `POST /api/films` creates a film from `FilmCreate` schema. Already handles all junction table insertions (cast, crew, studios, taxonomy, awards, streaming). Also `GET /api/films/{film_id}` for detail.
-- `backend/app/schemas/film.py` — `FilmCreate` schema: expects `film` (dict), `titles`, `crew`, `cast`, `studios`, `enrichment` (dict), `streaming_platforms`, etc.
-- `backend/app/main.py` — Current routers registered: films, taxonomy, persons, geography. New router must be added here.
-- `backend/app/database.py` — `get_db` dependency for DB sessions.
+---
 
-**Frontend — Existing code to reference/reuse:**
-- `frontend/src/pages/FilmDetailPage.tsx` — Detail page layout (reference for preview styling)
-- `frontend/src/components/films/EditableTagSection.tsx` — Reusable tag editing component (reuse in review step)
-- `frontend/src/components/films/PersonCard.tsx` — Person display (reuse in preview cast/crew)
-- `frontend/src/components/layout/Header.tsx` — Where to add the "Add Film" navigation button
-- `frontend/src/api/client.ts` — Existing API client pattern (fetchJson, ApiError)
-- `frontend/src/types/api.ts` — Existing types
-- `frontend/src/App.tsx` — Route definitions (add `/add` route)
-- `frontend/src/index.css` — Dark theme variables
+## Step 8.5 Prompt — Auto-link Franchise Sequels via TMDB Collection
 
-**Also read for context:**
-- `backend/requirements.txt` — Already includes `anthropic`, `httpx`, etc.
-- `.env.example` — Shows expected env vars (DATABASE_URL, TMDB_API_KEY, ANTHROPIC_API_KEY)
+Read CLAUDE.md for full project context. Then read PLAN.md for the Step 8.5 specification (sections A through D). Then read ALL of the following files:
+
+**Backend — files to modify:**
+- `backend/app/services/tmdb_service.py` — `get_film_details()` method return dict (add `belongs_to_collection` field)
+- `backend/app/services/tmdb_mapper.py` — `map_film_to_db()` method, the `film` dict it builds (add `tmdb_collection_id`)
+- `backend/app/routers/films.py` — `create_film()` endpoint: the INSERT INTO film statement + auto-link logic after all junction inserts
+- `database/schema.sql` — film table CREATE statement (add `tmdb_collection_id` column + index for fresh installs)
+
+**Already created (do NOT recreate):**
+- `database/migrations/009_collection_id.sql` — adds `tmdb_collection_id INTEGER` column + index to existing film table
+
+**Read for context:**
+- `backend/app/schemas/film.py` — FilmCreate, FilmDetail schemas (no changes needed)
+- `frontend/src/pages/FilmDetailPage.tsx` — already displays sequels from `film_sequel` table (no changes needed)
 
 ### Goal
 
-Create a 3-step "Add Film" workflow accessible from the frontend. The user searches for a film by title on TMDB, the system fetches full details and classifies it with Claude AI, the user reviews/edits the proposed tags, and saves to the database.
+When a film is added via `POST /api/films`, automatically detect if it belongs to a TMDB collection (franchise) and create `film_sequel` rows linking it to other films from the same collection already in the DB. The detail page already reads and displays these — this step just populates the data.
 
-### Step-by-step flow:
+### Changes (4 files to modify):
 
-**1. Search (frontend → backend → TMDB API):**
-- User types a title (+ optional year) and clicks Search
-- `GET /api/add-film/search?title=...&year=...` calls `TMDBService.search_film()`
-- Returns candidates with poster, title, year, overview
-- Candidates already in the DB are flagged `already_in_db: true`
+**1. `backend/app/services/tmdb_service.py`**
 
-**2. Enrich (frontend → backend → TMDB + Claude APIs):**
-- User selects a candidate
-- `POST /api/add-film/enrich` with `{ tmdb_id }` triggers the full pipeline:
-  - `TMDBService.get_film_details()` + `get_film_details_fr()` → raw TMDB data
-  - `TMDBMapper.map_film_to_db()` → structured data
-  - `TMDBService.get_watch_providers()` + `TMDBMapper.map_watch_providers()` → streaming
-  - `ClaudeEnricher.enrich_film()` → taxonomy classification
-- Returns a complete preview payload (matches `FilmCreate` structure)
-- Frontend shows all proposed data in an editable preview
-- If Claude fails: return TMDB data with empty enrichment, flag the failure
-
-**3. Save (frontend → backend → PostgreSQL):**
-- User reviews tags, edits as needed, clicks "Add to Database"
-- `POST /api/films` (existing endpoint) receives the payload
-- Film is inserted with all relations
-- Frontend redirects to `/films/{new_film_id}`
-
-### Backend Implementation Details
-
-**New files:**
-- `backend/app/routers/add_film.py` — New router with search + enrich endpoints
-- `backend/app/schemas/add_film.py` — TMDBSearchResult, TMDBSearchResponse, EnrichRequest, EnrichmentPreview
-
-**Modified files:**
-- `backend/app/main.py` — Register the `add_film` router
-
-**Service initialization pattern:**
-```python
-# In add_film.py router
-import os
-from backend.app.services.tmdb_service import TMDBService
-from backend.app.services.tmdb_mapper import TMDBMapper
-from backend.app.services.claude_enricher import ClaudeEnricher
-
-TMDB_API_KEY = os.getenv("TMDB_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+In `get_film_details()`, the TMDB API response includes `belongs_to_collection`:
+```json
+{ "belongs_to_collection": { "id": 119, "name": "The Lord of the Rings Collection" } }
 ```
 
-For `TMDBService` which uses `httpx.AsyncClient`: create and close it per request using `async with`:
+Add this to the return dict (after the existing fields, e.g. after `"french_title"`):
 ```python
-async with TMDBService(TMDB_API_KEY) as tmdb:
-    results = await tmdb.search_film(title, year)
+"belongs_to_collection": data.get("belongs_to_collection"),
 ```
 
-For `ClaudeEnricher`: it uses `anthropic.AsyncAnthropic` which manages its own connection — can be instantiated per request without concern.
+**2. `backend/app/services/tmdb_mapper.py`**
 
-### Frontend Implementation Details
+In `map_film_to_db()`, after building the `film` dict, extract the collection ID:
+```python
+collection = tmdb_data.get("belongs_to_collection")
+if collection and isinstance(collection, dict):
+    film["tmdb_collection_id"] = collection.get("id")
+else:
+    film["tmdb_collection_id"] = None
+```
 
-**New files:**
-- `frontend/src/pages/AddFilmPage.tsx` — Multi-step wizard (Search → Review → Save)
-- `frontend/src/hooks/useAddFilm.ts` — (optional) Hook to manage the add-film state machine
+**3. `backend/app/routers/films.py`**
 
-**Modified files:**
-- `frontend/src/types/api.ts` — TMDBSearchResult, EnrichmentPreview interfaces
-- `frontend/src/api/client.ts` — searchTMDB, enrichFilm, saveFilm functions
-- `frontend/src/App.tsx` — Add `/add` route
-- `frontend/src/components/layout/Header.tsx` — Add "+" button navigating to `/add`
+In `create_film()`:
 
-**The AddFilmPage has three internal states:**
-1. `searching` — shows search form + results grid
-2. `enriching` — shows loading spinner with progress messages
-3. `reviewing` — shows full editable preview with "Add to Database" button
+a) Add `tmdb_collection_id` to the INSERT INTO film SQL statement and its params dict:
+```sql
+INSERT INTO film (
+    original_title, duration, color, first_release_date, summary,
+    poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue,
+    tmdb_collection_id
+) VALUES (
+    :original_title, :duration, :color, :first_release_date, :summary,
+    :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue,
+    :tmdb_collection_id
+) RETURNING film_id
+```
+Add `"tmdb_collection_id": film.get("tmdb_collection_id")` to the params.
 
-**Key UX considerations:**
-- The enrichment step takes 5-15 seconds (Claude API). Show a clear loading state with animated messages: "Fetching from TMDB...", "Classifying with AI...", "Preparing preview..."
-- The review/edit step should reuse the tag editing pattern from `EditableTagSection` — all taxonomy sections start in edit mode
-- Films already in DB should be clearly indicated in search results (grayed out poster, "Already in database" label, link to existing detail page)
-- A "Back to Search" button in the review step lets the user go back without losing context
+b) After all existing junction inserts (after geography, before `await db.commit()`), add auto-linking:
+```python
+# Auto-link franchise sequels via TMDB collection
+tmdb_collection_id = film.get("tmdb_collection_id")
+if tmdb_collection_id:
+    coll_result = await db.execute(
+        text("""
+            SELECT film_id FROM film
+            WHERE tmdb_collection_id = :cid AND film_id != :fid
+        """),
+        {"cid": tmdb_collection_id, "fid": film_id},
+    )
+    sibling_ids = [row[0] for row in coll_result.fetchall()]
+    for sibling_id in sibling_ids:
+        await db.execute(
+            text("""
+                INSERT INTO film_sequel (film_id, related_film_id, relation_type)
+                VALUES (:fid, :rid, 'sequel')
+                ON CONFLICT DO NOTHING
+            """),
+            {"fid": min(sibling_id, film_id), "rid": max(sibling_id, film_id)},
+        )
+    if sibling_ids:
+        logger.info("Auto-linked %d sequel(s) via collection %d", len(sibling_ids), tmdb_collection_id)
+```
+
+**4. `database/schema.sql`**
+
+In the film CREATE TABLE statement, add after the `revenue BIGINT` line:
+```sql
+    tmdb_collection_id INTEGER,                -- TMDB collection ID for franchise auto-linking
+```
+
+After the existing film indexes, add:
+```sql
+CREATE INDEX IF NOT EXISTS idx_film_tmdb_collection_id ON film(tmdb_collection_id);
+```
+
+### What NOT to change
+- No frontend changes — the detail page already displays sequels from `film_sequel`
+- No changes to `GET /api/films/{film_id}` — it already loads and returns sequels
+- Do NOT recreate `database/migrations/009_collection_id.sql` — it's already written
+- No changes to schemas — `FilmCreate` uses `film: dict` so the new field passes through
 
 ### Validation
-
-After implementation:
-1. "+" button in header navigates to `/add`
-2. Search "Inception" → TMDB candidates appear with posters
-3. Click a candidate → enrichment loading state with progress messages
-4. Preview loads: film info + all Claude-proposed taxonomy tags
-5. Tags are editable (can remove/add in each section)
-6. "Add to Database" → film saves, redirect to new detail page
-7. Film appears in browse grid with correct poster and data
-8. Search same film again → flagged "already in database"
-9. French title search works (e.g., "Les Quatre Cents Coups")
-10. If Claude API fails: preview shows with empty tags, user can add manually
-11. If TMDB search returns no results: clear "no results" message
-12. Mobile responsive across all 3 steps
+1. Run migration: `psql -U postgres -d film_database -f database/migrations/009_collection_id.sql`
+2. Restart backend
+3. Add "The Lord of the Rings: The Return of the King" via the Add Film page (Fellowship and Two Towers should already be in DB)
+4. After save, the detail page for Return of the King shows "Related Films" with links to Fellowship and Two Towers
+5. Check Fellowship's detail page — it should also show links to the other two
+6. Add a non-franchise film (e.g., "Amélie") — no sequel relationships created, no errors
 
 Do NOT run the server or npm commands yourself. Just create/modify the files correctly. The user will run and test manually.
