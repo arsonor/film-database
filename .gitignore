@@ -28,3 +28,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Pipeline data (large JSON outputs from bulk ingestion)
+scripts/data/resolved_films.json
+scripts/data/enriched_films.json
+scripts/data/enrichment_review.json
+scripts/data/unresolved_films.json
+scripts/data/batch_state.json

@@ -48,7 +48,7 @@ class TMDBService:
         "War": "Historical",  # also mapped to war theme
         "Crime": None,        # mapped to theme, not category
         "Mystery": None,      # mapped to theme
-        "Documentary": None,  # not in our categories
+        "Documentary": "Documentary",
         "Animation": None,    # mapped to cinema_type
         "Family": None,
         "Western": "Historical",  # with subcategory "western"

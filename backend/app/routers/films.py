@@ -419,12 +419,29 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
         for r in title_rows.fetchall()
     ]
 
-    # Categories (only base categories, no subcategory rows)
-    categories = await load_names(
-        "SELECT DISTINCT c.category_name FROM film_genre fg "
-        "JOIN category c ON fg.category_id = c.category_id "
-        "WHERE fg.film_id = :fid ORDER BY c.category_name"
+    # Categories — return composite "Historical: biopic" for subcategories
+    cat_rows = await db.execute(
+        text(
+            "SELECT DISTINCT c.category_name, c.historic_subcategory_name "
+            "FROM film_genre fg "
+            "JOIN category c ON fg.category_id = c.category_id "
+            "WHERE fg.film_id = :fid ORDER BY c.category_name"
+        ),
+        {"fid": film_id},
     )
+    categories: list[str] = []
+    seen_parents: set[str] = set()
+    for cat_name, sub_name in cat_rows.fetchall():
+        if sub_name:
+            categories.append(f"{cat_name}: {sub_name}")
+            seen_parents.add(cat_name)
+        else:
+            categories.append(cat_name)
+    # Remove bare parent if subcategories are present (avoid "Historical" + "Historical: biopic")
+    categories = [
+        c for c in categories
+        if ": " in c or c not in seen_parents
+    ]
 
     cinema_types = await load_names(
         "SELECT ct.technique_name FROM film_technique ft "
@@ -747,9 +764,38 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
             },
         )
 
+    # Insert categories (special handling for Historic subcategories)
+    for cat in enrichment.get("categories", []):
+        if not cat or (isinstance(cat, str) and cat.startswith("[NEW]")):
+            continue
+        r = await db.execute(
+            text("SELECT category_id FROM category WHERE category_name = :name AND historic_subcategory_name IS NULL"),
+            {"name": cat},
+        )
+        lid = r.scalar_one_or_none()
+        if lid:
+            await db.execute(
+                text("INSERT INTO film_genre (film_id, category_id) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "lid": lid},
+            )
+
+    # Insert historic subcategories (e.g. "biopic", "western" → linked to "Historical" parent)
+    for sub in enrichment.get("historic_subcategories", []):
+        if not sub:
+            continue
+        r = await db.execute(
+            text("SELECT category_id FROM category WHERE category_name = 'Historical' AND historic_subcategory_name = :sub"),
+            {"sub": sub},
+        )
+        lid = r.scalar_one_or_none()
+        if lid:
+            await db.execute(
+                text("INSERT INTO film_genre (film_id, category_id) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "lid": lid},
+            )
+
     # Insert taxonomy junctions from enrichment
     taxonomy_junctions = [
-        ("categories", "film_genre", "category_id", "category", "category_id", "category_name"),
         ("cinema_type", "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         ("cultural_movement", "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         ("themes", "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
@@ -983,9 +1029,34 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
             params,
         )
 
+    # Update categories (special handling for Historical subcategories)
+    if update.categories is not None:
+        await db.execute(text("DELETE FROM film_genre WHERE film_id = :fid"), {"fid": film_id})
+        for val in update.categories:
+            if not val:
+                continue
+            if ": " in val:
+                # Composite "Historical: biopic" → lookup with subcategory
+                parent, sub = val.split(": ", 1)
+                r = await db.execute(
+                    text("SELECT category_id FROM category WHERE category_name = :parent AND historic_subcategory_name = :sub"),
+                    {"parent": parent, "sub": sub},
+                )
+            else:
+                # Base category → lookup without subcategory
+                r = await db.execute(
+                    text("SELECT category_id FROM category WHERE category_name = :name AND historic_subcategory_name IS NULL"),
+                    {"name": val},
+                )
+            lid = r.scalar_one_or_none()
+            if lid:
+                await db.execute(
+                    text("INSERT INTO film_genre (film_id, category_id) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
+                    {"fid": film_id, "lid": lid},
+                )
+
     # Update taxonomy junctions (clear and re-insert pattern)
     junction_updates = [
-        (update.categories, "film_genre", "category_id", "category", "category_id", "category_name"),
         (update.cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         (update.cultural_movements, "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         (update.themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),

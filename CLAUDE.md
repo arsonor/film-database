@@ -72,14 +72,14 @@ Values: undetermined, future, contemporary, end 20th, 30-year post-war boom, WW2
 Seasonal: summer, winter, autumn, spring
 
 #### Context / Theme
-Values: social, societal, political, religion, business, trial, prison, apocalypse, war, tragedy, trauma, psychological, disease, accident, death, mourning, addiction/drugs, time passing, investigation, spy, crime, organized crime, delinquency, organized fraud, sex crime, mafia, gangster, serial killer, chase/escape, terrorism, sect, survival, slasher, futuristic, dystopia, tales and legends, supernatural, sorcery, alien contact, paranormal, time travel/loop, virtual reality, dream, nonsense, art (with sub-types: music, cinema, literature, fashion, painting, sculpture, theatre, radio), martial arts, sport, nature, technology, food/cooking, party, book
-**Extended:** identity_crisis, police_violence, evolution, artificial_intelligence, amnesia, corruption, class_struggle, immigration, censorship
+Values: social, class struggle, societal, immigration, political, religion, business, censorship, trial, prison, war, tragedy, apocalypse, trauma/accident, psychological, identity crisis, disease, amnesia, death, mourning, addiction/drugs, time passing, evolution, investigation, spy, crime, sex crime, organized crime, police violence, corruption, delinquency, organized fraud, mafia, gangster, serial killer, chase/escape, terrorism, sect, survival, slasher, futuristic, dystopia, tales and legends, supernatural, sorcery, alien contact, paranormal, time travel/loop, virtual reality, dream, nonsense, art (with sub-types: music, cinema, literature, fashion, painting, sculpture, theatre, radio), martial arts, sport, nature, AI/technology, food/cooking, party, book
+**Extended:** identity crisis, police violence, evolution, AI/technology, amnesia, corruption, class struggle, immigration, censorship
 
 #### Characters Type
 Values: solitary, tandem, couple, adult/child, trio, buddies, gang, relatives, generations, ensemble cast, animal/wildlife
 **Character Context:** childhood, teenager, elderly, female, LGBT, cross-dressing, double, interracial
 **Character Archetypes:** super hero, vigilante, cop, detective, samourai, pirate, viking, barbarian, psychopath, madness, idiot, looser, prostitute, freak/disabled, monster/terrestrial creature, ghost/spirit, evil, witch, vampire, zombie, android, alien
-**Extended:** unreliable_narrator, antihero, femme_fatale
+**Extended:** unreliable narrator, antihero, femme fatale
 
 #### Motivations / Relations
 Values: feelings, friendship, emancipation, solidarity, adultery, jealousy, sex, harassment, lie, doubt/dilemma, rivalry, power, perversion, manipulation, redemption, obsession, vengeance, rebellion/revolt, fight (reserved for physical body combat/confrontation), odyssey, quest, world saver
@@ -90,7 +90,7 @@ Values: family, feel good, crazy/nutty, depressive/sad, sulfurous, mysterious, v
 
 #### Message Conveyed
 Values: parodic, satirical, political, humanist, nostalgic, dreamlike, surreal, symbolic, philosophical, metaphysical, dialogs, slang dialogs, black comedy
-**Extended:** anti_establishment, feminist, absurdist, ecological
+**Extended:** anti establishment, feminist, absurdist, ecological
 
 ### Film Relationships
 - `film_sequel` — film_id, related_film_id, relation_type: sequel, prequel, remake, spinoff, reboot

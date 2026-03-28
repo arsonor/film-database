@@ -16,10 +16,10 @@
 | 7 | Film detail view + edit | ✅ DONE | Full detail page, tag editing, vu toggle, external links, person navigation, person photo fix |
 | 8 | Add Film workflow | ✅ DONE | TMDB search → Claude enrich → review → save, enrichment prompt improvements, new taxonomy values |
 | 8.5 | Auto-link franchise sequels | ✅ DONE | TMDB collection → film_sequel auto-creation, backfill script, refresh_streaming script |
-| 8.6 | Editable categories, financials & awards | 🔄 IN PROGRESS | Make categories, budget/revenue, awards editable on detail page |
-| 9 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
-| 10 | Claude-powered recommendations | 🔲 TODO | External film suggestions |
-| 11 | Bulk ingestion (~2500 films) | 🔲 TODO | Parse Films_list.docx, batch process |
+| 8.6 | Editable fields + person data | ✅ DONE | Editable categories/financials/awards, person gender in pipeline, backfill_person_details script |
+| 9 | Bulk ingestion (~2500 films) | 🔄 IN PROGRESS | Parse Films_list.docx, batch TMDB + Claude + DB insert |
+| 10 | Recommendation engine (in-DB) | 🔲 TODO | Tag similarity scoring |
+| 11 | Claude-powered recommendations | 🔲 TODO | External film suggestions |
 | 12 | Dashboard & stats | 🔲 TODO | Analytics, charts, coverage |
 
 ---
@@ -86,120 +86,143 @@
 
 ## Step 8: Add Film Workflow ✅
 
-- Backend: `add_film.py` router with GET `/add-film/search` (TMDB dual-locale + dedup + already_in_db flag) and POST `/add-film/enrich` (TMDB details + mapper + Claude enrichment, graceful failure with enrichment_failed flag)
-- Frontend: `AddFilmPage.tsx` 3-step wizard (Search → Enriching with animated messages → Review with editable tags → Save via POST `/api/films` → redirect to detail page)
-- Header "+" button navigating to `/add`
-- Enrichment quality: rewritten system prompt (tag selection philosophy, time period rules, place/theme centrality, empty dims OK), improved taxonomy section with inline notes per dimension
-- New taxonomy values: soldier, military, ship, communication, invasion, patriotic, history revisited, traditionalist/way of life, costume (migration 007)
-- Underscore-to-space renames across 9 values (migration 008)
-- Fixed Mulholland Drive reference example (missing comma bug)
+- Backend: `add_film.py` router with GET `/add-film/search` and POST `/add-film/enrich`
+- Frontend: `AddFilmPage.tsx` 3-step wizard (Search → Enrich → Review → Save)
+- Enrichment quality: rewritten system prompt, new taxonomy values (migration 007), underscore renames (migration 008)
 
 ## Step 8.5: Auto-link Franchise Sequels via TMDB Collection ✅
 
-- Migration 009: `tmdb_collection_id` column on film table + index
-- `tmdb_service.py`: captures `belongs_to_collection` from TMDB API response
-- `tmdb_mapper.py`: extracts `tmdb_collection_id` into film dict
-- `films.py` create endpoint: stores collection_id + auto-links siblings via `film_sequel`
-- `schema.sql`: updated for fresh installs
-- New scripts: `backfill_collection_ids.py` (backfill existing films), `refresh_streaming.py` (refresh streaming platforms from TMDB)
+- Migration 009: `tmdb_collection_id` column + auto-linking in `create_film()`
+- New scripts: `backfill_collection_ids.py`, `refresh_streaming.py`
+
+## Step 8.6: Editable Fields + Person Data ✅
+
+- Frontend: `EditableTagSection` for categories, `EditableFinancials` component, editable `AwardsTable` (won/nominated toggle + remove)
+- Backend: awards in `FilmUpdate` + clear-and-reinsert in `update_film()`, gender in `_find_or_create_person()`
+- Pipeline: `tmdb_mapper.py` passes gender (TMDB_GENDER_MAP) in cast/crew dicts
+- New script: `backfill_person_details.py` (gender, birth/death dates, nationality from TMDB /person/{id})
 
 ---
 
-## Step 8.6: Editable Categories, Financials & Awards
+## Step 9: Bulk Ingestion (~2500 films)
 
 ### Goal
 
-Make three currently read-only sections on the film detail page editable: categories (as tags), budget/revenue (as number inputs), and awards (toggle won/nominated). These are fields that Claude or TMDB can get wrong and the user needs to be able to correct.
+Ingest the full ~2500-film collection from `Films_list.docx` into the database using the existing 4-stage pipeline: parse → resolve (TMDB) → enrich (Claude) → insert (DB). All scripts already exist from steps 2-3 — this step is about running them at scale and handling the results.
 
-### A. Categories — Frontend Only (Simple)
+### Pipeline Overview
 
-**Problem:** Categories are shown as badges in the hero section but not in the editable Classification section below. The backend `PUT /api/films/{id}` already handles `update.categories` — just need the UI.
+The pipeline runs as **4 sequential stages**, each producing a JSON file that feeds the next. Every stage has resume/checkpoint capability — if interrupted, re-running picks up where it left off.
 
-**Fix in `FilmDetailPage.tsx`:** Add an `EditableTagSection` for `categories` in the Classification section, alongside cinema_types and cultural_movements:
-```tsx
-<EditableTagSection
-  filmId={film.film_id}
-  dimension="categories"
-  currentValues={film.categories}
-  onSaved={refetch}
-/>
+```
+Films_list.docx
+    ↓  parse_film_list.py
+parsed_films.json (~2500 entries: title, year, region)
+    ↓  tmdb_resolver.py (TMDB API, free)
+resolved_films.json + unresolved_films.json
+    ↓  claude_enrichment_runner.py (Anthropic API, ~$30-85)
+enriched_films.json + enrichment_review.json
+    ↓  db_inserter.py (local DB)
+PostgreSQL database (fully populated)
 ```
 
-**Note:** Categories in the hero section stay as read-only badges (they update when `refetch` is called after editing in the section below).
+### Stage 1: Parse the docx → `parsed_films.json`
 
-### B. Budget & Revenue — Frontend Only (Simple)
-
-**Problem:** Budget and revenue are displayed as read-only text in the Production section. The backend `PUT /api/films/{id}` already accepts `budget` and `revenue` in `FilmUpdate` — just need editable inputs.
-
-**Fix:** Create a small `EditableFinancials` component (or inline it in `FilmDetailPage.tsx`) in the Production section. Pattern:
-- View mode: shows formatted currency (using existing `formatCurrency`)
-- Edit mode (pencil icon toggle): two number inputs for budget and revenue, with Save/Cancel buttons
-- Save sends `PUT /api/films/{id}` with `{ budget: number, revenue: number }`
-- Values are stored in USD as integers (no decimals). Input should accept raw numbers (e.g. `160000000` for $160M) or optionally support shorthand entry
-
-Component should handle:
-- Null values gracefully (show "—" in view mode, empty input in edit mode)
-- The pencil icon and save/cancel pattern should match `EditableTagSection` for visual consistency
-
-### C. Awards — Backend + Frontend (Medium)
-
-**Problem:** Awards are displayed in a read-only `AwardsTable`. The user cannot toggle won/nominated or remove incorrect awards. The backend `FilmUpdate` schema has no `awards` field, and the `update_film` endpoint doesn't handle awards.
-
-**Backend changes:**
-
-1. **`backend/app/schemas/film.py`** — Add `awards` field to `FilmUpdate`:
-```python
-class FilmUpdate(BaseModel):
-    # ... existing fields ...
-    awards: list[dict] | None = None  # [{"festival_name": "...", "category": "...", "year": 2001, "result": "won|nominated"}]
+```bash
+# Copy Films_list.docx to scripts/data/ first
+python scripts/parse_film_list.py
 ```
 
-2. **`backend/app/routers/films.py`** — In `update_film()`, add awards handling after the existing streaming_platforms block, using the same clear-and-reinsert pattern:
-```python
-if update.awards is not None:
-    await db.execute(text("DELETE FROM award WHERE film_id = :fid"), {"fid": film_id})
-    for award in update.awards:
-        if not isinstance(award, dict) or not award.get("festival_name"):
-            continue
-        if award.get("result") not in ("won", "nominated"):
-            continue
-        await db.execute(
-            text("""
-                INSERT INTO award (film_id, festival_name, category, award_year, result)
-                VALUES (:fid, :festival, :category, :year, :result)
-            """),
-            {
-                "fid": film_id,
-                "festival": award["festival_name"],
-                "category": award.get("category"),
-                "year": award.get("year"),
-                "result": award["result"],
-            },
-        )
+**Output:** `scripts/data/parsed_films.json` — structured list of ~2500 entries with `title`, `year`, `region`, `notes`, `original_title_hint`.
+
+**Cost:** Free, instant. Verify the count and spot-check a few entries.
+
+### Stage 2: Resolve against TMDB → `resolved_films.json`
+
+```bash
+python scripts/tmdb_resolver.py --batch-size 50
 ```
 
-**Frontend changes:**
+**What it does:** For each parsed film, searches TMDB in both fr-FR and en-US locales, picks the best match by popularity (±1 year tolerance), fetches full details + French title + credits + keywords.
 
-3. **`frontend/src/components/films/AwardsTable.tsx`** — Make it editable. Add props for `filmId` and `onSaved` callback. When editing:
-- Each award row gets a toggle button to switch between "Won" and "Nominated" (or a small dropdown)
-- Each row gets an X button to remove it
-- A Save/Cancel button pair at the bottom
-- Save sends `PUT /api/films/{id}` with `{ awards: [...] }` (the full awards array)
+**Output:** `scripts/data/resolved_films.json` (matched) + `scripts/data/unresolved_films.json` (no TMDB match found).
 
-4. **`frontend/src/api/client.ts`** — The existing `updateFilm` function already sends arbitrary partial data to PUT — no change needed.
+**Cost:** Free (TMDB API has no cost). Rate-limited at 40 req/10s, so ~2500 films takes ~15-30 minutes.
 
-### Validation
+**Resume:** Saves checkpoints every 50 films. If interrupted, re-run the same command — already-resolved films are skipped.
 
-After implementation:
-1. Film detail page: Categories section appears in Classification with edit pencil
-2. Edit categories: remove a tag, add one from dropdown, save → hero badges update
-3. Production section: Budget & Revenue show pencil icon
-4. Edit financials: change budget value, save → formatted currency updates
-5. Awards section: pencil icon → each row shows won/nominated toggle + X remove
-6. Toggle an award from "Nominated" to "Won" → save → trophy icon changes to gold
-7. Remove an award → save → row disappears
-8. All edits persist after page reload
+**After completion:** Check `unresolved_films.json`. These are films TMDB couldn't match (obscure titles, spelling variations). Options: fix titles manually in `parsed_films.json` and re-run, or use `--retry-unresolved`.
 
----
+### Stage 3: Claude enrichment → `enriched_films.json`
 
+This is the **expensive step** — each film requires one Claude API call (~3k input + ~800 output tokens).
 
+```bash
+# Standard (real-time, ~$30-85 for 2500 films)
+python scripts/claude_enrichment_runner.py --batch-size 10
+
+# Or process in chunks (e.g., 100 films at a time)
+python scripts/claude_enrichment_runner.py --start-index 0 --end-index 100
+python scripts/claude_enrichment_runner.py --start-index 100 --end-index 200
+# etc.
+```
+
+**Cost estimate (claude-sonnet-4-20250514 at $3/$15 per MTok):**
+- ~2500 films × ~3000 input tokens = ~7.5M input tokens → ~$22.50
+- ~2500 films × ~800 output tokens = ~2.0M output tokens → ~$30.00
+- **Total: ~$50-55** (real-time standard API)
+
+**With Anthropic Batch API (50% discount, 24h turnaround):** ~$25-28. Requires a separate batch submission script (not yet built — would need to create `scripts/claude_batch_enrichment.py`).
+
+**With prompt caching:** The system prompt (~2000 tokens) is identical for every request. With caching, input cost drops by ~90% for the cached portion. Combined with batching: potentially ~$20-25 total.
+
+**Resume:** Saves checkpoint every 10 films. Already-enriched films (by tmdb_id) are skipped on re-run.
+
+**Output:** `scripts/data/enriched_films.json` (all enriched) + `scripts/data/enrichment_review.json` (low-confidence or errored).
+
+**After completion:** Review `enrichment_review.json` for films with low confidence scores or errors. These can be re-enriched with `--review-only`.
+
+### Stage 4: Insert into database
+
+```bash
+# Dry run first (validates data, no DB changes)
+python scripts/db_inserter.py --dry-run
+
+# Actual insertion
+python scripts/db_inserter.py --batch-size 20
+```
+
+**What it does:** For each enriched film, inserts the film + all junction tables (cast, crew, studios, titles, taxonomy tags, awards, streaming, geography, source). Each film is one transaction.
+
+**Duplicate detection:** Yes — checks `tmdb_id` against existing films in the DB. Already-present films are **skipped** (not overwritten). The 4+ films you've already added manually will not be duplicated.
+
+**Cost:** Free, local DB. ~2500 inserts takes a few minutes.
+
+**Output:** Summary with inserted/skipped/error counts.
+
+### Post-Ingestion Maintenance
+
+After the 4 stages complete:
+
+```bash
+# Backfill person details (gender, birth/death, nationality)
+python scripts/backfill_person_details.py
+
+# Backfill TMDB collection IDs + auto-link sequels
+python scripts/backfill_collection_ids.py
+
+# Refresh streaming platform data
+python scripts/refresh_streaming.py
+
+# Verify database integrity
+python scripts/verify_db.py
+```
+
+### Monitoring Progress
+
+Each script prints progress bars (via tqdm) and saves checkpoints. You can monitor:
+- **Stage 2:** Watch `resolved_films.json` grow, check `unresolved_films.json` for problem titles
+- **Stage 3:** Watch `enriched_films.json` grow, check console for cost estimates
+- **Stage 4:** Console shows inserted/skipped/error per batch
+
+All intermediate JSON files are preserved — you can inspect, fix, and re-run any stage without losing previous work.

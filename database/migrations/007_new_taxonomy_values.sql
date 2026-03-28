@@ -2,10 +2,6 @@
 
 -- Character archetypes
 INSERT INTO character_context (context_name) VALUES
-    ('ordinary'),
-    ('poor/marginal'),
-    ('wealthy'),
-    ('star/celebrity'),
-    ('genius')
+    ('vehicle')
 ON CONFLICT (context_name) DO NOTHING;
 

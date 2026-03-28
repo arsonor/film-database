@@ -212,6 +212,9 @@ class DBInserter:
                     # 20. Insert streaming platforms
                     await self._insert_streaming(session, film_id, film_data.get("streaming_platforms", []))
 
+                    # 21. Auto-link franchise sequels via tmdb_collection_id
+                    await self._link_collection_siblings(session, film_id, film)
+
                     self.stats["inserted"] += 1
                     logger.info("Inserted: %s (film_id=%d)", title, film_id)
                     return True
@@ -255,7 +258,8 @@ class DBInserter:
                         backdrop_url = :backdrop_url,
                         imdb_id = :imdb_id,
                         budget = :budget,
-                        revenue = :revenue
+                        revenue = :revenue,
+                        tmdb_collection_id = :tmdb_collection_id
                     WHERE tmdb_id = :tmdb_id
                 """),
                 {
@@ -269,6 +273,7 @@ class DBInserter:
                     "imdb_id": film.get("imdb_id"),
                     "budget": film.get("budget"),
                     "revenue": film.get("revenue"),
+                    "tmdb_collection_id": film.get("tmdb_collection_id"),
                     "tmdb_id": film["tmdb_id"],
                 },
             )
@@ -282,10 +287,12 @@ class DBInserter:
             text("""
                 INSERT INTO film (
                     original_title, duration, color, first_release_date, summary,
-                    poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue
+                    poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue,
+                    tmdb_collection_id
                 ) VALUES (
                     :original_title, :duration, :color, :first_release_date, :summary,
-                    :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue
+                    :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue,
+                    :tmdb_collection_id
                 ) RETURNING film_id
             """),
             {
@@ -300,6 +307,7 @@ class DBInserter:
                 "tmdb_id": film["tmdb_id"],
                 "budget": film.get("budget"),
                 "revenue": film.get("revenue"),
+                "tmdb_collection_id": film.get("tmdb_collection_id"),
             },
         )
         return result.scalar_one()
@@ -318,6 +326,11 @@ class DBInserter:
                 text(f"DELETE FROM {table} WHERE film_id = :film_id"),
                 {"film_id": film_id},
             )
+        # film_sequel references film_id in both columns
+        await session.execute(
+            text("DELETE FROM film_sequel WHERE film_id = :fid OR related_film_id = :fid"),
+            {"fid": film_id},
+        )
 
     # -------------------------------------------------------------------------
     # Person find-or-create
@@ -340,12 +353,13 @@ class DBInserter:
         # Insert new person
         result = await session.execute(
             text("""
-                INSERT INTO person (firstname, lastname, tmdb_id, photo_url)
-                VALUES (:firstname, :lastname, :tmdb_id, :photo_url)
+                INSERT INTO person (firstname, lastname, tmdb_id, photo_url, gender)
+                VALUES (:firstname, :lastname, :tmdb_id, :photo_url, :gender)
                 ON CONFLICT (tmdb_id) DO UPDATE SET
                     firstname = EXCLUDED.firstname,
                     lastname = EXCLUDED.lastname,
-                    photo_url = COALESCE(EXCLUDED.photo_url, person.photo_url)
+                    photo_url = COALESCE(EXCLUDED.photo_url, person.photo_url),
+                    gender = COALESCE(EXCLUDED.gender, person.gender)
                 RETURNING person_id
             """),
             {
@@ -353,6 +367,7 @@ class DBInserter:
                 "lastname": person.get("lastname", ""),
                 "tmdb_id": tmdb_id,
                 "photo_url": person.get("photo_url"),
+                "gender": person.get("gender"),
             },
         )
         return result.scalar_one()
@@ -759,6 +774,38 @@ class DBInserter:
                 """),
                 {"film_id": film_id, "platform_id": platform_id},
             )
+
+    # -------------------------------------------------------------------------
+    # Franchise sequel auto-linking
+    # -------------------------------------------------------------------------
+
+    async def _link_collection_siblings(
+        self, session: AsyncSession, film_id: int, film: dict
+    ):
+        """Auto-link films in the same TMDB collection via film_sequel."""
+        collection_id = film.get("tmdb_collection_id")
+        if not collection_id:
+            return
+
+        result = await session.execute(
+            text("SELECT film_id FROM film WHERE tmdb_collection_id = :cid AND film_id != :fid"),
+            {"cid": collection_id, "fid": film_id},
+        )
+        sibling_ids = [row[0] for row in result.fetchall()]
+
+        for sibling_id in sibling_ids:
+            await session.execute(
+                text("""
+                    INSERT INTO film_sequel (film_id, related_film_id, relation_type)
+                    VALUES (:fid, :rid, 'sequel')
+                    ON CONFLICT DO NOTHING
+                """),
+                {"fid": min(sibling_id, film_id), "rid": max(sibling_id, film_id)},
+            )
+
+        if sibling_ids:
+            logger.info("Linked %d franchise siblings for film_id=%d (collection=%d)",
+                        len(sibling_ids), film_id, collection_id)
 
     # -------------------------------------------------------------------------
     # Dry-run validation

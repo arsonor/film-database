@@ -90,7 +90,7 @@ VALID_CHARACTER_CONTEXTS = [
     "prostitute", "freak/disabled", "monster/terrestrial creature",
     "ghost/spirit", "evil", "witch", "vampire", "zombie", "android", "alien",
     # Extended archetypes
-    "unreliable narrator", "antihero", "femme fatale", "star/celebrity",
+    "unreliable narrator", "antihero", "femme fatale", "star/celebrity", "vehicle",
 ]
 
 VALID_ATMOSPHERES = [
@@ -219,7 +219,7 @@ REFERENCE_EXAMPLES = {
             "place_environment": ["urban", "building"],
             "themes": [
                 "social", "societal", "political", "delinquency",
-                "tragedy", "death", "police_violence", "immigration", "trauma/accident",
+                "tragedy", "death", "police violence", "immigration", "trauma/accident",
             ],
             "characters_type": ["trio", "buddies"],
             "character_context": ["interracial", "poor/marginal", "teenager", "cop"],

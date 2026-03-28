@@ -39,7 +39,7 @@ REGION_HEADERS = {
 
 def is_year_header(text: str) -> int | None:
     """
-    Check if text is a year header like '1968:' or '1968 :'.
+    Check if text is a standalone year header like '1968:' or '1968 :' or '1968'.
     Returns the year as int, or None.
     """
     match = re.match(r"^\s*(\d{4})\s*:?\s*$", text.strip())
@@ -48,6 +48,22 @@ def is_year_header(text: str) -> int | None:
         if 1880 <= year <= 2030:
             return year
     return None
+
+
+def parse_year_with_films(text: str) -> tuple[int | None, str]:
+    """
+    Check if text starts with a year followed by films, e.g. '1918: A dog's life, Le Kid'.
+    Returns (year, rest_of_line) or (None, '') if not matched.
+    """
+    match = re.match(r"^\s*(\d{4})\s*:\s*(.+)$", text.strip())
+    if match:
+        year = int(match.group(1))
+        rest = match.group(2).strip()
+        if 1880 <= year <= 2030 and rest:
+            # Make sure rest isn't just a region header
+            if is_region_header(rest + ":") is None:
+                return year, rest
+    return None, ""
 
 
 def is_region_header(text: str) -> str | None:
@@ -167,38 +183,49 @@ def parse_docx(filepath: str | Path) -> list[dict]:
         if not text:
             continue
 
-        # Check for year header (bold text like "1968:" or standalone year)
+        # 1) Standalone year header: "1968:" or "1968"
         year = is_year_header(text)
         if year is not None:
             current_year = year
-            current_region = "general"  # reset region for new year
+            current_region = "general"
             continue
 
-        # Check for region header (bold text like "Francophone:")
-        if is_bold:
-            region = is_region_header(text)
-            if region:
-                current_region = region
-                continue
-            # Could be a year header embedded with region info
-            # e.g., "1968: Anglo-saxon:" — try to parse
-            year_match = re.match(r"^(\d{4})\s*:\s*(.+)$", text)
-            if year_match:
-                yr = int(year_match.group(1))
-                if 1880 <= yr <= 2030:
-                    current_year = yr
-                    rest = year_match.group(2).strip().rstrip(":").strip()
-                    region = is_region_header(rest + ":")
-                    current_region = region if region else "general"
-                    continue
-
-        # Also check for inline region headers (non-bold but matches pattern)
+        # 2) Check for region header (bold or not): "Francophone:" etc.
         region = is_region_header(text)
         if region:
             current_region = region
             continue
 
-        # If no current year, skip
+        # 3) Year + region on same line: "1968: Anglo-saxon:"
+        #    or year + films on same line: "1918: A dog's life, Le Kid"
+        year_match = re.match(r"^(\d{4})\s*:\s*(.+)$", text.strip())
+        if year_match:
+            yr = int(year_match.group(1))
+            if 1880 <= yr <= 2030:
+                rest = year_match.group(2).strip()
+                current_year = yr
+                # Check if the rest is a region header
+                rest_region = is_region_header(rest.rstrip(":") + ":")
+                if rest_region:
+                    current_region = rest_region
+                    continue
+                # Otherwise the rest contains film titles — fall through to process them
+                text = rest
+
+        # 4) Region prefix + films on same line: "Francophone: Les Valseuses"
+        region_prefix_match = re.match(
+            r"^(francophone|anglo-saxons?|asiat(?:ique)?|autres|animation|docu(?:mentaire)?|franchise)\s*:\s*(.+)$",
+            text.strip(),
+            re.IGNORECASE,
+        )
+        if region_prefix_match:
+            prefix = region_prefix_match.group(1).strip().lower()
+            region = REGION_HEADERS.get(prefix)
+            if region:
+                current_region = region
+            text = region_prefix_match.group(2).strip()
+
+        # If no current year yet, skip
         if current_year is None:
             unparsed.append(text)
             continue
@@ -212,8 +239,13 @@ def parse_docx(filepath: str | Path) -> list[dict]:
 
             clean_title, original_title_hint, notes = extract_notes(raw_title)
 
-            # Skip if it looks like a section header we missed
+            # Skip if it looks like a year header we missed
             if is_year_header(clean_title) is not None:
+                continue
+
+            # Skip if it looks like a region header embedded in titles
+            if is_region_header(clean_title + ":") is not None:
+                current_region = is_region_header(clean_title + ":")
                 continue
 
             films.append({

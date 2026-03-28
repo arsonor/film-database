@@ -307,8 +307,9 @@ INSERT INTO character_context (context_name) VALUES
     -- Extended archetypes
     ('unreliable narrator'),
     ('antihero'),
-    ('femme fatale')
-    ('star/celebrity')
+    ('femme fatale'),
+    ('star/celebrity'),
+    ('vehicle')
 ON CONFLICT (context_name) DO NOTHING;
 
 -- =============================================================================
