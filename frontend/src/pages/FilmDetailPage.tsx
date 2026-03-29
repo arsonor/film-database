@@ -20,6 +20,7 @@ import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
 import { EditableFinancials } from "@/components/films/EditableFinancials";
 import { EditableTagSection } from "@/components/films/EditableTagSection";
+import { RelatedFilmsSection } from "@/components/films/RelatedFilmsSection";
 import { SimilarFilmsCarousel } from "@/components/films/SimilarFilmsCarousel";
 import { SectionHeading } from "@/components/films/SectionHeading";
 import type { CrewMember } from "@/types/api";
@@ -521,26 +522,11 @@ export function FilmDetailPage() {
         )}
 
         {/* Related Films */}
-        {film.sequels.length > 0 && (
-          <section>
-            <SectionHeading title="Related Films" />
-            <div className="flex flex-wrap gap-2">
-              {film.sequels.map((rel) => (
-                <Link
-                  key={rel.related_film_id}
-                  to={`/films/${rel.related_film_id}`}
-                  className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary"
-                >
-                  <Film className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-                  <span className="text-sm text-foreground">{rel.related_film_title}</span>
-                  <Badge variant="outline" className="text-[10px]">
-                    {rel.relation_type}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+        <RelatedFilmsSection
+          filmId={film.film_id}
+          sequels={film.sequels}
+          onSaved={refetch}
+        />
 
         <Separator />
 

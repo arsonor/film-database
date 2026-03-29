@@ -73,8 +73,6 @@ export function EditableTagSection({
     setShowDropdown(false);
   }, []);
 
-  if (currentValues.length === 0 && !editing) return null;
-
   return (
     <div>
       <SectionHeading
@@ -85,13 +83,17 @@ export function EditableTagSection({
 
       {!editing ? (
         // View mode
-        <div className="flex flex-wrap gap-1.5">
-          {currentValues.map((val) => (
-            <Badge key={val} variant="secondary" className="text-xs">
-              {val}
-            </Badge>
-          ))}
-        </div>
+        currentValues.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {currentValues.map((val) => (
+              <Badge key={val} variant="secondary" className="text-xs">
+                {val}
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs italic text-muted-foreground">No tags yet</p>
+        )
       ) : (
         // Edit mode
         <div className="space-y-2">

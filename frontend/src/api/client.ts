@@ -133,6 +133,35 @@ export async function enrichFilm(tmdbId: number): Promise<EnrichmentPreview> {
   return res.json();
 }
 
+export async function searchLocalFilms(
+  q: string,
+): Promise<{ film_id: number; original_title: string; year: number | null }[]> {
+  const res = await fetch(`${BASE}/films/search-local?q=${encodeURIComponent(q)}`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function addFilmRelation(
+  filmId: number,
+  relatedFilmId: number,
+  relationType: string,
+): Promise<void> {
+  await fetch(`${BASE}/films/${filmId}/relations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ related_film_id: relatedFilmId, relation_type: relationType }),
+  });
+}
+
+export async function deleteFilmRelation(
+  filmId: number,
+  relatedFilmId: number,
+): Promise<void> {
+  await fetch(`${BASE}/films/${filmId}/relations/${relatedFilmId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function saveFilm(
   data: EnrichmentPreview,
 ): Promise<{ film_id: number }> {

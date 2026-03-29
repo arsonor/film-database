@@ -383,6 +383,34 @@ async def list_films(
 
 
 # =============================================================================
+# GET /api/films/search-local — Lightweight title autocomplete (local DB)
+# =============================================================================
+
+
+@router.get("/films/search-local")
+async def search_local_films(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = await db.execute(
+        text("""
+            SELECT film_id, original_title,
+                   EXTRACT(YEAR FROM first_release_date)::int AS year
+            FROM film
+            WHERE LOWER(original_title) LIKE :pattern
+            ORDER BY first_release_date DESC NULLS LAST
+            LIMIT :lim
+        """),
+        {"pattern": f"%{q.lower()}%", "lim": limit},
+    )
+    return [
+        {"film_id": r[0], "original_title": r[1], "year": r[2]}
+        for r in rows.fetchall()
+    ]
+
+
+# =============================================================================
 # GET /api/films/{film_id} — Full detail
 # =============================================================================
 
@@ -1130,6 +1158,67 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
 
     await db.commit()
     return {"film_id": film_id, "message": "Film updated successfully"}
+
+
+# =============================================================================
+# POST /api/films/{film_id}/relations — Add a film_sequel relation
+# =============================================================================
+
+
+@router.post("/films/{film_id}/relations", status_code=201)
+async def add_film_relation(
+    film_id: int,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    related_film_id = body.get("related_film_id")
+    relation_type = body.get("relation_type")
+
+    if not related_film_id or not relation_type:
+        raise HTTPException(status_code=400, detail="related_film_id and relation_type required")
+    if relation_type not in ("sequel", "prequel", "remake", "spinoff", "reboot"):
+        raise HTTPException(status_code=400, detail="Invalid relation_type")
+    if related_film_id == film_id:
+        raise HTTPException(status_code=400, detail="Cannot relate a film to itself")
+
+    # Canonical ordering: smaller id first
+    fid = min(film_id, related_film_id)
+    rid = max(film_id, related_film_id)
+
+    await db.execute(
+        text("""
+            INSERT INTO film_sequel (film_id, related_film_id, relation_type)
+            VALUES (:fid, :rid, :rtype)
+            ON CONFLICT (film_id, related_film_id) DO UPDATE SET relation_type = :rtype
+        """),
+        {"fid": fid, "rid": rid, "rtype": relation_type},
+    )
+    await db.commit()
+    return {"message": "Relation added"}
+
+
+# =============================================================================
+# DELETE /api/films/{film_id}/relations/{related_film_id} — Remove a relation
+# =============================================================================
+
+
+@router.delete("/films/{film_id}/relations/{related_film_id}", status_code=200)
+async def delete_film_relation(
+    film_id: int,
+    related_film_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    # Delete both orderings (the canonical one will match)
+    await db.execute(
+        text("""
+            DELETE FROM film_sequel
+            WHERE (film_id = :a AND related_film_id = :b)
+               OR (film_id = :b AND related_film_id = :a)
+        """),
+        {"a": film_id, "b": related_film_id},
+    )
+    await db.commit()
+    return {"message": "Relation removed"}
 
 
 # =============================================================================
