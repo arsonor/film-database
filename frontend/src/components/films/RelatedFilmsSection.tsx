@@ -17,6 +17,7 @@ import {
   deleteFilmRelation,
   searchLocalFilms,
 } from "@/api/client";
+import { tmdbImageUrl } from "@/lib/utils";
 import type { FilmRelation } from "@/types/api";
 
 const RELATION_TYPES = ["sequel", "prequel", "remake", "spinoff", "reboot"] as const;
@@ -88,34 +89,47 @@ export function RelatedFilmsSection({
       />
 
       {sequels.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {sequels.map((rel) => (
-            <div
-              key={rel.related_film_id}
-              className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:border-primary"
-            >
-              <Link
-                to={`/films/${rel.related_film_id}`}
-                className="flex items-center gap-2"
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          {sequels.map((rel) => {
+            const poster = tmdbImageUrl(rel.poster_url, "w154");
+            return (
+              <div
+                key={rel.related_film_id}
+                className="group relative shrink-0"
               >
-                <Film className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-                <span className="text-sm text-foreground">
-                  {rel.related_film_title}
-                </span>
-                <Badge variant="outline" className="text-[10px]">
-                  {rel.relation_type}
-                </Badge>
-              </Link>
-              {editing && (
-                <button
-                  onClick={() => handleRemove(rel.related_film_id)}
-                  className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/20 hover:text-destructive"
+                <Link
+                  to={`/films/${rel.related_film_id}`}
+                  className="flex flex-col items-center"
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
+                  {poster ? (
+                    <img
+                      src={poster}
+                      alt={rel.related_film_title}
+                      className="h-28 w-[76px] rounded-md object-cover shadow transition-shadow group-hover:shadow-lg"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-[76px] items-center justify-center rounded-md bg-card shadow">
+                      <Film className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <span className="mt-1.5 max-w-[80px] truncate text-center text-[11px] text-foreground group-hover:text-primary">
+                    {rel.related_film_title}
+                  </span>
+                  <Badge variant="outline" className="mt-0.5 text-[9px]">
+                    {rel.relation_type}
+                  </Badge>
+                </Link>
+                {editing && (
+                  <button
+                    onClick={() => handleRemove(rel.related_film_id)}
+                    className="absolute -right-1 -top-1 rounded-full bg-background p-0.5 shadow hover:bg-destructive/20 hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         !editing && (

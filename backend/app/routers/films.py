@@ -626,20 +626,24 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
     # Sequels / related films
     seq_rows = await db.execute(
         text("""
-            SELECT fs.related_film_id, f2.original_title, fs.relation_type
-            FROM film_sequel fs
-            JOIN film f2 ON fs.related_film_id = f2.film_id
-            WHERE fs.film_id = :fid
-            UNION
-            SELECT fs.film_id, f2.original_title, fs.relation_type
-            FROM film_sequel fs
-            JOIN film f2 ON fs.film_id = f2.film_id
-            WHERE fs.related_film_id = :fid
+            SELECT related_id, original_title, relation_type, poster_url
+            FROM (
+                SELECT fs.related_film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date
+                FROM film_sequel fs
+                JOIN film f2 ON fs.related_film_id = f2.film_id
+                WHERE fs.film_id = :fid
+                UNION
+                SELECT fs.film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date
+                FROM film_sequel fs
+                JOIN film f2 ON fs.film_id = f2.film_id
+                WHERE fs.related_film_id = :fid
+            ) sub
+            ORDER BY first_release_date ASC NULLS LAST
         """),
         {"fid": film_id},
     )
     sequels = [
-        FilmRelation(related_film_id=r[0], related_film_title=r[1], relation_type=r[2])
+        FilmRelation(related_film_id=r[0], related_film_title=r[1], relation_type=r[2], poster_url=r[3])
         for r in seq_rows.fetchall()
     ]
 

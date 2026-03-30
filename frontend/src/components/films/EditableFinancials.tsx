@@ -1,10 +1,8 @@
 import { useCallback, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SectionHeading } from "./SectionHeading";
 import { updateFilm } from "@/api/client";
-import { formatCurrency } from "@/lib/utils";
 
 interface EditableFinancialsProps {
   filmId: number;
@@ -50,70 +48,59 @@ export function EditableFinancials({
     setEditing(false);
   }, []);
 
-  return (
-    <div>
-      <SectionHeading
-        title="Financials"
-        onEdit={startEdit}
-        editing={editing}
-      />
+  if (!editing) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-5 w-5 text-muted-foreground hover:text-primary"
+        onClick={startEdit}
+        title="Edit financials"
+      >
+        <Pencil className="h-3 w-3" />
+      </Button>
+    );
+  }
 
-      {!editing ? (
-        <div className="space-y-1 text-sm">
-          <p>
-            <span className="text-muted-foreground">Budget: </span>
-            <span className="text-foreground">{formatCurrency(budget)}</span>
-          </p>
-          <p>
-            <span className="text-muted-foreground">Revenue: </span>
-            <span className="text-foreground">{formatCurrency(revenue)}</span>
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Budget (USD)</label>
-            <Input
-              type="number"
-              value={editBudget}
-              onChange={(e) => setEditBudget(e.target.value)}
-              placeholder="e.g. 160000000"
-              className="h-8"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Revenue (USD)</label>
-            <Input
-              type="number"
-              value={editRevenue}
-              onChange={(e) => setEditRevenue(e.target.value)}
-              placeholder="e.g. 830000000"
-              className="h-8"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              className="h-7 gap-1 px-2 text-xs"
-            >
-              <Check className="h-3 w-3" />
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={saving}
-              className="h-7 gap-1 px-2 text-xs"
-            >
-              <X className="h-3 w-3" />
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div>
+        <label className="text-[10px] text-muted-foreground">Budget (USD)</label>
+        <Input
+          type="number"
+          value={editBudget}
+          onChange={(e) => setEditBudget(e.target.value)}
+          placeholder="160000000"
+          className="h-7 w-36 text-xs"
+        />
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground">Revenue (USD)</label>
+        <Input
+          type="number"
+          value={editRevenue}
+          onChange={(e) => setEditRevenue(e.target.value)}
+          placeholder="830000000"
+          className="h-7 w-36 text-xs"
+        />
+      </div>
+      <Button
+        size="icon"
+        onClick={handleSave}
+        disabled={saving}
+        className="h-7 w-7"
+      >
+        <Check className="h-3 w-3" />
+      </Button>
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={handleCancel}
+        disabled={saving}
+        className="h-7 w-7"
+      >
+        <X className="h-3 w-3" />
+      </Button>
     </div>
   );
 }

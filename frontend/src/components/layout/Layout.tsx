@@ -42,6 +42,7 @@ export function Layout({
   children,
 }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languages, setLanguages] = useState<TaxonomyItem[]>([]);
 
   // Fetch languages once
@@ -66,11 +67,17 @@ export function Layout({
         onSearchChange={onSearchChange}
         onSortChange={onSortChange}
         onOpenMobileFilters={() => setMobileOpen(true)}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
       />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop sidebar */}
-        <aside className="hidden w-72 shrink-0 border-r border-border bg-sidebar-background lg:block">
+        <aside
+          className={`hidden shrink-0 border-r border-border bg-sidebar-background transition-[width] duration-300 lg:block ${
+            sidebarCollapsed ? "w-0 overflow-hidden border-r-0" : "w-72"
+          }`}
+        >
           <SidebarContent {...sidebarProps} />
         </aside>
 

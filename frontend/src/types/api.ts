@@ -80,6 +80,7 @@ export interface FilmRelation {
   related_film_id: number;
   related_film_title: string;
   relation_type: string;
+  poster_url: string | null;
 }
 
 export interface FilmDetail {

@@ -5,8 +5,11 @@ import {
   ArrowUpAZ,
   Film,
   Filter,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
+  Tags,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +32,8 @@ interface HeaderProps {
     sortOrder: FilterState["sort_order"],
   ) => void;
   onOpenMobileFilters: () => void;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export function Header({
@@ -37,6 +42,8 @@ export function Header({
   onSearchChange,
   onSortChange,
   onOpenMobileFilters,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: HeaderProps) {
   const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState(filters.q);
@@ -64,7 +71,7 @@ export function Header({
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-6">
-      {/* Left: Title + mobile filter button */}
+      {/* Left: Title + sidebar toggle */}
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -74,6 +81,21 @@ export function Header({
         >
           <Filter className="h-5 w-5" />
         </Button>
+        {onToggleSidebar && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden lg:inline-flex"
+            onClick={onToggleSidebar}
+            title={sidebarCollapsed ? "Show filters" : "Hide filters"}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
+          </Button>
+        )}
         <div className="flex items-center gap-2">
           <Film className="h-5 w-5 text-primary" />
           <h1 className="hidden text-lg font-semibold sm:block">Film Database</h1>
@@ -114,6 +136,15 @@ export function Header({
         >
           <Plus className="h-4 w-4" />
           <span className="hidden lg:inline">Add Film</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => navigate("/admin/taxonomy")}
+          title="Manage Taxonomy"
+        >
+          <Tags className="h-4 w-4" />
         </Button>
         <Select
           value={filters.sort_by}

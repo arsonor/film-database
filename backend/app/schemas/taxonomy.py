@@ -15,3 +15,18 @@ class TaxonomyItem(BaseModel):
 class TaxonomyList(BaseModel):
     dimension: str
     items: list[TaxonomyItem]
+
+
+class TaxonomyCreate(BaseModel):
+    name: str
+    sort_order: int | None = None
+
+
+class TaxonomyRename(BaseModel):
+    name: str
+    sort_order: int | None = None
+
+
+class TaxonomyMerge(BaseModel):
+    source_id: int
+    target_id: int

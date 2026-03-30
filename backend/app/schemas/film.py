@@ -60,6 +60,7 @@ class FilmRelation(BaseModel):
     related_film_id: int
     related_film_title: str
     relation_type: str
+    poster_url: str | None = None
 
 
 # =============================================================================

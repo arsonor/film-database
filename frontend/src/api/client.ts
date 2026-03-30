@@ -6,6 +6,7 @@ import type {
   PaginatedFilms,
   StatsResponse,
   TMDBSearchResult,
+  TaxonomyItem,
   TaxonomyList,
 } from "@/types/api";
 import { ARRAY_FILTER_KEYS } from "@/types/api";
@@ -71,6 +72,71 @@ export async function fetchFilms(filters: FilterState): Promise<PaginatedFilms> 
 
 export async function fetchTaxonomy(dimension: string): Promise<TaxonomyList> {
   return fetchJson<TaxonomyList>(`${BASE}/taxonomy/${dimension}`);
+}
+
+export async function addTaxonomyValue(
+  dimension: string,
+  name: string,
+  sortOrder?: number,
+): Promise<TaxonomyItem> {
+  const res = await fetch(`${BASE}/taxonomy/${dimension}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, sort_order: sortOrder }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function renameTaxonomyValue(
+  dimension: string,
+  itemId: number,
+  name: string,
+  sortOrder?: number,
+): Promise<TaxonomyItem> {
+  const res = await fetch(`${BASE}/taxonomy/${dimension}/${itemId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, sort_order: sortOrder }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function mergeTaxonomyValues(
+  dimension: string,
+  sourceId: number,
+  targetId: number,
+): Promise<{ merged: boolean; films_affected: number }> {
+  const res = await fetch(`${BASE}/taxonomy/${dimension}/merge`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_id: sourceId, target_id: targetId }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function deleteTaxonomyValue(
+  dimension: string,
+  itemId: number,
+  force = false,
+): Promise<void> {
+  const url = `${BASE}/taxonomy/${dimension}/${itemId}${force ? "?force=true" : ""}`;
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail);
+  }
 }
 
 export async function fetchStats(): Promise<StatsResponse> {

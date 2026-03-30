@@ -256,6 +256,38 @@ export function FilmDetailPage() {
                   year={film.first_release_date}
                 />
               </div>
+
+              {/* Production info — compact, in hero area */}
+              <div className="space-y-1 text-sm text-muted-foreground">
+                {film.studios.length > 0 && (
+                  <div>{film.studios.join(" · ")}</div>
+                )}
+                {film.sources.length > 0 &&
+                  film.sources.map((src, i) => (
+                    <div key={i}>
+                      {src.source_type}
+                      {src.source_title && `: ${src.source_title}`}
+                      {src.author && ` by ${src.author}`}
+                    </div>
+                  ))}
+                <div className="flex items-center gap-2">
+                  {film.budget != null && film.budget > 0 && (
+                    <span>Budget: {formatCurrency(film.budget)}</span>
+                  )}
+                  {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && (
+                    <span className="text-border">|</span>
+                  )}
+                  {film.revenue != null && film.revenue > 0 && (
+                    <span>Revenue: {formatCurrency(film.revenue)}</span>
+                  )}
+                  <EditableFinancials
+                    filmId={film.film_id}
+                    budget={film.budget}
+                    revenue={film.revenue}
+                    onSaved={refetch}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -283,6 +315,13 @@ export function FilmDetailPage() {
             <p className="leading-relaxed text-muted-foreground">{film.summary}</p>
           </section>
         )}
+
+        {/* Related Films */}
+        <RelatedFilmsSection
+          filmId={film.film_id}
+          sequels={film.sequels}
+          onSaved={refetch}
+        />
 
         <Separator />
 
@@ -451,54 +490,6 @@ export function FilmDetailPage() {
 
         <Separator />
 
-        {/* Production */}
-        <section>
-          <SectionHeading title="Production" />
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Studios */}
-            {film.studios.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-muted-foreground">Studios</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {film.studios.map((s) => (
-                    <Badge key={s} variant="secondary" className="text-xs">
-                      {s}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Source */}
-            {film.sources.length > 0 && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium text-muted-foreground">Source</h3>
-                {film.sources.map((src, i) => (
-                  <p key={i} className="text-sm text-foreground">
-                    {src.source_type}
-                    {src.source_title && (
-                      <span className="text-muted-foreground">: {src.source_title}</span>
-                    )}
-                    {src.author && (
-                      <span className="text-muted-foreground"> by {src.author}</span>
-                    )}
-                  </p>
-                ))}
-              </div>
-            )}
-
-            {/* Budget & Revenue */}
-            <EditableFinancials
-              filmId={film.film_id}
-              budget={film.budget}
-              revenue={film.revenue}
-              onSaved={refetch}
-            />
-          </div>
-        </section>
-
-        <Separator />
-
         {/* Awards */}
         <section>
           <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={refetch} />
@@ -520,13 +511,6 @@ export function FilmDetailPage() {
             </div>
           </section>
         )}
-
-        {/* Related Films */}
-        <RelatedFilmsSection
-          filmId={film.film_id}
-          sequels={film.sequels}
-          onSaved={refetch}
-        />
 
         <Separator />
 
