@@ -20,6 +20,7 @@
 | 9 | Bulk ingestion (~2500 films) | ✅ DONE | Parse Films_list.docx, batch TMDB + Claude + DB insert |
 | 10 | UX: empty tags, year inputs, studio search, film relations | ✅ DONE | Editable related films with posters, collapsible sidebar |
 | 10.5 | Film detail layout + Taxonomy admin page | ✅ DONE | Production in hero, related films with posters, /admin/taxonomy CRUD, export script |
+| 10.6 | Delete film, seen toggle on grid, backfill optimization, README | ✅ DONE | DELETE endpoint + trash button, FilmCard vu toggle, filtered backfill script, README.md |
 
 ---
 
@@ -138,3 +139,10 @@
 - Preserves `REFERENCE_EXAMPLES` block from existing config
 - `--dry-run` flag for preview
 - Workflow: edit in UI → DB updates immediately → run export before committing
+
+## Step 10.6: Delete Film, Seen Toggle on Grid, Backfill Optimization, README ✅
+
+- **Delete film**: `DELETE /api/films/{film_id}` endpoint + trash icon on detail page with confirmation dialog, redirects to browse after deletion (CASCADE handles all related data)
+- **Seen/unseen toggle on browse grid**: FilmCard eye icon is now a clickable button with optimistic update; seen = green eye always visible, unseen = grey eye-off appears on hover
+- **Backfill optimization**: `backfill_person_details.py` now only processes directors, composers, and top-6 cast (instead of all persons); handles 429 rate limits with retry, 404 gracefully, commits in batches of 100
+- **README.md**: Project overview, features, tech stack, project structure, how-to-run guide with common commands, taxonomy dimensions table

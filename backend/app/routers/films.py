@@ -1023,6 +1023,29 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
 # =============================================================================
 # PUT /api/films/{film_id} — Update a film
 # =============================================================================
+# DELETE /api/films/{film_id} — Delete a film
+# =============================================================================
+
+
+@router.delete("/films/{film_id}", status_code=200)
+async def delete_film(film_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        text("SELECT film_id, original_title FROM film WHERE film_id = :fid"),
+        {"fid": film_id},
+    )
+    film = result.mappings().first()
+    if not film:
+        raise HTTPException(status_code=404, detail="Film not found")
+
+    await db.execute(text("DELETE FROM film WHERE film_id = :fid"), {"fid": film_id})
+    await db.commit()
+    logger.info("Deleted film #%d: %s", film_id, film["original_title"])
+    return {"message": f"Film '{film['original_title']}' deleted"}
+
+
+# =============================================================================
+# PUT /api/films/{film_id} — Update a film
+# =============================================================================
 
 
 @router.put("/films/{film_id}", response_model=dict)

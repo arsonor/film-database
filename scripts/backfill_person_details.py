@@ -1,8 +1,11 @@
 """
 Backfill person details (gender, birth/death dates, nationality) from TMDB.
 
-Fetches /person/{tmdb_id} for all persons that have a tmdb_id but are missing
-gender, date_of_birth, or nationality. Updates the DB with the retrieved data.
+Only processes persons who are:
+  - Directors or Composers (via crew table)
+  - Top 6 cast members (via casting table, cast_order <= 5)
+
+Skips all other persons to keep runtime manageable.
 
 Usage:
     python scripts/backfill_person_details.py              # full backfill
@@ -58,17 +61,32 @@ async def main():
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with session_factory() as db:
-        # Get persons missing details (have tmdb_id but missing gender OR birth date OR nationality)
+        # Get persons missing details, filtered to directors/composers/top-6 cast only
         result = await db.execute(text("""
-            SELECT person_id, firstname, lastname, tmdb_id, gender,
-                   date_of_birth, date_of_death, nationality
-            FROM person
-            WHERE tmdb_id IS NOT NULL
-              AND (gender IS NULL OR date_of_birth IS NULL OR nationality IS NULL)
-            ORDER BY person_id
+            SELECT DISTINCT p.person_id, p.firstname, p.lastname, p.tmdb_id,
+                   p.gender, p.date_of_birth, p.date_of_death, p.nationality
+            FROM person p
+            WHERE p.tmdb_id IS NOT NULL
+              AND (p.gender IS NULL OR p.date_of_birth IS NULL OR p.nationality IS NULL)
+              AND (
+                  -- Directors or Composers
+                  EXISTS (
+                      SELECT 1 FROM crew c
+                      JOIN person_job pj ON c.job_id = pj.job_id
+                      WHERE c.person_id = p.person_id
+                        AND pj.role_name IN ('Director', 'Composer')
+                  )
+                  -- Top 6 cast
+                  OR EXISTS (
+                      SELECT 1 FROM casting ca
+                      WHERE ca.person_id = p.person_id
+                        AND ca.cast_order <= 5
+                  )
+              )
+            ORDER BY p.person_id
         """))
         persons = result.fetchall()
-        print(f"Found {len(persons)} persons missing details\n")
+        print(f"Found {len(persons)} persons to backfill (directors, composers, top-6 cast)\n")
 
         if not persons:
             print("Nothing to backfill.")
@@ -78,15 +96,35 @@ async def main():
         updated = 0
         skipped = 0
         errors = 0
+        batch_count = 0
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             for person_id, firstname, lastname, tmdb_id, cur_gender, cur_dob, cur_dod, cur_nat in persons:
                 name = f"{firstname or ''} {lastname}".strip()
+                batch_count += 1
+
                 try:
                     resp = await client.get(
                         f"{TMDB_BASE}/person/{tmdb_id}",
                         params={"api_key": TMDB_API_KEY},
                     )
+
+                    # Handle rate limiting
+                    if resp.status_code == 429:
+                        retry_after = int(resp.headers.get("Retry-After", "5"))
+                        print(f"  [RATE]   Rate limited, waiting {retry_after}s...")
+                        await asyncio.sleep(retry_after)
+                        resp = await client.get(
+                            f"{TMDB_BASE}/person/{tmdb_id}",
+                            params={"api_key": TMDB_API_KEY},
+                        )
+
+                    if resp.status_code == 404:
+                        if args.verbose:
+                            print(f"  [SKIP]   {name} (tmdb={tmdb_id}) — not found on TMDB")
+                        skipped += 1
+                        continue
+
                     resp.raise_for_status()
                     data = resp.json()
 
@@ -127,12 +165,17 @@ async def main():
                             print(f"  [SKIP]   {name} — TMDB has no additional data")
                         skipped += 1
 
-                    # Rate limiting: 0.25s between requests
-                    await asyncio.sleep(0.25)
-
                 except Exception as e:
                     print(f"  [ERROR]  {name} (tmdb={tmdb_id}): {e}")
                     errors += 1
+
+                # Rate limiting: 0.25s between requests
+                await asyncio.sleep(0.25)
+
+                # Commit in batches of 100
+                if not args.dry_run and batch_count % 100 == 0:
+                    await db.commit()
+                    print(f"  ... committed batch ({batch_count}/{len(persons)})")
 
         if not args.dry_run:
             await db.commit()

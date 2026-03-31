@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   Film,
+  Trash2,
   Tv,
   Clock,
   Palette,
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFilmDetail } from "@/hooks/useFilmDetail";
-import { toggleVu } from "@/api/client";
+import { deleteFilm, toggleVu } from "@/api/client";
 import { PersonCard } from "@/components/films/PersonCard";
 import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
@@ -50,6 +51,17 @@ export function FilmDetailPage() {
       setFilm({ ...film, vu: film.vu });
     }
   }, [film, setFilm]);
+
+  const handleDelete = useCallback(async () => {
+    if (!film) return;
+    if (!window.confirm(`Delete "${film.original_title}" and all its data? This cannot be undone.`)) return;
+    try {
+      await deleteFilm(film.film_id);
+      navigate("/browse");
+    } catch {
+      // stay on page
+    }
+  }, [film, navigate]);
 
   if (loading) {
     return <LoadingSkeleton />;
@@ -255,6 +267,16 @@ export function FilmDetailPage() {
                   title={film.original_title}
                   year={film.first_release_date}
                 />
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={handleDelete}
+                  title="Delete film"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* Production info — compact, in hero area */}

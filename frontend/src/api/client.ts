@@ -154,6 +154,14 @@ export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
   return fetchJson<FilmDetail>(`${BASE}/films/${filmId}`);
 }
 
+export async function deleteFilm(filmId: number): Promise<void> {
+  const res = await fetch(`${BASE}/films/${filmId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || "Delete failed");
+  }
+}
+
 export async function updateFilm(filmId: number, data: Record<string, unknown>): Promise<void> {
   const res = await fetch(`${BASE}/films/${filmId}`, {
     method: "PUT",
