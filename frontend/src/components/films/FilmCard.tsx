@@ -8,9 +8,10 @@ import { formatYear } from "@/lib/utils";
 
 interface FilmCardProps {
   film: FilmListItem;
+  canToggleVu?: boolean;
 }
 
-export function FilmCard({ film }: FilmCardProps) {
+export function FilmCard({ film, canToggleVu }: FilmCardProps) {
   const [vu, setVu] = useState(film.vu);
 
   const handleToggle = useCallback(
@@ -48,17 +49,23 @@ export function FilmCard({ film }: FilmCardProps) {
           </div>
         )}
         {/* Seen toggle */}
-        <button
-          onClick={handleToggle}
-          className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
-            vu
-              ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
-              : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
-          }`}
-          title={vu ? "Mark as unseen" : "Mark as seen"}
-        >
-          {vu ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-        </button>
+        {canToggleVu ? (
+          <button
+            onClick={handleToggle}
+            className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
+              vu
+                ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
+                : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
+            }`}
+            title={vu ? "Mark as unseen" : "Mark as seen"}
+          >
+            {vu ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        ) : vu ? (
+          <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/90 text-white shadow-md">
+            <Eye className="h-3.5 w-3.5" />
+          </div>
+        ) : null}
       </div>
 
       {/* Info */}

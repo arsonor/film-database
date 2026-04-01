@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.auth import require_admin
 from backend.app.database import get_db
 from backend.app.schemas.film import (
     AwardOut,
@@ -690,7 +691,7 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/films/{film_id}/vu")
-async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db)):
+async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
     result = await db.execute(
         text("UPDATE film SET vu = :vu WHERE film_id = :fid RETURNING film_id"),
         {"fid": film_id, "vu": vu},
@@ -707,7 +708,7 @@ async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depe
 
 
 @router.post("/films", response_model=dict, status_code=201)
-async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db)):
+async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
     """
     Create a new film with all relations. Follows the same insertion pattern
     as scripts/db_inserter.py.
@@ -1028,7 +1029,7 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db))
 
 
 @router.delete("/films/{film_id}", status_code=200)
-async def delete_film(film_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_film(film_id: int, db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
     result = await db.execute(
         text("SELECT film_id, original_title FROM film WHERE film_id = :fid"),
         {"fid": film_id},
@@ -1049,7 +1050,7 @@ async def delete_film(film_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/films/{film_id}", response_model=dict)
-async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depends(get_db)):
+async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
     # Check film exists
     result = await db.execute(
         text("SELECT film_id FROM film WHERE film_id = :fid"),
@@ -1197,6 +1198,7 @@ async def add_film_relation(
     film_id: int,
     body: dict,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     related_film_id = body.get("related_film_id")
     relation_type = body.get("relation_type")
@@ -1234,6 +1236,7 @@ async def delete_film_relation(
     film_id: int,
     related_film_id: int,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     # Delete both orderings (the canonical one will match)
     await db.execute(

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
   Check,
@@ -37,6 +38,12 @@ const ENRICHMENT_MESSAGES = [
 
 export function AddFilmPage() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+
+  useEffect(() => {
+    if (!isAdmin) navigate("/browse", { replace: true });
+  }, [isAdmin, navigate]);
+
   const [step, setStep] = useState<WizardStep>("search");
 
   // Search state
@@ -47,7 +54,7 @@ export function AddFilmPage() {
   const [searchError, setSearchError] = useState<string | null>(null);
 
   // Enrichment state
-  const [enrichmentMsg, setEnrichmentMsg] = useState(ENRICHMENT_MESSAGES[0]);
+  const [enrichmentMsg, setEnrichmentMsg] = useState(ENRICHMENT_MESSAGES[0]!);
   const [preview, setPreview] = useState<EnrichmentPreview | null>(null);
   const [enrichError, setEnrichError] = useState<string | null>(null);
 
@@ -92,13 +99,13 @@ export function AddFilmPage() {
     async (tmdbId: number) => {
       setStep("enriching");
       setEnrichError(null);
-      setEnrichmentMsg(ENRICHMENT_MESSAGES[0]);
+      setEnrichmentMsg(ENRICHMENT_MESSAGES[0]!);
 
       // Rotate messages
       let msgIndex = 0;
       msgIntervalRef.current = setInterval(() => {
         msgIndex = Math.min(msgIndex + 1, ENRICHMENT_MESSAGES.length - 1);
-        setEnrichmentMsg(ENRICHMENT_MESSAGES[msgIndex]);
+        setEnrichmentMsg(ENRICHMENT_MESSAGES[msgIndex]!);
       }, 3000);
 
       try {
@@ -642,8 +649,8 @@ function ReviewScreen({
               {(enrichment.awards as Record<string, unknown>[]).map((a, i) => (
                 <div key={i} className="text-sm text-muted-foreground">
                   <span className="text-foreground">{a.festival_name as string}</span>
-                  {a.year && <span> ({a.year as number})</span>}
-                  {a.category && <span> — {a.category as string}</span>}
+                  {a.year ? <span> ({String(a.year)})</span> : null}
+                  {a.category ? <span> — {String(a.category)}</span> : null}
                   <span
                     className={`ml-2 text-xs font-medium ${
                       a.result === "won" ? "text-amber-400" : "text-muted-foreground"

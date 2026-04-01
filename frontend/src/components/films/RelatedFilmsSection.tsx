@@ -26,12 +26,14 @@ interface RelatedFilmsSectionProps {
   filmId: number;
   sequels: FilmRelation[];
   onSaved: () => void;
+  readOnly?: boolean;
 }
 
 export function RelatedFilmsSection({
   filmId,
   sequels,
   onSaved,
+  readOnly,
 }: RelatedFilmsSectionProps) {
   const [editing, setEditing] = useState(false);
   const [search, setSearch] = useState("");
@@ -84,7 +86,7 @@ export function RelatedFilmsSection({
     <section>
       <SectionHeading
         title="Related Films"
-        onEdit={() => setEditing(!editing)}
+        onEdit={readOnly ? undefined : () => setEditing(!editing)}
         editing={editing}
       />
 

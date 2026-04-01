@@ -6,6 +6,8 @@ import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+from backend.app.auth import require_admin
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +40,7 @@ async def search_tmdb(
     title: str = Query(..., min_length=1),
     year: int | None = None,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     if not TMDB_API_KEY:
         raise HTTPException(status_code=500, detail="TMDB_API_KEY not configured")
@@ -96,6 +99,7 @@ async def search_tmdb(
 async def enrich_film(
     request: EnrichRequest,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     tmdb_id = request.tmdb_id
 

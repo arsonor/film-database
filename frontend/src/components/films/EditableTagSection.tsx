@@ -12,6 +12,7 @@ interface EditableTagSectionProps {
   dimension: string;
   currentValues: string[];
   onSaved: () => void;
+  readOnly?: boolean;
 }
 
 export function EditableTagSection({
@@ -19,6 +20,7 @@ export function EditableTagSection({
   dimension,
   currentValues,
   onSaved,
+  readOnly,
 }: EditableTagSectionProps) {
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState<string[]>([]);
@@ -77,7 +79,7 @@ export function EditableTagSection({
     <div>
       <SectionHeading
         title={dimensionLabel(dimension)}
-        onEdit={() => setEditing(!editing)}
+        onEdit={readOnly ? undefined : () => setEditing(!editing)}
         editing={editing}
       />
 

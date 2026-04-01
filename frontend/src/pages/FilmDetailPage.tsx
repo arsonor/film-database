@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
   Eye,
@@ -37,6 +38,7 @@ export function FilmDetailPage() {
   const { id } = useParams<{ id: string }>();
   const filmId = Number(id);
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const { film, setFilm, loading, error, refetch } = useFilmDetail(filmId);
 
   const handleToggleVu = useCallback(async () => {
@@ -244,22 +246,28 @@ export function FilmDetailPage() {
 
               {/* Seen toggle + External links row */}
               <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant={film.vu ? "default" : "outline"}
-                  size="sm"
-                  className={`gap-1.5 ${film.vu ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-                  onClick={handleToggleVu}
-                >
-                  {film.vu ? (
-                    <>
-                      <Eye className="h-4 w-4" /> Seen
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="h-4 w-4" /> Unseen
-                    </>
-                  )}
-                </Button>
+                {isAdmin ? (
+                  <Button
+                    variant={film.vu ? "default" : "outline"}
+                    size="sm"
+                    className={`gap-1.5 ${film.vu ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+                    onClick={handleToggleVu}
+                  >
+                    {film.vu ? (
+                      <>
+                        <Eye className="h-4 w-4" /> Seen
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-4 w-4" /> Unseen
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Badge variant={film.vu ? "default" : "outline"} className={`gap-1.5 ${film.vu ? "bg-emerald-600" : ""}`}>
+                    {film.vu ? <><Eye className="h-3 w-3" /> Seen</> : <><EyeOff className="h-3 w-3" /> Unseen</>}
+                  </Badge>
+                )}
 
                 <ExternalLinks
                   tmdbId={film.tmdb_id}
@@ -268,15 +276,17 @@ export function FilmDetailPage() {
                   year={film.first_release_date}
                 />
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={handleDelete}
-                  title="Delete film"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {isAdmin && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    onClick={handleDelete}
+                    title="Delete film"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
 
               {/* Production info — compact, in hero area */}
@@ -302,12 +312,14 @@ export function FilmDetailPage() {
                   {film.revenue != null && film.revenue > 0 && (
                     <span>Revenue: {formatCurrency(film.revenue)}</span>
                   )}
-                  <EditableFinancials
-                    filmId={film.film_id}
-                    budget={film.budget}
-                    revenue={film.revenue}
-                    onSaved={refetch}
-                  />
+                  {isAdmin && (
+                    <EditableFinancials
+                      filmId={film.film_id}
+                      budget={film.budget}
+                      revenue={film.revenue}
+                      onSaved={refetch}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -343,6 +355,7 @@ export function FilmDetailPage() {
           filmId={film.film_id}
           sequels={film.sequels}
           onSaved={refetch}
+          readOnly={!isAdmin}
         />
 
         <Separator />
@@ -406,18 +419,21 @@ export function FilmDetailPage() {
               dimension="categories"
               currentValues={film.categories}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="cinema_types"
               currentValues={film.cinema_types}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="cultural_movements"
               currentValues={film.cultural_movements}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
           </div>
         </section>
@@ -431,36 +447,42 @@ export function FilmDetailPage() {
               dimension="themes"
               currentValues={film.themes}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="characters"
               currentValues={film.characters}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="character_contexts"
               currentValues={film.character_contexts}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="motivations"
               currentValues={film.motivations}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="atmospheres"
               currentValues={film.atmospheres}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="messages"
               currentValues={film.messages}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
           </div>
         </section>
@@ -477,6 +499,7 @@ export function FilmDetailPage() {
               dimension="time_periods"
               currentValues={film.time_periods}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
 
             {/* Place contexts */}
@@ -485,6 +508,7 @@ export function FilmDetailPage() {
               dimension="place_contexts"
               currentValues={film.place_contexts}
               onSaved={refetch}
+              readOnly={!isAdmin}
             />
 
             {/* Geography */}
@@ -514,7 +538,7 @@ export function FilmDetailPage() {
 
         {/* Awards */}
         <section>
-          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={refetch} />
+          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={refetch} readOnly={!isAdmin} />
         </section>
 
         <Separator />

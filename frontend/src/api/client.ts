@@ -11,7 +11,7 @@ import type {
 } from "@/types/api";
 import { ARRAY_FILTER_KEYS } from "@/types/api";
 
-const BASE = "/api";
+const BASE = import.meta.env.VITE_API_URL || "/api";
 
 class ApiError extends Error {
   constructor(
@@ -21,6 +21,14 @@ class ApiError extends Error {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem("admin_token");
+  if (token) {
+    return { Authorization: `Bearer ${token}` };
+  }
+  return {};
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -81,7 +89,7 @@ export async function addTaxonomyValue(
 ): Promise<TaxonomyItem> {
   const res = await fetch(`${BASE}/taxonomy/${dimension}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ name, sort_order: sortOrder }),
   });
   if (!res.ok) {
@@ -99,7 +107,7 @@ export async function renameTaxonomyValue(
 ): Promise<TaxonomyItem> {
   const res = await fetch(`${BASE}/taxonomy/${dimension}/${itemId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ name, sort_order: sortOrder }),
   });
   if (!res.ok) {
@@ -116,7 +124,7 @@ export async function mergeTaxonomyValues(
 ): Promise<{ merged: boolean; films_affected: number }> {
   const res = await fetch(`${BASE}/taxonomy/${dimension}/merge`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ source_id: sourceId, target_id: targetId }),
   });
   if (!res.ok) {
@@ -132,7 +140,7 @@ export async function deleteTaxonomyValue(
   force = false,
 ): Promise<void> {
   const url = `${BASE}/taxonomy/${dimension}/${itemId}${force ? "?force=true" : ""}`;
-  const res = await fetch(url, { method: "DELETE" });
+  const res = await fetch(url, { method: "DELETE", headers: { ...getAuthHeaders() } });
   if (!res.ok) {
     const detail = await res.text();
     throw new ApiError(res.status, detail);
@@ -155,7 +163,7 @@ export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
 }
 
 export async function deleteFilm(filmId: number): Promise<void> {
-  const res = await fetch(`${BASE}/films/${filmId}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/films/${filmId}`, { method: "DELETE", headers: { ...getAuthHeaders() } });
   if (!res.ok) {
     const detail = await res.text();
     throw new ApiError(res.status, detail || "Delete failed");
@@ -165,7 +173,7 @@ export async function deleteFilm(filmId: number): Promise<void> {
 export async function updateFilm(filmId: number, data: Record<string, unknown>): Promise<void> {
   const res = await fetch(`${BASE}/films/${filmId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new ApiError(res.status, `Update failed: ${res.statusText}`);
@@ -174,6 +182,7 @@ export async function updateFilm(filmId: number, data: Record<string, unknown>):
 export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
   const res = await fetch(`${BASE}/films/${filmId}/vu?vu=${vu}`, {
     method: "PATCH",
+    headers: { ...getAuthHeaders() },
   });
   if (!res.ok) throw new ApiError(res.status, `Toggle failed: ${res.statusText}`);
 }
@@ -188,16 +197,18 @@ export async function searchTMDB(
 ): Promise<TMDBSearchResult[]> {
   const params = new URLSearchParams({ title });
   if (year) params.set("year", String(year));
-  const data = await fetchJson<{ results: TMDBSearchResult[] }>(
-    `${BASE}/add-film/search?${params}`,
-  );
+  const res = await fetch(`${BASE}/add-film/search?${params}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new ApiError(res.status, `Search failed: ${res.statusText}`);
+  const data = await res.json();
   return data.results;
 }
 
 export async function enrichFilm(tmdbId: number): Promise<EnrichmentPreview> {
   const res = await fetch(`${BASE}/add-film/enrich`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ tmdb_id: tmdbId }),
   });
   if (!res.ok) {
@@ -222,7 +233,7 @@ export async function addFilmRelation(
 ): Promise<void> {
   await fetch(`${BASE}/films/${filmId}/relations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify({ related_film_id: relatedFilmId, relation_type: relationType }),
   });
 }
@@ -233,6 +244,7 @@ export async function deleteFilmRelation(
 ): Promise<void> {
   await fetch(`${BASE}/films/${filmId}/relations/${relatedFilmId}`, {
     method: "DELETE",
+    headers: { ...getAuthHeaders() },
   });
 }
 
@@ -241,7 +253,7 @@ export async function saveFilm(
 ): Promise<{ film_id: number }> {
   const res = await fetch(`${BASE}/films`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -249,4 +261,32 @@ export async function saveFilm(
     throw new ApiError(res.status, detail || `Save failed: ${res.statusText}`);
   }
   return res.json();
+}
+
+// =============================================================================
+// Auth
+// =============================================================================
+
+export async function checkAuth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/auth/check`, {
+      headers: { ...getAuthHeaders() },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function loginAdmin(password: string): Promise<string> {
+  const res = await fetch(`${BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    throw new ApiError(res.status, "Login failed");
+  }
+  const data = await res.json();
+  return data.token;
 }

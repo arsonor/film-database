@@ -2,6 +2,7 @@ import { Layout } from "@/components/layout/Layout";
 import { ActiveFilters } from "@/components/filters/ActiveFilters";
 import { FilmGrid } from "@/components/films/FilmGrid";
 import { Pagination } from "@/components/films/Pagination";
+import { useAuth } from "@/context/AuthContext";
 import { useFilterState } from "@/hooks/useFilterState";
 import { useFilms } from "@/hooks/useFilms";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -19,6 +20,7 @@ export function BrowsePage() {
     updateFilters,
   } = useFilterState();
 
+  const { isAdmin } = useAuth();
   const { films, loading, error } = useFilms(filters);
   const { taxonomies } = useTaxonomy();
 
@@ -40,7 +42,7 @@ export function BrowsePage() {
         onUpdateFilters={updateFilters}
       />
 
-      <FilmGrid films={films} loading={loading} error={error} />
+      <FilmGrid films={films} loading={loading} error={error} canToggleVu={isAdmin} />
 
       {films && films.total_pages > 1 && (
         <Pagination

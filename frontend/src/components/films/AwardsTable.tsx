@@ -10,6 +10,7 @@ interface AwardsTableProps {
   awards: AwardOut[];
   filmId: number;
   onSaved: () => void;
+  readOnly?: boolean;
 }
 
 interface EditableAward {
@@ -19,7 +20,7 @@ interface EditableAward {
   result: "won" | "nominated";
 }
 
-export function AwardsTable({ awards, filmId, onSaved }: AwardsTableProps) {
+export function AwardsTable({ awards, filmId, onSaved, readOnly }: AwardsTableProps) {
   const [editing, setEditing] = useState(false);
   const [editAwards, setEditAwards] = useState<EditableAward[]>([]);
   const [saving, setSaving] = useState(false);
@@ -80,7 +81,7 @@ export function AwardsTable({ awards, filmId, onSaved }: AwardsTableProps) {
     <div>
       <SectionHeading
         title="Awards"
-        onEdit={startEdit}
+        onEdit={readOnly ? undefined : startEdit}
         editing={editing}
       />
 

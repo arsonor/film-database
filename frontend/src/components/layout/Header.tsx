@@ -5,6 +5,8 @@ import {
   ArrowUpAZ,
   Film,
   Filter,
+  LogIn,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -12,6 +14,7 @@ import {
   Tags,
   X,
 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,6 +49,7 @@ export function Header({
   onToggleSidebar,
 }: HeaderProps) {
   const navigate = useNavigate();
+  const { isAdmin, logout } = useAuth();
   const [searchInput, setSearchInput] = useState(filters.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -126,26 +130,30 @@ export function Header({
         )}
       </div>
 
-      {/* Right: Add + Sort */}
+      {/* Right: Add + Sort + Auth */}
       <div className="hidden items-center gap-2 sm:flex">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => navigate("/add")}
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden lg:inline">Add Film</span>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => navigate("/admin/taxonomy")}
-          title="Manage Taxonomy"
-        >
-          <Tags className="h-4 w-4" />
-        </Button>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => navigate("/add")}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden lg:inline">Add Film</span>
+          </Button>
+        )}
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => navigate("/admin/taxonomy")}
+            title="Manage Taxonomy"
+          >
+            <Tags className="h-4 w-4" />
+          </Button>
+        )}
         <Select
           value={filters.sort_by}
           onValueChange={(val) =>
@@ -179,6 +187,26 @@ export function Header({
             <ArrowDownAZ className="h-4 w-4" />
           )}
         </Button>
+
+        {isAdmin ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={logout}
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/login")}
+            title="Admin login"
+          >
+            <LogIn className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </header>
   );

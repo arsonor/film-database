@@ -4,6 +4,8 @@ Taxonomy API endpoints — list, add, rename, merge, delete taxonomy values.
 
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+from backend.app.auth import require_admin
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -178,6 +180,7 @@ async def add_taxonomy_value(
     dimension: str,
     body: TaxonomyCreate,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     _validate_manageable(dimension)
     lookup_table, id_col, name_col, _, _ = DIMENSION_MAP[dimension]
@@ -244,6 +247,7 @@ async def rename_taxonomy_value(
     item_id: int,
     body: TaxonomyRename,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     _validate_manageable(dimension)
     lookup_table, id_col, name_col, _, _ = DIMENSION_MAP[dimension]
@@ -288,6 +292,7 @@ async def merge_taxonomy_values(
     dimension: str,
     body: TaxonomyMerge,
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     _validate_manageable(dimension)
     if body.source_id == body.target_id:
@@ -349,6 +354,7 @@ async def delete_taxonomy_value(
     item_id: int,
     force: bool = Query(False),
     db: AsyncSession = Depends(get_db),
+    admin: None = Depends(require_admin),
 ):
     _validate_manageable(dimension)
     lookup_table, id_col, name_col, junc_table, junc_fk = DIMENSION_MAP[dimension]

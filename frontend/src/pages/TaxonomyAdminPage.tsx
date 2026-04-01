@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
   GitMerge,
@@ -33,6 +34,15 @@ import { dimensionLabel } from "@/lib/utils";
 type Dimension = (typeof TAXONOMY_DIMENSIONS)[number];
 
 export function TaxonomyAdminPage() {
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAdmin) navigate("/browse", { replace: true });
+  }, [isAdmin, navigate]);
+
+  if (!isAdmin) return null;
+
   const [dimension, setDimension] = useState<Dimension>("categories");
   const [items, setItems] = useState<TaxonomyItem[]>([]);
   const [loading, setLoading] = useState(false);
