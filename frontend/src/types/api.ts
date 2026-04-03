@@ -100,10 +100,8 @@ export interface FilmDetail {
   titles: FilmTitle[];
   categories: string[];
   cinema_types: string[];
-  cultural_movements: string[];
   themes: string[];
   characters: string[];
-  character_contexts: string[];
   motivations: string[];
   atmospheres: string[];
   messages: string[];
@@ -183,11 +181,9 @@ export interface FilterState {
   themes: string[];
   atmospheres: string[];
   characters: string[];
-  character_contexts: string[];
   motivations: string[];
   messages: string[];
   cinema_types: string[];
-  cultural_movements: string[];
   time_periods: string[];
   place_contexts: string[];
   studios: string[];
@@ -207,11 +203,9 @@ export const TAXONOMY_DIMENSIONS = [
   "themes",
   "atmospheres",
   "characters",
-  "character_contexts",
   "motivations",
   "messages",
   "cinema_types",
-  "cultural_movements",
   "time_periods",
   "place_contexts",
 ] as const;
@@ -224,11 +218,9 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   themes: [],
   atmospheres: [],
   characters: [],
-  character_contexts: [],
   motivations: [],
   messages: [],
   cinema_types: [],
-  cultural_movements: [],
   time_periods: [],
   place_contexts: [],
   studios: [],
@@ -248,11 +240,9 @@ export const ARRAY_FILTER_KEYS = [
   "themes",
   "atmospheres",
   "characters",
-  "character_contexts",
   "motivations",
   "messages",
   "cinema_types",
-  "cultural_movements",
   "time_periods",
   "place_contexts",
   "studios",

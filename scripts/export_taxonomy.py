@@ -26,57 +26,37 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SEED_PATH = PROJECT_ROOT / "database" / "seed_taxonomy.sql"
 CONFIG_PATH = PROJECT_ROOT / "backend" / "app" / "services" / "taxonomy_config.py"
 
+# All sorted dimensions fetch (name, sort_order)
+SORTED_TABLES = {
+    "categories": ("category", "category_name, historic_subcategory_name, sort_order", "sort_order, category_name"),
+    "cinema_types": ("cinema_type", "technique_name, sort_order", "sort_order, technique_name"),
+    "themes": ("theme_context", "theme_name, sort_order", "sort_order, theme_name"),
+    "characters": ("character_context", "context_name, sort_order", "sort_order, context_name"),
+    "atmospheres": ("atmosphere", "atmosphere_name, sort_order", "sort_order, atmosphere_name"),
+    "motivations": ("motivation_relation", "motivation_name, sort_order", "sort_order, motivation_name"),
+    "messages": ("message_conveyed", "message_name, sort_order", "sort_order, message_name"),
+    "time_contexts": ("time_context", "time_period, sort_order", "sort_order, time_period"),
+    "place_contexts": ("place_context", "environment, sort_order", "sort_order, environment"),
+}
+
 
 async def fetch_all(engine):
     """Fetch all taxonomy data from the database."""
     data = {}
     async with engine.connect() as conn:
-        # Categories
+        # Categories (special: has subcategories)
         r = await conn.execute(text(
-            "SELECT category_name, historic_subcategory_name FROM category "
-            "ORDER BY category_name, historic_subcategory_name NULLS FIRST"
+            "SELECT category_name, historic_subcategory_name, sort_order FROM category "
+            "ORDER BY sort_order, category_name, historic_subcategory_name NULLS FIRST"
         ))
-        data["categories"] = r.fetchall()
+        data["categories"] = [(row[0], row[1], row[2]) for row in r.fetchall()]
 
-        # Cinema types
-        r = await conn.execute(text("SELECT technique_name FROM cinema_type ORDER BY technique_name"))
-        data["cinema_types"] = [row[0] for row in r.fetchall()]
-
-        # Cultural movements
-        r = await conn.execute(text("SELECT movement_name FROM cultural_movement ORDER BY movement_name"))
-        data["cultural_movements"] = [row[0] for row in r.fetchall()]
-
-        # Place contexts
-        r = await conn.execute(text("SELECT environment FROM place_context ORDER BY environment"))
-        data["place_contexts"] = [row[0] for row in r.fetchall()]
-
-        # Time contexts (with sort_order)
-        r = await conn.execute(text("SELECT time_period, sort_order FROM time_context ORDER BY sort_order, time_period"))
-        data["time_contexts"] = [(row[0], row[1]) for row in r.fetchall()]
-
-        # Themes (with sort_order)
-        r = await conn.execute(text("SELECT theme_name, sort_order FROM theme_context ORDER BY sort_order, theme_name"))
-        data["themes"] = [(row[0], row[1]) for row in r.fetchall()]
-
-        # Characters types
-        r = await conn.execute(text("SELECT type_name FROM characters_type ORDER BY type_name"))
-        data["characters_types"] = [row[0] for row in r.fetchall()]
-
-        # Character contexts
-        r = await conn.execute(text("SELECT context_name FROM character_context ORDER BY context_name"))
-        data["character_contexts"] = [row[0] for row in r.fetchall()]
-
-        # Atmospheres
-        r = await conn.execute(text("SELECT atmosphere_name FROM atmosphere ORDER BY atmosphere_name"))
-        data["atmospheres"] = [row[0] for row in r.fetchall()]
-
-        # Motivations
-        r = await conn.execute(text("SELECT motivation_name FROM motivation_relation ORDER BY motivation_name"))
-        data["motivations"] = [row[0] for row in r.fetchall()]
-
-        # Messages
-        r = await conn.execute(text("SELECT message_name FROM message_conveyed ORDER BY message_name"))
-        data["messages"] = [row[0] for row in r.fetchall()]
+        # All sorted single-column tables
+        for key, (table, cols, order) in SORTED_TABLES.items():
+            if key == "categories":
+                continue
+            r = await conn.execute(text(f"SELECT {cols} FROM {table} ORDER BY {order}"))
+            data[key] = [(row[0], row[1]) for row in r.fetchall()]
 
         # Person jobs
         r = await conn.execute(text("SELECT role_name FROM person_job ORDER BY role_name"))
@@ -100,6 +80,16 @@ def _sql_values(values: list[str], indent: str = "    ") -> str:
         escaped = v.replace("'", "''")
         comma = "," if i < len(values) - 1 else ""
         lines.append(f"{indent}('{escaped}'){comma}")
+    return "\n".join(lines)
+
+
+def _sql_sorted_values(items: list[tuple[str, int]], col_name: str, indent: str = "    ") -> str:
+    """Format (name, sort_order) tuples as SQL VALUES."""
+    lines = []
+    for i, (name, sort_order) in enumerate(items):
+        escaped = name.replace("'", "''")
+        comma = "," if i < len(items) - 1 else ""
+        lines.append(f"{indent}('{escaped}', {sort_order}){comma}")
     return "\n".join(lines)
 
 
@@ -128,35 +118,26 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- =============================================================================")
     sections.append("")
     cat_lines = []
-    for i, (cat_name, sub_name) in enumerate(data["categories"]):
+    for i, (cat_name, sub_name, sort_order) in enumerate(data["categories"]):
         comma = "," if i < len(data["categories"]) - 1 else ""
         cn = cat_name.replace("'", "''")
         if sub_name:
             sn = sub_name.replace("'", "''")
-            cat_lines.append(f"    ('{cn}', '{sn}'){comma}")
+            cat_lines.append(f"    ('{cn}', '{sn}', {sort_order}){comma}")
         else:
-            cat_lines.append(f"    ('{cn}', NULL){comma}")
-    sections.append(f"INSERT INTO category (category_name, historic_subcategory_name) VALUES\n" +
+            cat_lines.append(f"    ('{cn}', NULL, {sort_order}){comma}")
+    sections.append(f"INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALUES\n" +
                     "\n".join(cat_lines) +
                     "\nON CONFLICT (category_name, historic_subcategory_name) DO NOTHING;")
 
-    # Cinema types
+    # Cinema types (merged with cultural movements)
     sections.append("")
     sections.append("-- =============================================================================")
-    sections.append("-- CINEMA_TYPE - Cinematographic techniques")
+    sections.append("-- CINEMA_TYPE - Cinema types, techniques & cultural movements")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["cinema_types"])
-    sections.append(f"INSERT INTO cinema_type (technique_name) VALUES\n{vals}\nON CONFLICT (technique_name) DO NOTHING;")
-
-    # Cultural movements
-    sections.append("")
-    sections.append("-- =============================================================================")
-    sections.append("-- CULTURAL_MOVEMENT - Cinematic movements")
-    sections.append("-- =============================================================================")
-    sections.append("")
-    vals = _sql_values(data["cultural_movements"])
-    sections.append(f"INSERT INTO cultural_movement (movement_name) VALUES\n{vals}\nON CONFLICT (movement_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["cinema_types"], "technique_name")
+    sections.append(f"INSERT INTO cinema_type (technique_name, sort_order) VALUES\n{vals}\nON CONFLICT (technique_name) DO NOTHING;")
 
     # Place contexts
     sections.append("")
@@ -164,8 +145,8 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- PLACE_CONTEXT - Environmental settings")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["place_contexts"])
-    sections.append(f"INSERT INTO place_context (environment) VALUES\n{vals}\nON CONFLICT (environment) DO NOTHING;")
+    vals = _sql_sorted_values(data["place_contexts"], "environment")
+    sections.append(f"INSERT INTO place_context (environment, sort_order) VALUES\n{vals}\nON CONFLICT (environment) DO NOTHING;")
 
     # Time contexts
     sections.append("")
@@ -173,14 +154,8 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- TIME_CONTEXT - Historical periods and seasons")
     sections.append("-- =============================================================================")
     sections.append("")
-    tc_lines = []
-    for i, (name, sort_order) in enumerate(data["time_contexts"]):
-        comma = "," if i < len(data["time_contexts"]) - 1 else ""
-        escaped = name.replace("'", "''")
-        tc_lines.append(f"    ('{escaped}', {sort_order}){comma}")
-    sections.append(f"INSERT INTO time_context (time_period, sort_order) VALUES\n" +
-                    "\n".join(tc_lines) +
-                    "\nON CONFLICT (time_period) DO NOTHING;")
+    vals = _sql_sorted_values(data["time_contexts"], "time_period")
+    sections.append(f"INSERT INTO time_context (time_period, sort_order) VALUES\n{vals}\nON CONFLICT (time_period) DO NOTHING;")
 
     # Themes
     sections.append("")
@@ -188,32 +163,17 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- THEME_CONTEXT - Thematic elements")
     sections.append("-- =============================================================================")
     sections.append("")
-    th_lines = []
-    for i, (name, sort_order) in enumerate(data["themes"]):
-        comma = "," if i < len(data["themes"]) - 1 else ""
-        escaped = name.replace("'", "''")
-        th_lines.append(f"    ('{escaped}', {sort_order}){comma}")
-    sections.append(f"INSERT INTO theme_context (theme_name, sort_order) VALUES\n" +
-                    "\n".join(th_lines) +
-                    "\nON CONFLICT (theme_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["themes"], "theme_name")
+    sections.append(f"INSERT INTO theme_context (theme_name, sort_order) VALUES\n{vals}\nON CONFLICT (theme_name) DO NOTHING;")
 
-    # Characters types
+    # Characters (merged types + contexts + archetypes)
     sections.append("")
     sections.append("-- =============================================================================")
-    sections.append("-- CHARACTERS_TYPE - Character configurations")
+    sections.append("-- CHARACTER_CONTEXT - Characters (types + contexts + archetypes)")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["characters_types"])
-    sections.append(f"INSERT INTO characters_type (type_name) VALUES\n{vals}\nON CONFLICT (type_name) DO NOTHING;")
-
-    # Character contexts
-    sections.append("")
-    sections.append("-- =============================================================================")
-    sections.append("-- CHARACTER_CONTEXT - Character contexts and archetypes")
-    sections.append("-- =============================================================================")
-    sections.append("")
-    vals = _sql_values(data["character_contexts"])
-    sections.append(f"INSERT INTO character_context (context_name) VALUES\n{vals}\nON CONFLICT (context_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["characters"], "context_name")
+    sections.append(f"INSERT INTO character_context (context_name, sort_order) VALUES\n{vals}\nON CONFLICT (context_name) DO NOTHING;")
 
     # Atmospheres
     sections.append("")
@@ -221,8 +181,8 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- ATMOSPHERE - Film atmosphere/tone")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["atmospheres"])
-    sections.append(f"INSERT INTO atmosphere (atmosphere_name) VALUES\n{vals}\nON CONFLICT (atmosphere_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["atmospheres"], "atmosphere_name")
+    sections.append(f"INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES\n{vals}\nON CONFLICT (atmosphere_name) DO NOTHING;")
 
     # Motivations
     sections.append("")
@@ -230,8 +190,8 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- MOTIVATION_RELATION - Character motivations")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["motivations"])
-    sections.append(f"INSERT INTO motivation_relation (motivation_name) VALUES\n{vals}\nON CONFLICT (motivation_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["motivations"], "motivation_name")
+    sections.append(f"INSERT INTO motivation_relation (motivation_name, sort_order) VALUES\n{vals}\nON CONFLICT (motivation_name) DO NOTHING;")
 
     # Messages
     sections.append("")
@@ -239,8 +199,8 @@ def generate_seed_sql(data: dict) -> str:
     sections.append("-- MESSAGE_CONVEYED - Film messages")
     sections.append("-- =============================================================================")
     sections.append("")
-    vals = _sql_values(data["messages"])
-    sections.append(f"INSERT INTO message_conveyed (message_name) VALUES\n{vals}\nON CONFLICT (message_name) DO NOTHING;")
+    vals = _sql_sorted_values(data["messages"], "message_name")
+    sections.append(f"INSERT INTO message_conveyed (message_name, sort_order) VALUES\n{vals}\nON CONFLICT (message_name) DO NOTHING;")
 
     # Streaming platforms
     sections.append("")
@@ -298,34 +258,30 @@ def generate_taxonomy_config(data: dict) -> str:
     lines.append("")
 
     # Categories (main only, no subcategories)
-    main_cats = [cat for cat, sub in data["categories"] if sub is None]
+    main_cats = [cat for cat, sub, _ in data["categories"] if sub is None]
     lines.append(_py_list("VALID_CATEGORIES", main_cats))
     lines.append("")
 
     # Historic subcategories
-    hist_subs = [sub for cat, sub in data["categories"] if sub is not None]
+    hist_subs = [sub for cat, sub, _ in data["categories"] if sub is not None]
     lines.append(_py_list("VALID_HISTORIC_SUBCATEGORIES", hist_subs))
     lines.append("")
 
-    lines.append(_py_list("VALID_CINEMA_TYPES", data["cinema_types"]))
+    lines.append(_py_list("VALID_CINEMA_TYPES", [name for name, _ in data["cinema_types"]]))
     lines.append("")
-    lines.append(_py_list("VALID_CULTURAL_MOVEMENTS", data["cultural_movements"]))
-    lines.append("")
-    lines.append(_py_list("VALID_PLACE_ENVIRONMENTS", data["place_contexts"]))
+    lines.append(_py_list("VALID_PLACE_ENVIRONMENTS", [name for name, _ in data["place_contexts"]]))
     lines.append("")
     lines.append(_py_list("VALID_TIME_CONTEXTS", [name for name, _ in data["time_contexts"]]))
     lines.append("")
     lines.append(_py_list("VALID_THEMES", [name for name, _ in data["themes"]]))
     lines.append("")
-    lines.append(_py_list("VALID_CHARACTERS_TYPES", data["characters_types"]))
+    lines.append(_py_list("VALID_CHARACTERS", [name for name, _ in data["characters"]]))
     lines.append("")
-    lines.append(_py_list("VALID_CHARACTER_CONTEXTS", data["character_contexts"]))
+    lines.append(_py_list("VALID_ATMOSPHERES", [name for name, _ in data["atmospheres"]]))
     lines.append("")
-    lines.append(_py_list("VALID_ATMOSPHERES", data["atmospheres"]))
+    lines.append(_py_list("VALID_MOTIVATIONS", [name for name, _ in data["motivations"]]))
     lines.append("")
-    lines.append(_py_list("VALID_MOTIVATIONS", data["motivations"]))
-    lines.append("")
-    lines.append(_py_list("VALID_MESSAGES", data["messages"]))
+    lines.append(_py_list("VALID_MESSAGES", [name for name, _ in data["messages"]]))
     lines.append("")
     lines.append(_py_list("VALID_SOURCE_TYPES", [
         "original screenplay", "novel", "comic", "TV series", "true story",
@@ -338,12 +294,10 @@ def generate_taxonomy_config(data: dict) -> str:
     lines.append('    "categories": VALID_CATEGORIES,')
     lines.append('    "historic_subcategories": VALID_HISTORIC_SUBCATEGORIES,')
     lines.append('    "cinema_type": VALID_CINEMA_TYPES,')
-    lines.append('    "cultural_movement": VALID_CULTURAL_MOVEMENTS,')
     lines.append('    "time_context": VALID_TIME_CONTEXTS,')
     lines.append('    "place_environment": VALID_PLACE_ENVIRONMENTS,')
     lines.append('    "themes": VALID_THEMES,')
-    lines.append('    "characters_type": VALID_CHARACTERS_TYPES,')
-    lines.append('    "character_context": VALID_CHARACTER_CONTEXTS,')
+    lines.append('    "character_context": VALID_CHARACTERS,')
     lines.append('    "atmosphere": VALID_ATMOSPHERES,')
     lines.append('    "motivations": VALID_MOTIVATIONS,')
     lines.append('    "message": VALID_MESSAGES,')

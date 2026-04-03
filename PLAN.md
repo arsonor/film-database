@@ -21,7 +21,8 @@
 | 10 | UX: empty tags, year inputs, studio search, film relations | ✅ DONE | Editable related films with posters, collapsible sidebar |
 | 10.5 | Film detail layout + Taxonomy admin page | ✅ DONE | Production in hero, related films with posters, /admin/taxonomy CRUD, export script |
 | 10.6 | Delete film, seen toggle on grid, backfill optimization, README | ✅ DONE | DELETE endpoint + trash button, FilmCard vu toggle, filtered backfill script, README.md |
-| 11 | Deployment + auth (Supabase + Render + Vercel) | 🔲 TODO | Admin auth, CORS from env, frontend auth context, deploy to cloud |
+| 11 | Deployment + auth (Supabase + Render + Vercel) | ✅ DONE | Admin auth, CORS from env, frontend auth context, deploy to cloud |
+| 12 | Taxonomy restructure | ✅ DONE | merge dimensions, add sort_order grouping, rebalance tags |
 
 ---
 
@@ -150,111 +151,19 @@
 
 ---
 
-## Step 11: Deployment + Admin Auth (Supabase + Render + Vercel)
+## Step 11: Deployment + Admin Auth (Supabase + Render + Vercel) ✅
 
-### Goal
-Deploy the application publicly at a URL accessible from any device, with role-based access: public visitors get read-only browsing, admin (Martin) gets full editing capabilities.
+- Backend: `auth.py` with `require_admin` dependency (bearer token vs `ADMIN_SECRET_KEY` env var, dev fallback allows all)
+- Backend: CORS origins from env, `/api/auth/login` + `/api/auth/check` endpoints, `Depends(require_admin)` on all write endpoints
+- Frontend: `AuthContext` (localStorage token, auto-validate on mount), `LoginPage`, `getAuthHeaders()` in API client
+- Frontend: admin-only UI gating (Add Film, Tags, edit controls, vu toggle, delete) — public = read-only browse
+- Deployment: `Procfile` for Render, `VITE_API_URL` env for Vercel, Supabase for DB
+- Infrastructure: Supabase (DB) + Render (backend) + Vercel (frontend CDN)
 
-### Architecture
+## Step 12: Taxonomy restructure — merge dimensions, add sort_order grouping, rebalance tags
 
-| Layer | Local (dev) | Deployed (prod) |
-|---|---|---|
-| Database | PostgreSQL localhost:5432 | Supabase (free, 500 MB) |
-| Backend | FastAPI localhost:8000 | Render Web Service (free) |
-| Frontend | Vite dev server localhost:3000 | Vercel (free, static CDN) |
-
-Single deployment. No separate "demo" app — one URL with auth-gated admin features.
-
-### Sub-step 11a: Backend auth + deployment config
-
-**New files:**
-- `backend/app/auth.py` — `require_admin` dependency: reads `Authorization: Bearer <token>` header, compares to `ADMIN_SECRET_KEY` env var. Returns 401 if missing/invalid.
-- `Procfile` — `web: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
-
-**Modified files:**
-- `backend/app/main.py`:
-  - CORS origins from env: `CORS_ORIGINS` (comma-separated), fallback `http://localhost:3000`
-  - New `GET /api/auth/check` endpoint (requires admin → returns `{admin: true}`, else 401)
-  - New `POST /api/auth/login` endpoint (accepts `{password}` body, compares to `ADMIN_SECRET_KEY`, returns `{token}` = the key itself)
-- `backend/app/routers/films.py` — add `Depends(require_admin)` to: `POST /films`, `PUT /films/{id}`, `DELETE /films/{id}`, `PATCH /films/{id}/vu`, `POST /films/{id}/relations`, `DELETE /films/{id}/relations/{rid}`
-- `backend/app/routers/add_film.py` — add `Depends(require_admin)` to: `GET /add-film/search`, `POST /add-film/enrich`
-- `backend/app/routers/taxonomy.py` — add `Depends(require_admin)` to: `POST /taxonomy/{dim}`, `PUT /taxonomy/{dim}/{id}`, `POST /taxonomy/{dim}/merge`, `DELETE /taxonomy/{dim}/{id}`
-- `.env.example` — add `ADMIN_SECRET_KEY`, `CORS_ORIGINS`
-
-**Endpoint protection summary:**
-- **Public (no auth):** all GET endpoints — `/api/films`, `/api/films/{id}`, `/api/films/search-local`, `/api/taxonomy/{dim}`, `/api/persons/*`, `/api/geography/*`, `/api/stats`
-- **Admin (require_admin):** all POST/PUT/PATCH/DELETE + add-film workflow
-
-### Sub-step 11b: Frontend auth + deployment config
-
-**New files:**
-- `frontend/src/context/AuthContext.tsx` — React context providing `isAdmin`, `token`, `login(password)`, `logout()`. Stores token in localStorage. On mount, calls `GET /api/auth/check` to validate stored token.
-- `frontend/src/pages/LoginPage.tsx` — minimal login page at `/login`: single password field, calls `POST /api/auth/login`, on success stores token and redirects to `/browse`.
-
-**Modified files:**
-- `frontend/src/api/client.ts`:
-  - `const BASE = import.meta.env.VITE_API_URL || "/api"` (env-based API URL for production)
-  - New `getAuthHeaders()` helper: reads token from localStorage, returns `{Authorization: "Bearer <token>"}` or empty object
-  - All write functions (POST/PUT/PATCH/DELETE) include auth headers
-  - New `checkAuth()` and `loginAdmin(password)` API functions
-- `frontend/src/App.tsx` — wrap in `<AuthProvider>`, add `/login` route to `<LoginPage />`
-- `frontend/src/components/layout/Header.tsx`:
-  - Import `useAuth` context
-  - Wrap "Add Film" button and "Tags" button in `{isAdmin && ...}`
-  - Add Login/Logout button (LogIn/LogOut icons from lucide-react)
-- `frontend/src/pages/BrowsePage.tsx` — wrap FilmCard vu toggle in `isAdmin` check (pass `onToggleVu` prop only when admin)
-- `frontend/src/components/films/FilmCard.tsx` — only render clickable eye icon if `onToggleVu` prop is provided; otherwise show nothing
-- `frontend/src/pages/FilmDetailPage.tsx`:
-  - Import `useAuth` context
-  - Wrap all edit buttons (EditableTagSection edit mode, delete film button, EditableFinancials, AwardsTable edit) in `{isAdmin && ...}`
-  - Seen/unseen toggle: functional only if `isAdmin`
-- `frontend/src/pages/TaxonomyAdminPage.tsx` — redirect to `/browse` if `!isAdmin` (or show read-only view)
-- `frontend/src/pages/AddFilmPage.tsx` — redirect to `/browse` if `!isAdmin`
-
-### Phase C: Infrastructure setup & data migration (manual steps)
-
-**C1. Export local database:**
-```powershell
-pg_dump -U postgres -d film_database --no-owner --no-acl -F c -f film_database_backup.dump
-```
-
-**C2. Supabase setup:**
-1. Create account at supabase.com → new project → note the **direct connection** string (port 5432, Session mode)
-2. Change scheme from `postgresql://` to `postgresql+asyncpg://` for SQLAlchemy
-3. Import: `pg_restore -h <host> -p 5432 -U postgres.<ref> -d postgres --no-owner --no-acl film_database_backup.dump`
-
-**C3. Render setup:**
-1. Create Web Service → connect GitHub repo `arsonor/film-database`
-2. Root directory: `.` | Build: `pip install -r backend/requirements.txt` | Start: reads `Procfile`
-3. Environment variables: `DATABASE_URL`, `TMDB_API_KEY`, `ANTHROPIC_API_KEY`, `ADMIN_SECRET_KEY`, `CORS_ORIGINS`
-
-**C4. Vercel setup:**
-1. Import GitHub repo → root directory: `frontend` → framework: Vite
-2. Environment variable: `VITE_API_URL=https://<render-app>.onrender.com/api`
-
-**C5. Post-deploy verification:**
-1. Public browsing works (poster grid, filters, film detail)
-2. `/login` → enter admin password → admin UI appears
-3. Can add film, edit tags, toggle seen, delete → all work
-4. Logout → admin UI hidden, write API calls return 401
-
-### Files summary
-
-**New files (4):**
-- `backend/app/auth.py`
-- `Procfile`
-- `frontend/src/context/AuthContext.tsx`
-- `frontend/src/pages/LoginPage.tsx`
-
-**Modified files (11):**
-- `backend/app/main.py`
-- `backend/app/routers/films.py`
-- `backend/app/routers/add_film.py`
-- `backend/app/routers/taxonomy.py`
-- `.env.example`
-- `frontend/src/api/client.ts`
-- `frontend/src/App.tsx`
-- `frontend/src/components/layout/Header.tsx`
-- `frontend/src/pages/BrowsePage.tsx` + `FilmCard.tsx`
-- `frontend/src/pages/FilmDetailPage.tsx`
-- `frontend/src/pages/TaxonomyAdminPage.tsx` + `AddFilmPage.tsx`
+  This covers: merging characters_type + character_context into single "characters" dimension, merging
+  cinema_type + cultural_movement, moving Disaster to themes and dialogs to cinema, adding
+  sort_order-based grouping to 7 dimensions, adding new theme values (curse, game), renaming gang →
+  team/group/gang. Full-stack update across migration, schema, backend, frontend, enrichment pipeline,
+  and scripts.

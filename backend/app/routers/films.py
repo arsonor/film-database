@@ -44,10 +44,8 @@ async def list_films(
     atmospheres: list[str] | None = Query(None),
     messages: list[str] | None = Query(None),
     characters: list[str] | None = Query(None),
-    character_contexts: list[str] | None = Query(None),
     motivations: list[str] | None = Query(None),
     cinema_types: list[str] | None = Query(None),
-    cultural_movements: list[str] | None = Query(None),
     time_periods: list[str] | None = Query(None),
     place_contexts: list[str] | None = Query(None),
     studios: list[str] | None = Query(None),
@@ -139,12 +137,10 @@ async def list_films(
         (themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
         (atmospheres, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
         (messages, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
-        (characters, "film_characters", "character_type_id", "characters_type", "character_type_id", "type_name"),
+        (characters, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         (motivations, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
         (cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
-        (cultural_movements, "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         (time_periods, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
-        (character_contexts, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         (place_contexts, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
         (studios, "production", "studio_id", "studio", "studio_id", "studio_name"),
     ]
@@ -152,8 +148,7 @@ async def list_films(
     # Dimension names corresponding to _taxonomy_filters entries (for hierarchical detection)
     _taxonomy_dim_names = [
         "themes", "atmospheres", "messages", "characters", "motivations",
-        "cinema_types", "cultural_movements", "time_periods", "character_contexts",
-        "place_contexts", "studios",
+        "cinema_types", "time_periods", "place_contexts", "studios",
     ]
 
     for i, (values, junc_table, junc_fk, lookup_table, lookup_pk, lookup_name) in enumerate(_taxonomy_filters):
@@ -475,13 +470,7 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
     cinema_types = await load_names(
         "SELECT ct.technique_name FROM film_technique ft "
         "JOIN cinema_type ct ON ft.cinema_type_id = ct.cinema_type_id "
-        "WHERE ft.film_id = :fid ORDER BY ct.technique_name"
-    )
-
-    cultural_movements = await load_names(
-        "SELECT cm.movement_name FROM film_movement fm "
-        "JOIN cultural_movement cm ON fm.movement_id = cm.movement_id "
-        "WHERE fm.film_id = :fid ORDER BY cm.movement_name"
+        "WHERE ft.film_id = :fid ORDER BY ct.sort_order, ct.technique_name"
     )
 
     themes_list = await load_names(
@@ -491,15 +480,9 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
     )
 
     characters_list = await load_names(
-        "SELECT ct.type_name FROM film_characters fc "
-        "JOIN characters_type ct ON fc.character_type_id = ct.character_type_id "
-        "WHERE fc.film_id = :fid ORDER BY ct.type_name"
-    )
-
-    character_contexts_list = await load_names(
         "SELECT cc.context_name FROM film_character_context fcc "
         "JOIN character_context cc ON fcc.character_context_id = cc.character_context_id "
-        "WHERE fcc.film_id = :fid ORDER BY cc.context_name"
+        "WHERE fcc.film_id = :fid ORDER BY cc.sort_order, cc.context_name"
     )
 
     motivations_list = await load_names(
@@ -665,10 +648,8 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
         titles=titles,
         categories=categories,
         cinema_types=cinema_types,
-        cultural_movements=cultural_movements,
         themes=themes_list,
         characters=characters_list,
-        character_contexts=character_contexts_list,
         motivations=motivations_list,
         atmospheres=atmospheres_list,
         messages=messages_list,
@@ -830,9 +811,7 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
     # Insert taxonomy junctions from enrichment
     taxonomy_junctions = [
         ("cinema_type", "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
-        ("cultural_movement", "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         ("themes", "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
-        ("characters_type", "film_characters", "character_type_id", "characters_type", "character_type_id", "type_name"),
         ("character_context", "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         ("atmosphere", "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
         ("motivations", "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
@@ -1114,10 +1093,8 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
     # Update taxonomy junctions (clear and re-insert pattern)
     junction_updates = [
         (update.cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
-        (update.cultural_movements, "film_movement", "movement_id", "cultural_movement", "movement_id", "movement_name"),
         (update.themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
-        (update.characters, "film_characters", "character_type_id", "characters_type", "character_type_id", "type_name"),
-        (update.character_contexts, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
+        (update.characters, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         (update.motivations, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
         (update.atmospheres, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
         (update.messages, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),

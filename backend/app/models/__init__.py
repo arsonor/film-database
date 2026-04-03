@@ -53,13 +53,11 @@ class Film(Base):
     # Relationships for detail loading
     genres: Mapped[list["FilmGenre"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     techniques: Mapped[list["FilmTechnique"]] = relationship(back_populates="film", cascade="all, delete-orphan")
-    movements: Mapped[list["FilmMovement"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     set_places: Mapped[list["FilmSetPlace"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     places: Mapped[list["FilmPlace"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     periods: Mapped[list["FilmPeriod"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     themes: Mapped[list["FilmTheme"]] = relationship(back_populates="film", cascade="all, delete-orphan")
-    characters: Mapped[list["FilmCharacters"]] = relationship(back_populates="film", cascade="all, delete-orphan")
-    character_contexts: Mapped[list["FilmCharacterContext"]] = relationship(back_populates="film", cascade="all, delete-orphan")
+    characters: Mapped[list["FilmCharacterContext"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     atmospheres: Mapped[list["FilmAtmosphere"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     motivations: Mapped[list["FilmMotivation"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     messages: Mapped[list["FilmMessage"]] = relationship(back_populates="film", cascade="all, delete-orphan")
@@ -219,6 +217,7 @@ class CinemaType(Base):
 
     cinema_type_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     technique_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    sort_order: Mapped[int | None] = mapped_column(Integer, default=999)
 
 
 class FilmTechnique(Base):
@@ -229,28 +228,6 @@ class FilmTechnique(Base):
 
     film: Mapped["Film"] = relationship(back_populates="techniques")
     cinema_type: Mapped["CinemaType"] = relationship()
-
-
-# =============================================================================
-# CLASSIFICATION: CULTURAL MOVEMENT
-# =============================================================================
-
-
-class CulturalMovement(Base):
-    __tablename__ = "cultural_movement"
-
-    movement_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    movement_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-
-
-class FilmMovement(Base):
-    __tablename__ = "film_movement"
-
-    film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)
-    movement_id: Mapped[int] = mapped_column(Integer, ForeignKey("cultural_movement.movement_id", ondelete="CASCADE"), primary_key=True)
-
-    film: Mapped["Film"] = relationship(back_populates="movements")
-    movement: Mapped["CulturalMovement"] = relationship()
 
 
 # =============================================================================
@@ -344,29 +321,7 @@ class FilmTheme(Base):
 
 
 # =============================================================================
-# CLASSIFICATION: CHARACTER TYPES
-# =============================================================================
-
-
-class CharactersType(Base):
-    __tablename__ = "characters_type"
-
-    character_type_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    type_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-
-
-class FilmCharacters(Base):
-    __tablename__ = "film_characters"
-
-    film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)
-    character_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters_type.character_type_id", ondelete="CASCADE"), primary_key=True)
-
-    film: Mapped["Film"] = relationship(back_populates="characters")
-    character_type: Mapped["CharactersType"] = relationship()
-
-
-# =============================================================================
-# CLASSIFICATION: CHARACTER CONTEXT & ARCHETYPES
+# CLASSIFICATION: CHARACTERS (merged types + contexts + archetypes)
 # =============================================================================
 
 
@@ -375,6 +330,7 @@ class CharacterContext(Base):
 
     character_context_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     context_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    sort_order: Mapped[int | None] = mapped_column(Integer, default=999)
 
 
 class FilmCharacterContext(Base):
@@ -383,7 +339,7 @@ class FilmCharacterContext(Base):
     film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)
     character_context_id: Mapped[int] = mapped_column(Integer, ForeignKey("character_context.character_context_id", ondelete="CASCADE"), primary_key=True)
 
-    film: Mapped["Film"] = relationship(back_populates="character_contexts")
+    film: Mapped["Film"] = relationship(back_populates="characters")
     context: Mapped["CharacterContext"] = relationship()
 
 

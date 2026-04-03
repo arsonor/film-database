@@ -26,10 +26,8 @@ router = APIRouter(tags=["taxonomy"])
 DIMENSION_MAP = {
     "categories": ("category", "category_id", "category_name", "film_genre", "category_id"),
     "cinema_types": ("cinema_type", "cinema_type_id", "technique_name", "film_technique", "cinema_type_id"),
-    "cultural_movements": ("cultural_movement", "movement_id", "movement_name", "film_movement", "movement_id"),
     "themes": ("theme_context", "theme_context_id", "theme_name", "film_theme", "theme_context_id"),
-    "characters": ("characters_type", "character_type_id", "type_name", "film_characters", "character_type_id"),
-    "character_contexts": ("character_context", "character_context_id", "context_name", "film_character_context", "character_context_id"),
+    "characters": ("character_context", "character_context_id", "context_name", "film_character_context", "character_context_id"),
     "atmospheres": ("atmosphere", "atmosphere_id", "atmosphere_name", "film_atmosphere", "atmosphere_id"),
     "messages": ("message_conveyed", "message_id", "message_name", "film_message", "message_id"),
     "motivations": ("motivation_relation", "motivation_id", "motivation_name", "film_motivation", "motivation_id"),
@@ -44,7 +42,10 @@ DIMENSION_MAP = {
 HIERARCHICAL_DIMENSIONS = {"themes", "categories"}
 
 # Dimensions with sort_order columns for custom display ordering
-SORTED_DIMENSIONS = {"themes", "time_periods"}
+SORTED_DIMENSIONS = {
+    "themes", "time_periods", "characters", "cinema_types",
+    "atmospheres", "motivations", "place_contexts", "messages", "categories",
+}
 
 # Special dimensions not in DIMENSION_MAP
 SPECIAL_DIMENSIONS = {"languages"}
@@ -88,7 +89,7 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
             FROM category lt
             LEFT JOIN film_genre jt ON lt.category_id = jt.category_id
             GROUP BY lt.category_id, lt.category_name, lt.historic_subcategory_name
-            ORDER BY lt.category_name, lt.historic_subcategory_name NULLS FIRST
+            ORDER BY lt.sort_order, lt.category_name, lt.historic_subcategory_name NULLS FIRST
         """))
         items = [
             TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
@@ -156,9 +157,8 @@ def _aggregate_hierarchical(items: list[TaxonomyItem]) -> None:
 
 # Dimensions that can be managed (excludes studios, streaming, person_jobs, languages)
 MANAGEABLE_DIMENSIONS = {
-    "categories", "cinema_types", "cultural_movements", "themes",
-    "characters", "character_contexts", "atmospheres", "messages",
-    "motivations", "time_periods", "place_contexts",
+    "categories", "cinema_types", "themes", "characters",
+    "atmospheres", "messages", "motivations", "time_periods", "place_contexts",
 }
 
 

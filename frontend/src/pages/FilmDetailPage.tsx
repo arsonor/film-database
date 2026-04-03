@@ -428,13 +428,6 @@ export function FilmDetailPage() {
               onSaved={refetch}
               readOnly={!isAdmin}
             />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="cultural_movements"
-              currentValues={film.cultural_movements}
-              onSaved={refetch}
-              readOnly={!isAdmin}
-            />
           </div>
         </section>
 
@@ -453,13 +446,6 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="characters"
               currentValues={film.characters}
-              onSaved={refetch}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="character_contexts"
-              currentValues={film.character_contexts}
               onSaved={refetch}
               readOnly={!isAdmin}
             />

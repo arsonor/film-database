@@ -35,3 +35,5 @@ scripts/data/enriched_films.json
 scripts/data/enrichment_review.json
 scripts/data/unresolved_films.json
 scripts/data/batch_state.json
+
+database/sync_to_supabase.ps1

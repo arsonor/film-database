@@ -120,20 +120,12 @@ class DBInserter:
                     historic_subs = enrichment.get("historic_subcategories") or film_data.get("historic_subcategories", [])
                     await self._insert_genres(session, film_id, categories, historic_subs)
 
-                    # 7. Insert film_technique junctions
+                    # 7. Insert film_technique junctions (cinema types + movements merged)
                     await self._insert_junction_by_name(
                         session, film_id,
                         enrichment.get("cinema_type", []),
                         "cinema_type", "technique_name", "cinema_type_id",
                         "film_technique", "cinema_type_id",
-                    )
-
-                    # 8. Insert film_movement junctions
-                    await self._insert_junction_by_name(
-                        session, film_id,
-                        enrichment.get("cultural_movement", []),
-                        "cultural_movement", "movement_name", "movement_id",
-                        "film_movement", "movement_id",
                     )
 
                     # 9. Insert geography + film_set_place
@@ -163,15 +155,7 @@ class DBInserter:
                         "film_theme", "theme_context_id",
                     )
 
-                    # 13. Insert film_characters
-                    await self._insert_junction_by_name(
-                        session, film_id,
-                        enrichment.get("characters_type", []),
-                        "characters_type", "type_name", "character_type_id",
-                        "film_characters", "character_type_id",
-                    )
-
-                    # 14. Insert film_character_context
+                    # 13. Insert film_character_context (characters merged)
                     await self._insert_junction_by_name(
                         session, film_id,
                         enrichment.get("character_context", []),
@@ -316,8 +300,8 @@ class DBInserter:
         """Clear all junction table entries for a film (for clean re-insert on update)."""
         junction_tables = [
             "crew", "casting", "production", "film_language",
-            "film_genre", "film_technique", "film_movement", "film_set_place",
-            "film_place", "film_period", "film_theme", "film_characters",
+            "film_genre", "film_technique", "film_set_place",
+            "film_place", "film_period", "film_theme",
             "film_character_context", "film_atmosphere", "film_motivation",
             "film_message", "film_origin", "film_exploitation", "award",
         ]
@@ -828,11 +812,9 @@ class DBInserter:
         dim_to_enrichment_key = {
             "categories": "categories",
             "cinema_type": "cinema_type",
-            "cultural_movement": "cultural_movement",
             "time_context": "time_context",
             "place_environment": "place_environment",
             "themes": "themes",
-            "characters_type": "characters_type",
             "character_context": "character_context",
             "atmosphere": "atmosphere",
             "motivations": "motivations",

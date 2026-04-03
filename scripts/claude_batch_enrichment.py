@@ -76,11 +76,8 @@ def build_system_prompt() -> str:
 Valid: {', '.join(dims['categories'])}
 Historical sub-categories (only if "Historical" is selected): {', '.join(dims['historic_subcategories'])}
 
-### Cinema Type
+### Cinema Type (techniques + cultural movements)
 Valid: {', '.join(dims['cinema_type'])}
-
-### Cultural Movement
-Valid: {', '.join(dims['cultural_movement'])}
 Note: Use "Collection" for films that are part of a major franchise (sequels, prequels, shared universe).
 
 ### Time Context (when is the film set — can be multiple)
@@ -99,12 +96,9 @@ IMPORTANT: "huis clos" = entire film confined to one space. "road movie" = journ
 Valid: {', '.join(dims['themes'])}
 IMPORTANT: Each theme must be a defining aspect of the film. "death" = death is a central narrative thread, not just an incidental event.
 
-### Characters — Group Structure (pick all that apply)
-Valid: {', '.join(dims['characters_type'])}
-Note: Include "couple" when a romantic relationship is central to the story.
-
-### Characters — Context & Archetypes (pick all that apply, or leave empty if none are pertinent)
+### Characters (group structure + context + archetypes — pick all that apply)
 Valid: {', '.join(dims['character_context'])}
+Note: Include "couple" when a romantic relationship is central to the story.
 
 ### Atmosphere (pick all that apply)
 Valid: {', '.join(dims['atmosphere'])}
@@ -152,14 +146,12 @@ Respond with ONLY this JSON structure:
   "categories": ["..."],
   "historic_subcategories": [],
   "cinema_type": ["..."],
-  "cultural_movement": ["..."],
   "time_context": ["..."],
   "geography": [
     {"continent": "...", "country": "...", "state_city": "..." or null, "place_type": "diegetic|shooting|fictional"}
   ],
   "place_environment": ["..."],
   "themes": ["..."],
-  "characters_type": ["..."],
   "character_context": ["..."],
   "atmosphere": ["..."],
   "motivations": ["..."],
@@ -176,12 +168,10 @@ Respond with ONLY this JSON structure:
   "confidence": {
     "categories": 0.0-1.0,
     "cinema_type": 0.0-1.0,
-    "cultural_movement": 0.0-1.0,
     "time_context": 0.0-1.0,
     "geography": 0.0-1.0,
     "place_environment": 0.0-1.0,
     "themes": 0.0-1.0,
-    "characters_type": 0.0-1.0,
     "character_context": 0.0-1.0,
     "atmosphere": 0.0-1.0,
     "motivations": 0.0-1.0,
@@ -206,7 +196,7 @@ Tag selection philosophy — tags must characterize the film as a whole:
 - Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
 Ex: For themes like "death": only tag if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
 - For motivations: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
-- For cultural_movement: include "Collection" if the film is part of a major franchise with sequels/prequels.
+- For cinema_type: include "Collection" if the film is part of a major franchise with sequels/prequels.
 
 Source rules:
 - Identify if based on a novel, true story, play, original screenplay, etc.
@@ -277,8 +267,8 @@ def validate_enrichment(enrichment: dict) -> dict:
     new_suggestions: list[str] = []
 
     list_dims = [
-        "categories", "cinema_type", "cultural_movement", "time_context",
-        "place_environment", "themes", "characters_type", "character_context",
+        "categories", "cinema_type", "time_context",
+        "place_environment", "themes", "character_context",
         "atmosphere", "motivations", "message",
     ]
 

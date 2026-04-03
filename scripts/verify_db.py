@@ -153,25 +153,12 @@ QUERIES = [
         "num": 8,
         "title": "Characters per film",
         "sql": """
-            SELECT DISTINCT f.original_title, ct.type_name as char_type
-            FROM film f
-            LEFT JOIN film_characters fc ON f.film_id = fc.film_id
-            LEFT JOIN characters_type ct ON fc.character_type_id = ct.character_type_id
-            WHERE f.tmdb_id IN ({ids})
-            ORDER BY f.original_title
-        """,
-        "headers": ["film", "character_type"],
-    },
-    {
-        "num": 9,
-        "title": "Character contexts per film",
-        "sql": """
             SELECT f.original_title, cc.context_name
             FROM film f
             JOIN film_character_context fcc ON f.film_id = fcc.film_id
             JOIN character_context cc ON fcc.character_context_id = cc.character_context_id
             WHERE f.tmdb_id IN ({ids})
-            ORDER BY f.original_title, cc.context_name
+            ORDER BY f.original_title, cc.sort_order, cc.context_name
         """,
         "headers": ["film", "character_context"],
     },
@@ -231,20 +218,18 @@ QUERIES = [
     },
     {
         "num": 14,
-        "title": "Cinema type & Cultural movement & Source per film",
+        "title": "Cinema type & Source per film",
         "sql": """
-            SELECT DISTINCT f.original_title, ct.technique_name, cm.movement_name, s.source_type, s.source_title
+            SELECT DISTINCT f.original_title, ct.technique_name, s.source_type, s.source_title
             FROM film f
             LEFT JOIN film_technique ft ON f.film_id = ft.film_id
             LEFT JOIN cinema_type ct ON ft.cinema_type_id = ct.cinema_type_id
-            LEFT JOIN film_movement fmov ON f.film_id = fmov.film_id
-            LEFT JOIN cultural_movement cm ON fmov.movement_id = cm.movement_id
             LEFT JOIN film_origin fo ON f.film_id = fo.film_id
             LEFT JOIN source s ON fo.source_id = s.source_id
             WHERE f.tmdb_id IN ({ids})
             ORDER BY f.original_title
         """,
-        "headers": ["film", "technique", "movement", "source_type", "source_title"],
+        "headers": ["film", "cinema_type", "source_type", "source_title"],
     },
     {
         "num": 15,
@@ -277,13 +262,11 @@ COMPLETENESS_QUERY = """
     SELECT f.original_title, f.tmdb_id,
       (SELECT COUNT(*) FROM film_genre fg WHERE fg.film_id = f.film_id) as categories,
       (SELECT COUNT(*) FROM film_technique ft WHERE ft.film_id = f.film_id) as cinema_types,
-      (SELECT COUNT(*) FROM film_movement fm WHERE fm.film_id = f.film_id) as movements,
       (SELECT COUNT(*) FROM film_theme fth WHERE fth.film_id = f.film_id) as themes,
       (SELECT COUNT(*) FROM film_atmosphere fa WHERE fa.film_id = f.film_id) as atmospheres,
       (SELECT COUNT(*) FROM film_motivation fmo WHERE fmo.film_id = f.film_id) as motivations,
       (SELECT COUNT(*) FROM film_message fms WHERE fms.film_id = f.film_id) as messages,
-      (SELECT COUNT(*) FROM film_characters fc WHERE fc.film_id = f.film_id) as char_types,
-      (SELECT COUNT(*) FROM film_character_context fcc WHERE fcc.film_id = f.film_id) as char_contexts,
+      (SELECT COUNT(*) FROM film_character_context fcc WHERE fcc.film_id = f.film_id) as characters,
       (SELECT COUNT(*) FROM film_period fp WHERE fp.film_id = f.film_id) as time_periods,
       (SELECT COUNT(*) FROM film_set_place fsp WHERE fsp.film_id = f.film_id) as geographies,
       (SELECT COUNT(*) FROM film_place fpl WHERE fpl.film_id = f.film_id) as environments,
@@ -329,7 +312,7 @@ async def run_verification(args):
         tmdb_ids = (args.tmdb_id,)
         print_header(f"VERIFYING FILM (tmdb_id={args.tmdb_id})")
     else:
-        tmdb_ids = (62, 3405, 1018)
+        tmdb_ids = (62, 406, 1018)
         print_header("VERIFYING 3 REFERENCE FILMS")
 
     engine = create_async_engine(database_url, echo=False)
@@ -350,9 +333,9 @@ async def run_verification(args):
             rows = await run_query(engine, COMPLETENESS_QUERY, tmdb_ids)
 
             headers = [
-                "film", "tmdb_id", "categories", "cinema", "movements",
+                "film", "tmdb_id", "categories", "cinema",
                 "themes", "atmospheres", "motivations", "messages",
-                "char_types", "char_ctx", "time", "geo", "env", "crew", "cast", "awards",
+                "characters", "time", "geo", "env", "crew", "cast", "awards",
             ]
             print_table(rows, headers)
 
@@ -374,19 +357,17 @@ async def run_verification(args):
                 counts = {
                     "categories": row[2],
                     "cinema_types": row[3],
-                    "movements": row[4],
-                    "themes": row[5],
-                    "atmospheres": row[6],
-                    "motivations": row[7],
-                    "messages": row[8],
-                    "char_types": row[9],
-                    "char_contexts": row[10],
-                    "time_periods": row[11],
-                    "geographies": row[12],
-                    "environments": row[13],
-                    "crew_count": row[14],
-                    "cast_count": row[15],
-                    "awards_count": row[16],
+                    "themes": row[4],
+                    "atmospheres": row[5],
+                    "motivations": row[6],
+                    "messages": row[7],
+                    "characters": row[8],
+                    "time_periods": row[9],
+                    "geographies": row[10],
+                    "environments": row[11],
+                    "crew_count": row[12],
+                    "cast_count": row[13],
+                    "awards_count": row[14],
                 }
 
                 issues = []

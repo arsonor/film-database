@@ -103,10 +103,8 @@ class FilmDetail(BaseModel):
     titles: list[FilmTitle] = []
     categories: list[str] = []
     cinema_types: list[str] = []
-    cultural_movements: list[str] = []
     themes: list[str] = []
     characters: list[str] = []
-    character_contexts: list[str] = []
     motivations: list[str] = []
     atmospheres: list[str] = []
     messages: list[str] = []
@@ -172,10 +170,8 @@ class FilmUpdate(BaseModel):
     revenue: int | None = None
     categories: list[str] | None = None
     cinema_types: list[str] | None = None
-    cultural_movements: list[str] | None = None
     themes: list[str] | None = None
     characters: list[str] | None = None
-    character_contexts: list[str] | None = None
     motivations: list[str] | None = None
     atmospheres: list[str] | None = None
     messages: list[str] | None = None

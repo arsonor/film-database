@@ -33,103 +33,105 @@ ON CONFLICT (role_name) DO NOTHING;
 -- CATEGORY - Film genres with historical subcategories
 -- =============================================================================
 
--- Main categories
-INSERT INTO category (category_name, historic_subcategory_name) VALUES
-    ('Action', NULL),
-    ('Adventure', NULL),
-    ('Comedy', NULL),
-    ('Documentary', NULL),
-    ('Drama', NULL),
-    ('Romance', NULL),
-    ('Thriller', NULL),
-    ('Horror', NULL),
-    ('Science-Fiction', NULL),
-    ('Fantasy', NULL),
-    ('Musical', NULL),
-    ('Disaster', NULL),
-    ('Historical', NULL),
+INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALUES
+    ('Comedy', NULL, 100),
+    ('Drama', NULL, 101),
+    ('Romance', NULL, 102),
+    ('Action', NULL, 103),
+    ('Adventure', NULL, 104),
+    ('Thriller', NULL, 105),
+    ('Science-Fiction', NULL, 106),
+    ('Fantasy', NULL, 107),
+    ('Horror', NULL, 108),
+    ('Musical', NULL, 109),
+    ('Documentary', NULL, 110),
+    ('Historical', NULL, 111),
     -- Historical subcategories
-    ('Historical', 'biopic'),
-    ('Historical', 'human interest story'),
-    ('Historical', 'judicial chronicle'),
-    ('Historical', 'western'),
-    ('Historical', 'peplum'),
-    ('Historical', 'swashbuckler'),
-    ('Historical', 'event')
+    ('Historical', 'biopic', 112),
+    ('Historical', 'human interest story', 113),
+    ('Historical', 'judicial chronicle', 114),
+    ('Historical', 'western', 115),
+    ('Historical', 'peplum', 116),
+    ('Historical', 'swashbuckler', 117),
+    ('Historical', 'event', 118)
 ON CONFLICT (category_name, historic_subcategory_name) DO NOTHING;
 
 -- =============================================================================
--- CINEMA_TYPE - Cinematographic techniques
+-- CINEMA_TYPE - Cinema types, techniques & cultural movements (merged)
 -- =============================================================================
 
-INSERT INTO cinema_type (technique_name) VALUES
-    ('silent'),
-    ('animation'),
-    ('mixed animation'),
-    ('art house'),
-    ('blockbuster'),
-    ('sequence-shot'),
-    ('found footage'),
-    ('motion capture'),
-    ('multi-sequence'),
-    ('black and white'),
-    ('slow cinema'),
-    ('non linear narrative'),
-    ('costume')
+INSERT INTO cinema_type (technique_name, sort_order) VALUES
+    -- Group 1: Visual techniques & aesthetics (100s)
+    ('animation', 100),
+    ('mixed animation', 101),
+    ('CGI', 102),
+    ('3D', 103),
+    ('motion capture', 104),
+    ('black and white', 105),
+    ('aesthetics', 106),
+    -- Group 2: Movements & eras (200s)
+    ('silent', 200),
+    ('expressionism', 201),
+    ('neo-realism', 202),
+    ('noir', 203),
+    ('hollywood golden age', 204),
+    ('new hollywood', 205),
+    ('new wave', 206),
+    ('realism', 207),
+    ('neo-noir', 208),
+    ('costume', 209),
+    ('dogma', 210),
+    ('blaxploitation', 211),
+    ('wu xia pian', 212),
+    -- Group 3: Industry & culture (300s)
+    ('blockbuster', 300),
+    ('art house', 301),
+    ('B', 302),
+    ('Z', 303),
+    ('Collection', 304),
+    ('generational', 305),
+    ('popular culture', 306),
+    -- Group 4: Narrative techniques (400s)
+    ('sequence-shot', 400),
+    ('found footage', 401),
+    ('multi-sequence', 402),
+    ('slow cinema', 403),
+    ('non linear narrative', 404),
+    -- Group 5: Dialog style (500s)
+    ('dialogs', 500),
+    ('slang dialogs', 501)
 ON CONFLICT (technique_name) DO NOTHING;
-
--- =============================================================================
--- CULTURAL_MOVEMENT - Cinematic movements
--- =============================================================================
-
-INSERT INTO cultural_movement (movement_name) VALUES
-    ('expressionism'),
-    ('neo-realism'),
-    ('realism'),
-    ('noir'),
-    ('hollywood golden age'),
-    ('new hollywood'),
-    ('new wave'),
-    ('neo-noir'),
-    ('dogma'),
-    ('blaxploitation'),
-    ('wu xia pian'),
-    ('generational'),
-    ('popular culture'),
-    ('aesthetics'),
-    ('CGI'),
-    ('3D'),
-    ('B'),
-    ('Z'),
-    ('Collection')
-ON CONFLICT (movement_name) DO NOTHING;
 
 -- =============================================================================
 -- PLACE_CONTEXT - Environmental settings
 -- =============================================================================
 
-INSERT INTO place_context (environment) VALUES
-    ('no particular'),
-    ('urban'),
-    ('country-style'),
-    ('maritime'),
-    ('naval'),
-    ('island'),
-    ('forest'),
-    ('mountains'),
-    ('desert'),
-    ('beach'),
-    ('space'),
-    ('huis clos'),
-    ('road movie'),
-    ('school/university'),
-    ('company/factory'),
-    ('building'),
-    ('household/house/apartment'),
-    ('jail'),
-    ('hospital'),
-    ('military'),
-    ('ship')
+INSERT INTO place_context (environment, sort_order) VALUES
+    -- Group 1: Natural environments (100s)
+    ('urban', 100),
+    ('country-style', 101),
+    ('forest', 102),
+    ('mountains', 103),
+    ('desert', 104),
+    ('beach', 105),
+    ('maritime', 106),
+    ('island', 107),
+    ('space', 108),
+    -- Group 2: Buildings & institutions (200s)
+    ('building', 200),
+    ('household/house/apartment', 201),
+    ('company/factory', 202),
+    ('school/university', 203),
+    ('hospital', 204),
+    ('jail', 205),
+    ('military', 206),
+    ('naval', 207),
+    ('ship', 208),
+    -- Group 3: Narrative settings (300s)
+    ('road movie', 300),
+    ('huis clos', 301),
+    -- Group 4: None
+    ('no particular', 400)
 ON CONFLICT (environment) DO NOTHING;
 
 -- =============================================================================
@@ -137,7 +139,7 @@ ON CONFLICT (environment) DO NOTHING;
 -- =============================================================================
 
 INSERT INTO time_context (time_period, sort_order) VALUES
-    -- Chronological (future → prehistoric)
+    -- Chronological (future -> prehistoric)
     ('future', 1),
     ('contemporary', 2),
     ('end 20th', 3),
@@ -179,6 +181,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('war', 110),
     ('tragedy', 111),
     ('apocalypse', 112),
+    ('disaster', 113),
     -- Group 2: Personal / Psychological (200-299)
     ('trauma/accident', 200),
     ('psychological', 201),
@@ -220,6 +223,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('virtual reality', 408),
     ('dream', 409),
     ('nonsense', 410),
+    ('curse', 411),
     -- Group 5: Art & Sport (500-599)
     ('art', 500),
     ('art: music', 501),
@@ -241,161 +245,165 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('AI/technology', 601),
     ('food/cooking', 602),
     ('party', 603),
-    ('book', 604)
+    ('book', 604),
+    ('game', 605)
 ON CONFLICT (theme_name) DO NOTHING;
 
 -- =============================================================================
--- CHARACTERS_TYPE - Character configurations
+-- CHARACTER_CONTEXT - Characters (merged types + contexts + archetypes)
 -- =============================================================================
 
-INSERT INTO characters_type (type_name) VALUES
-    ('solitary'),
-    ('tandem'),
-    ('couple'),
-    ('adult/child'),
-    ('trio'),
-    ('buddies'),
-    ('gang'),
-    ('relatives'),
-    ('generations'),
-    ('ensemble cast'),
-    ('animal/wildlife')
-ON CONFLICT (type_name) DO NOTHING;
-
--- =============================================================================
--- CHARACTER_CONTEXT - Character contexts, archetypes, and extended
--- =============================================================================
-
-INSERT INTO character_context (context_name) VALUES
-    -- Character Context
-    ('childhood'),
-    ('teenager'),
-    ('elderly'),
-    ('female'),
-    ('LGBT'),
-    ('cross-dressing'),
-    ('double'),
-    ('interracial'),
-    ('ordinary'),
-    ('poor/marginal'),
-    ('wealthy')
-    -- Character Archetypes
-    ('super hero'),
-    ('vigilante'),
-    ('cop'),
-    ('detective'),
-    ('samourai'),
-    ('pirate'),
-    ('viking'),
-    ('barbarian'),
-    ('soldier'),
-    ('psychopath'),
-    ('madness'),
-    ('idiot'),
-    ('genius')
-    ('looser'),
-    ('prostitute'),
-    ('freak/disabled'),
-    ('monster/terrestrial creature'),
-    ('ghost/spirit'),
-    ('evil'),
-    ('witch'),
-    ('vampire'),
-    ('zombie'),
-    ('android'),
-    ('alien'),
-    -- Extended archetypes
-    ('unreliable narrator'),
-    ('antihero'),
-    ('femme fatale'),
-    ('star/celebrity'),
-    ('vehicle')
+INSERT INTO character_context (context_name, sort_order) VALUES
+    -- Group 1: Group structure (100s)
+    ('solitary', 100),
+    ('tandem', 101),
+    ('trio', 102),
+    ('couple', 103),
+    ('relatives', 104),
+    ('generations', 105),
+    ('buddies', 106),
+    ('team/group/gang', 107),
+    ('interracial', 108),
+    ('ensemble cast', 109),
+    -- Group 2: Age & identity (200s)
+    ('childhood', 200),
+    ('teenager', 201),
+    ('elderly', 202),
+    ('adult/child', 203),
+    ('female', 204),
+    ('LGBT', 205),
+    -- Group 3: Social status & traits (300s)
+    ('ordinary', 300),
+    ('poor/marginal', 301),
+    ('wealthy', 302),
+    ('genius', 303),
+    ('idiot', 304),
+    ('looser', 305),
+    ('star/celebrity', 306),
+    ('madness', 307),
+    ('freak/disabled', 308),
+    ('prostitute', 309),
+    ('psychopath', 310),
+    -- Group 4: Narrative devices (400s)
+    ('double', 400),
+    ('cross-dressing', 401),
+    ('unreliable narrator', 402),
+    -- Group 5: Archetypes - human (500s)
+    ('super hero', 500),
+    ('antihero', 501),
+    ('cop', 502),
+    ('detective', 503),
+    ('vigilante', 504),
+    ('soldier', 505),
+    ('femme fatale', 506),
+    ('samourai', 507),
+    ('pirate', 508),
+    ('viking', 509),
+    ('barbarian', 510),
+    -- Group 6: Non-human & creatures (600s)
+    ('animal/wildlife', 600),
+    ('monster/terrestrial creature', 601),
+    ('evil', 602),
+    ('witch', 603),
+    ('ghost/spirit', 604),
+    ('vampire', 605),
+    ('zombie', 606),
+    ('alien', 607),
+    ('android', 608),
+    ('vehicle', 609)
 ON CONFLICT (context_name) DO NOTHING;
 
 -- =============================================================================
 -- ATMOSPHERE - Film atmosphere/tone (core + extended)
 -- =============================================================================
 
-INSERT INTO atmosphere (atmosphere_name) VALUES
-    -- Core atmosphere
-    ('family'),
-    ('feel good'),
-    ('crazy/nutty'),
-    ('depressive/sad'),
-    ('sulfurous'),
-    ('mysterious'),
-    ('violent'),
-    ('trash'),
-    ('gore'),
-    ('awful/seedy/depraved'),
-    ('oppressive'),
-    ('disturbing'),
-    ('contemplative'),
-    -- Extended atmosphere
-    ('hypnotic'),
-    ('psychedelic'),
-    ('ethereal'),
-    ('claustrophobic')
+INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES
+    -- Group 1: Light (100s)
+    ('family', 100),
+    ('feel good', 101),
+    ('crazy/nutty', 102),
+    ('depressive/sad', 103),
+    -- Group 2: Tension (200s)
+    ('mysterious', 200),
+    ('oppressive', 201),
+    ('claustrophobic', 202),
+    -- Group 3: Contemplative (300s)
+    ('contemplative', 300),
+    ('ethereal', 301),
+    ('hypnotic', 302),
+    ('psychedelic', 303),
+    -- Group 4: Dark (400s)
+    ('violent', 400),
+    ('disturbing', 401),
+    ('sulfurous', 402),
+    ('trash', 403),
+    ('gore', 404),
+    ('awful/seedy/depraved', 405)
 ON CONFLICT (atmosphere_name) DO NOTHING;
 
 -- =============================================================================
 -- MOTIVATION_RELATION - Character motivations
 -- =============================================================================
 
-INSERT INTO motivation_relation (motivation_name) VALUES
-    ('feelings'),
-    ('friendship'),
-    ('emancipation'),
-    ('solidarity'),
-    ('adultery'),
-    ('jealousy'),
-    ('sex'),
-    ('harassment'),
-    ('lie'),
-    ('doubt/dilemma'),
-    ('rivalry'),
-    ('power'),
-    ('perversion'),
-    ('manipulation'),
-    ('redemption'),
-    ('obsession'),
-    ('vengeance'),
-    ('rebellion/revolt'),
-    ('fight'),
-    ('odyssey'),
-    ('quest'),
-    ('world saver'),
-    ('communication'),
-    ('invasion')
+INSERT INTO motivation_relation (motivation_name, sort_order) VALUES
+    -- Group 1: Positive bonds (100s)
+    ('feelings', 100),
+    ('friendship', 101),
+    ('solidarity', 102),
+    ('communication', 103),
+    ('emancipation', 104),
+    ('redemption', 105),
+    -- Group 2: Inner conflict (200s)
+    ('obsession', 200),
+    ('doubt/dilemma', 201),
+    ('lie', 202),
+    ('manipulation', 203),
+    -- Group 3: Desire & transgression (300s)
+    ('sex', 300),
+    ('adultery', 301),
+    ('jealousy', 302),
+    ('harassment', 303),
+    ('perversion', 304),
+    -- Group 4: Conflict & struggle (400s)
+    ('power', 400),
+    ('rivalry', 401),
+    ('fight', 402),
+    ('rebellion/revolt', 403),
+    ('vengeance', 404),
+    -- Group 5: Epic quests (500s)
+    ('odyssey', 500),
+    ('quest', 501),
+    ('world saver', 502),
+    ('invasion', 503)
 ON CONFLICT (motivation_name) DO NOTHING;
 
 -- =============================================================================
 -- MESSAGE_CONVEYED - Film messages (core + extended)
 -- =============================================================================
 
-INSERT INTO message_conveyed (message_name) VALUES
-    -- Core messages
-    ('parodic'),
-    ('satirical'),
-    ('political'),
-    ('humanist'),
-    ('nostalgic'),
-    ('dreamlike'),
-    ('surreal'),
-    ('symbolic'),
-    ('philosophical'),
-    ('metaphysical'),
-    ('dialogs'),
-    ('slang dialogs'),
-    ('black comedy'),
-    -- Extended messages
-    ('anti establishment'),
-    ('feminist'),
-    ('absurdist'),
-    ('ecological'),
-    ('patriotic'),
-    ('history revisited'),
-    ('traditionalist/way of life')
+INSERT INTO message_conveyed (message_name, sort_order) VALUES
+    -- Group 1: Values & ideology (100s)
+    ('humanist', 100),
+    ('philosophical', 101),
+    ('feminist', 102),
+    ('ecological', 103),
+    ('political', 104),
+    -- Group 2: Comedy & satire (200s)
+    ('parodic', 200),
+    ('satirical', 201),
+    ('black comedy', 202),
+    ('absurdist', 203),
+    -- Group 3: Cultural perspective (300s)
+    ('anti establishment', 300),
+    ('nostalgic', 301),
+    ('patriotic', 302),
+    ('traditionalist/way of life', 303),
+    ('history revisited', 304),
+    -- Group 4: Artistic expression (400s)
+    ('dreamlike', 400),
+    ('surreal', 401),
+    ('symbolic', 402),
+    ('metaphysical', 403)
 ON CONFLICT (message_name) DO NOTHING;
 
 -- =============================================================================

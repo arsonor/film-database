@@ -18,7 +18,8 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- =============================================================================
 -- CORE TABLE: FILM
@@ -197,6 +198,7 @@ CREATE TABLE IF NOT EXISTS category (
     category_id SERIAL PRIMARY KEY,
     category_name TEXT NOT NULL,
     historic_subcategory_name TEXT,            -- For Historical subcategories (biopic, western, etc.)
+    sort_order INTEGER DEFAULT 999,
     UNIQUE (category_name, historic_subcategory_name)
 );
 
@@ -221,13 +223,14 @@ CREATE INDEX IF NOT EXISTS idx_film_genre_category_id ON film_genre(category_id)
 -- CLASSIFICATION: CINEMA TYPE / CINEMATOGRAPHY
 -- =============================================================================
 
--- Cinema types/techniques
+-- Cinema types/techniques (merged with cultural movements)
 CREATE TABLE IF NOT EXISTS cinema_type (
     cinema_type_id SERIAL PRIMARY KEY,
-    technique_name TEXT NOT NULL UNIQUE
+    technique_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
-COMMENT ON TABLE cinema_type IS 'Cinematographic techniques and film types (animation, art house, blockbuster, etc.)';
+COMMENT ON TABLE cinema_type IS 'Cinema types, techniques, and cultural movements (animation, art house, noir, new wave, etc.)';
 
 -- Film-CinemaType junction table
 CREATE TABLE IF NOT EXISTS film_technique (
@@ -242,32 +245,6 @@ COMMENT ON TABLE film_technique IS 'Junction table linking films to their cinema
 
 CREATE INDEX IF NOT EXISTS idx_film_technique_film_id ON film_technique(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_technique_cinema_type_id ON film_technique(cinema_type_id);
-
--- =============================================================================
--- CLASSIFICATION: CULTURAL MOVEMENT
--- =============================================================================
-
--- Cultural/cinematic movements
-CREATE TABLE IF NOT EXISTS cultural_movement (
-    movement_id SERIAL PRIMARY KEY,
-    movement_name TEXT NOT NULL UNIQUE
-);
-
-COMMENT ON TABLE cultural_movement IS 'Cinematic and cultural movements (film noir, new wave, neo-realism, etc.)';
-
--- Film-Movement junction table
-CREATE TABLE IF NOT EXISTS film_movement (
-    film_id INTEGER NOT NULL,
-    movement_id INTEGER NOT NULL,
-    PRIMARY KEY (film_id, movement_id),
-    FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
-    FOREIGN KEY (movement_id) REFERENCES cultural_movement(movement_id) ON DELETE CASCADE
-);
-
-COMMENT ON TABLE film_movement IS 'Junction table linking films to cultural/cinematic movements';
-
-CREATE INDEX IF NOT EXISTS idx_film_movement_film_id ON film_movement(film_id);
-CREATE INDEX IF NOT EXISTS idx_film_movement_movement_id ON film_movement(movement_id);
 
 -- =============================================================================
 -- CLASSIFICATION: GEOGRAPHY & PLACE
@@ -303,7 +280,8 @@ CREATE INDEX IF NOT EXISTS idx_film_set_place_geography_id ON film_set_place(geo
 -- Place environment/context
 CREATE TABLE IF NOT EXISTS place_context (
     place_context_id SERIAL PRIMARY KEY,
-    environment TEXT NOT NULL UNIQUE
+    environment TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE place_context IS 'Types of environments/settings (urban, rural, space, etc.)';
@@ -377,42 +355,17 @@ CREATE INDEX IF NOT EXISTS idx_film_theme_film_id ON film_theme(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_theme_theme_context_id ON film_theme(theme_context_id);
 
 -- =============================================================================
--- CLASSIFICATION: CHARACTER TYPES
+-- CLASSIFICATION: CHARACTERS (merged character types + contexts + archetypes)
 -- =============================================================================
 
--- Types of character configurations
-CREATE TABLE IF NOT EXISTS characters_type (
-    character_type_id SERIAL PRIMARY KEY,
-    type_name TEXT NOT NULL UNIQUE
-);
-
-COMMENT ON TABLE characters_type IS 'Character configuration types (solitary, tandem, ensemble cast, etc.)';
-
--- Film-CharacterType junction table
-CREATE TABLE IF NOT EXISTS film_characters (
-    film_id INTEGER NOT NULL,
-    character_type_id INTEGER NOT NULL,
-    PRIMARY KEY (film_id, character_type_id),
-    FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
-    FOREIGN KEY (character_type_id) REFERENCES characters_type(character_type_id) ON DELETE CASCADE
-);
-
-COMMENT ON TABLE film_characters IS 'Junction table linking films to their character configuration types';
-
-CREATE INDEX IF NOT EXISTS idx_film_characters_film_id ON film_characters(film_id);
-CREATE INDEX IF NOT EXISTS idx_film_characters_character_type_id ON film_characters(character_type_id);
-
--- =============================================================================
--- CLASSIFICATION: CHARACTER CONTEXT & ARCHETYPES
--- =============================================================================
-
--- Character contexts and archetypes
+-- Character types, contexts, and archetypes (merged from characters_type + character_context)
 CREATE TABLE IF NOT EXISTS character_context (
     character_context_id SERIAL PRIMARY KEY,
-    context_name TEXT NOT NULL UNIQUE
+    context_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
-COMMENT ON TABLE character_context IS 'Character contexts (childhood, elderly, LGBT) and archetypes (detective, vampire, etc.)';
+COMMENT ON TABLE character_context IS 'Character types, contexts, and archetypes (solitary, childhood, detective, vampire, etc.)';
 
 -- Film-CharacterContext junction table
 CREATE TABLE IF NOT EXISTS film_character_context (
@@ -435,7 +388,8 @@ CREATE INDEX IF NOT EXISTS idx_film_character_context_context_id ON film_charact
 -- Film atmosphere/tone
 CREATE TABLE IF NOT EXISTS atmosphere (
     atmosphere_id SERIAL PRIMARY KEY,
-    atmosphere_name TEXT NOT NULL UNIQUE
+    atmosphere_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE atmosphere IS 'Film atmosphere and tone (feel good, violent, mysterious, etc.)';
@@ -461,7 +415,8 @@ CREATE INDEX IF NOT EXISTS idx_film_atmosphere_atmosphere_id ON film_atmosphere(
 -- Character motivations and relationships
 CREATE TABLE IF NOT EXISTS motivation_relation (
     motivation_id SERIAL PRIMARY KEY,
-    motivation_name TEXT NOT NULL UNIQUE
+    motivation_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE motivation_relation IS 'Character motivations and interpersonal dynamics (vengeance, friendship, jealousy, etc.)';
@@ -487,7 +442,8 @@ CREATE INDEX IF NOT EXISTS idx_film_motivation_motivation_id ON film_motivation(
 -- Film's message or narrative approach
 CREATE TABLE IF NOT EXISTS message_conveyed (
     message_id SERIAL PRIMARY KEY,
-    message_name TEXT NOT NULL UNIQUE
+    message_name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 999
 );
 
 COMMENT ON TABLE message_conveyed IS 'The message or narrative tone of the film (satirical, philosophical, nostalgic, etc.)';

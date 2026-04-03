@@ -377,10 +377,8 @@ function ReviewScreen({
   // Local editable state for taxonomy dimensions
   const [categories, setCategories] = useState(preview.categories);
   const [cinemaTypes, setCinemaTypes] = useState(getEnrichmentList("cinema_type"));
-  const [culturalMovements, setCulturalMovements] = useState(getEnrichmentList("cultural_movement"));
   const [themes, setThemes] = useState(getEnrichmentList("themes"));
-  const [characters, setCharacters] = useState(getEnrichmentList("characters_type"));
-  const [characterContexts, setCharacterContexts] = useState(getEnrichmentList("character_context"));
+  const [characters, setCharacters] = useState(getEnrichmentList("character_context"));
   const [motivations, setMotivations] = useState(getEnrichmentList("motivations"));
   const [atmospheres, setAtmospheres] = useState(getEnrichmentList("atmosphere"));
   const [messages, setMessages] = useState(getEnrichmentList("message"));
@@ -393,10 +391,8 @@ function ReviewScreen({
     const updatedEnrichment = {
       ...enrichment,
       cinema_type: cinemaTypes,
-      cultural_movement: culturalMovements,
       themes,
-      characters_type: characters,
-      character_context: characterContexts,
+      character_context: characters,
       motivations,
       atmosphere: atmospheres,
       message: messages,
@@ -415,8 +411,8 @@ function ReviewScreen({
     setTimeout(onSave, 0);
   }, [
     preview, setPreview, onSave,
-    categories, cinemaTypes, culturalMovements, themes, characters,
-    characterContexts, motivations, atmospheres, messages,
+    categories, cinemaTypes, themes, characters,
+    motivations, atmospheres, messages,
     timePeriods, placeContexts, streamingPlatforms, enrichment,
   ]);
 
@@ -540,16 +536,10 @@ function ReviewScreen({
               onChange={setCategories}
             />
             <InlineTagEditor
-              label="Cinema Types"
+              label="Cinema"
               dimension="cinema_types"
               values={cinemaTypes}
               onChange={setCinemaTypes}
-            />
-            <InlineTagEditor
-              label="Cultural Movements"
-              dimension="cultural_movements"
-              values={culturalMovements}
-              onChange={setCulturalMovements}
             />
           </div>
         </section>
@@ -564,16 +554,10 @@ function ReviewScreen({
               onChange={setThemes}
             />
             <InlineTagEditor
-              label="Character Types"
+              label="Characters"
               dimension="characters"
               values={characters}
               onChange={setCharacters}
-            />
-            <InlineTagEditor
-              label="Character Contexts"
-              dimension="character_contexts"
-              values={characterContexts}
-              onChange={setCharacterContexts}
             />
             <InlineTagEditor
               label="Motivations"

@@ -37,14 +37,14 @@ from db_inserter import DBInserter  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-REFERENCE_TMDB_IDS = [62, 3405, 1018]
+REFERENCE_TMDB_IDS = [62, 406, 1018]
 FALLBACK_PATH = Path(__file__).parent / "data" / "reference_films_fallback.json"
 SCHEMA_PATH = Path(__file__).parent.parent / "database" / "schema.sql"
 SEED_PATH = Path(__file__).parent.parent / "database" / "seed_taxonomy.sql"
 
 REFERENCE_FILMS = [
     {"key": "2001", "title": "2001: A Space Odyssey", "year": 1968, "tmdb_id": 62},
-    {"key": "la_haine", "title": "La Haine", "year": 1995, "tmdb_id": 3405},
+    {"key": "la_haine", "title": "La Haine", "year": 1995, "tmdb_id": 406},
     {"key": "mulholland_drive", "title": "Mulholland Drive", "year": 2001, "tmdb_id": 1018},
 ]
 
@@ -339,8 +339,8 @@ async def _insert_films(database_url: str, films_data: list[dict]):
 def _print_accuracy(title: str, expected: dict, actual: dict):
     """Print a brief accuracy comparison between expected and actual enrichment."""
     dims = [
-        "categories", "cinema_type", "cultural_movement", "time_context",
-        "themes", "characters_type", "character_context", "atmosphere",
+        "categories", "cinema_type", "time_context",
+        "themes", "character_context", "atmosphere",
         "motivations", "message", "place_environment",
     ]
 
