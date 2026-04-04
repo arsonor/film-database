@@ -169,3 +169,132 @@ No Claude Code prompt needed — this step uses the existing scripts built in st
 ## Step 12: Taxonomy restructure — merge dimensions, add sort_order grouping, rebalance tags
 
 *(see git history for original prompts)*
+
+---
+
+## Step 13 Prompt — Performance Optimization (Deployed)
+
+Read CLAUDE.md, then PLAN.md (Step 13), then these files:
+- `backend/app/routers/films.py` (full file — focus on `get_film()`)
+- `backend/app/database.py`
+- `frontend/src/hooks/useFilms.ts`
+- `frontend/src/hooks/useFilmDetail.ts`
+- `frontend/src/hooks/useTaxonomy.ts`
+- `frontend/src/pages/FilmDetailPage.tsx`
+- `frontend/src/App.tsx`
+- `frontend/package.json`
+
+### Part A — Backend: Parallelize film detail queries
+
+In `backend/app/database.py`:
+- Increase `pool_size` from 5 to 10 (keep `max_overflow=10`)
+- Export `engine` is already done — no other changes needed
+
+In `backend/app/routers/films.py`, rewrite `get_film()`:
+
+1. Keep the initial core film query (`SELECT * FROM film WHERE film_id = :fid`) — this must run first to check the film exists (404 if not found).
+
+2. After the core film row is confirmed, run ALL remaining queries in parallel using `asyncio.gather()`. Since a single SQLAlchemy `AsyncSession` serializes queries on its connection, each parallel query must use its own independent connection. Add this helper at module level:
+
+```python
+import asyncio
+
+async def _parallel_query(sql: str, params: dict) -> list:
+    """Run a single query using its own connection for true parallelism."""
+    async with engine.connect() as conn:
+        result = await conn.execute(text(sql), params)
+        return result.fetchall()
+```
+
+3. Replace the sequential section (from "titles" through "sequels") with a single `asyncio.gather()` block. Define all 17 queries as a list of `_parallel_query(sql, {"fid": film_id})` calls, then unpack the results:
+
+```python
+(
+    title_rows, cat_rows, cinema_rows, theme_rows, char_rows,
+    motiv_rows, atmos_rows, msg_rows, time_rows, place_rows,
+    sp_rows, crew_rows, cast_rows, studio_rows, src_rows,
+    award_rows, streaming_rows, seq_rows,
+) = await asyncio.gather(
+    _parallel_query("SELECT l.language_code, ... WHERE fl.film_id = :fid ...", {"fid": film_id}),
+    _parallel_query("SELECT DISTINCT c.category_name, ... WHERE fg.film_id = :fid ...", {"fid": film_id}),
+    # ... all 17 remaining queries, copy the SQL strings exactly from the current sequential code
+    # (the sequel query with UNION is included here too)
+)
+```
+
+4. After the gather, process rows into response objects exactly as before (the FilmTitle/CrewMember/etc. list comprehensions stay identical, just using the unpacked variables instead of `await db.execute()` results).
+
+5. The `db` session dependency is no longer needed for the parallel queries (they use `engine.connect()` directly), but keep the `db: AsyncSession = Depends(get_db)` parameter signature for the initial film lookup. Alternatively, the initial lookup can also use `engine.connect()` and you can remove the `db` dependency entirely — your choice, but keeping it is simpler.
+
+6. Important: the `load_names()` inner function should be removed — its queries are now part of the gather block.
+
+Do NOT change any of the SQL strings themselves, the response model, or the query logic. The only change is making them run in parallel instead of sequentially.
+
+### Part B — Frontend: React Query caching
+
+1. Install the dependency:
+```
+npm install @tanstack/react-query
+```
+
+2. In `frontend/src/App.tsx`:
+- Import `QueryClient` and `QueryClientProvider` from `@tanstack/react-query`
+- Create a `queryClient` instance outside the component with:
+  ```ts
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30 * 1000,      // 30s default
+        gcTime: 5 * 60 * 1000,     // keep unused cache 5min
+        refetchOnWindowFocus: false,
+      },
+    },
+  });
+  ```
+- Wrap `<BrowserRouter>` children with `<QueryClientProvider client={queryClient}>`
+
+3. Rewrite `frontend/src/hooks/useFilms.ts`:
+- Import `useQuery` from `@tanstack/react-query`
+- Replace the entire custom hook body with:
+  ```ts
+  export function useFilms(filters: FilterState) {
+    const { data: films = null, isLoading: loading, error } = useQuery({
+      queryKey: ["films", filters],
+      queryFn: () => fetchFilms(filters),
+    });
+    return { films, loading, error: error?.message ?? null };
+  }
+  ```
+- Remove the manual state, debounce, and abort logic — React Query handles all of this.
+- **Keep the 300ms debounce** for text-based filter changes. To do this, add a `debouncedFilters` state that updates 300ms after `filters` changes (use a `useEffect` with `setTimeout`), and pass `debouncedFilters` to both `queryKey` and `queryFn`. This way React Query only fires a new request after the user stops typing.
+
+4. Rewrite `frontend/src/hooks/useFilmDetail.ts`:
+- Replace with:
+  ```ts
+  export function useFilmDetail(filmId: number) {
+    const { data: film = null, isLoading: loading, error, refetch } = useQuery({
+      queryKey: ["film", filmId],
+      queryFn: () => fetchFilmDetail(filmId),
+      staleTime: 60 * 1000,  // 1 minute
+    });
+    return { film, setFilm: () => {}, loading, error: error?.message ?? null, refetch };
+  }
+  ```
+- Note: `setFilm` is used for optimistic updates (vu toggle). To keep this working, use `queryClient.setQueryData(["film", filmId], updatedFilm)` instead of local state. Import `useQueryClient` and update the optimistic toggle in `FilmDetailPage.tsx` to use `queryClient.setQueryData`. Also invalidate the films list cache after toggling: `queryClient.invalidateQueries({ queryKey: ["films"] })`.
+
+5. Rewrite `frontend/src/hooks/useTaxonomy.ts`:
+- Use `useQuery` with `staleTime: Infinity` (taxonomy values essentially never change during a session)
+- Keep the same return shape: `{ taxonomies, loading }`
+
+6. After saving a new film via AddFilmPage, invalidate the films cache:
+```ts
+queryClient.invalidateQueries({ queryKey: ["films"] });
+```
+Same after deleting a film or updating film tags.
+
+### Verification
+- Film detail page loads in < 200ms (check Network tab)
+- Navigating browse → detail → browse shows cached data instantly (no spinner on return)
+- Taxonomy dropdowns populate instantly after first load
+- `vu` toggle still works with optimistic update
+- All existing functionality unchanged

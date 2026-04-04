@@ -2,6 +2,7 @@
 Film API endpoints — list (paginated + filtered), detail, search, create, update, stats.
 """
 
+import asyncio
 import logging
 from datetime import date
 
@@ -10,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.auth import require_admin
-from backend.app.database import get_db
+from backend.app.database import engine, get_db
 from backend.app.schemas.film import (
     AwardOut,
     CastMember,
@@ -407,13 +408,20 @@ async def search_local_films(
 
 
 # =============================================================================
-# GET /api/films/{film_id} — Full detail
+# GET /api/films/{film_id} — Full detail (parallelized queries)
 # =============================================================================
+
+
+async def _parallel_query(sql: str, params: dict) -> list:
+    """Run a single query using its own connection for true parallelism."""
+    async with engine.connect() as conn:
+        result = await conn.execute(text(sql), params)
+        return result.fetchall()
 
 
 @router.get("/films/{film_id}", response_model=FilmDetail)
 async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
-    # Core film
+    # Core film — must run first to check existence
     result = await db.execute(
         text("SELECT * FROM film WHERE film_id = :fid"),
         {"fid": film_id},
@@ -422,213 +430,201 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
     if not film:
         raise HTTPException(status_code=404, detail="Film not found")
 
-    # Helper to load simple taxonomy names
-    async def load_names(sql: str) -> list[str]:
-        r = await db.execute(text(sql), {"fid": film_id})
-        return [row[0] for row in r.fetchall()]
-
-    # Titles
-    title_rows = await db.execute(
-        text("""
-            SELECT l.language_code, l.language_name, fl.film_title, fl.is_original
-            FROM film_language fl
-            JOIN language l ON fl.language_id = l.language_id
-            WHERE fl.film_id = :fid
-            ORDER BY fl.is_original DESC
-        """),
-        {"fid": film_id},
-    )
-    titles = [
-        FilmTitle(language_code=r[0], language_name=r[1], title=r[2], is_original=r[3])
-        for r in title_rows.fetchall()
-    ]
-
-    # Categories — return composite "Historical: biopic" for subcategories
-    cat_rows = await db.execute(
-        text(
+    # Run all remaining queries in parallel
+    params = {"fid": film_id}
+    (
+        title_rows, cat_rows, cinema_rows, theme_rows, char_rows,
+        motiv_rows, atmos_rows, msg_rows, time_rows, place_rows,
+        sp_rows, crew_rows, cast_rows, studio_rows, src_rows,
+        award_rows, streaming_rows, seq_rows,
+    ) = await asyncio.gather(
+        _parallel_query(
+            "SELECT l.language_code, l.language_name, fl.film_title, fl.is_original "
+            "FROM film_language fl "
+            "JOIN language l ON fl.language_id = l.language_id "
+            "WHERE fl.film_id = :fid "
+            "ORDER BY fl.is_original DESC",
+            params,
+        ),
+        _parallel_query(
             "SELECT DISTINCT c.category_name, c.historic_subcategory_name "
             "FROM film_genre fg "
             "JOIN category c ON fg.category_id = c.category_id "
-            "WHERE fg.film_id = :fid ORDER BY c.category_name"
+            "WHERE fg.film_id = :fid ORDER BY c.category_name",
+            params,
         ),
-        {"fid": film_id},
+        _parallel_query(
+            "SELECT ct.technique_name FROM film_technique ft "
+            "JOIN cinema_type ct ON ft.cinema_type_id = ct.cinema_type_id "
+            "WHERE ft.film_id = :fid ORDER BY ct.sort_order, ct.technique_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT tc.theme_name FROM film_theme fth "
+            "JOIN theme_context tc ON fth.theme_context_id = tc.theme_context_id "
+            "WHERE fth.film_id = :fid ORDER BY tc.theme_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT cc.context_name FROM film_character_context fcc "
+            "JOIN character_context cc ON fcc.character_context_id = cc.character_context_id "
+            "WHERE fcc.film_id = :fid ORDER BY cc.sort_order, cc.context_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT mr.motivation_name FROM film_motivation fm "
+            "JOIN motivation_relation mr ON fm.motivation_id = mr.motivation_id "
+            "WHERE fm.film_id = :fid ORDER BY mr.motivation_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT a.atmosphere_name FROM film_atmosphere fa "
+            "JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id "
+            "WHERE fa.film_id = :fid ORDER BY a.atmosphere_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT mc.message_name FROM film_message fmsg "
+            "JOIN message_conveyed mc ON fmsg.message_id = mc.message_id "
+            "WHERE fmsg.film_id = :fid ORDER BY mc.message_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT tc.time_period FROM film_period fp "
+            "JOIN time_context tc ON fp.time_context_id = tc.time_context_id "
+            "WHERE fp.film_id = :fid ORDER BY tc.time_period",
+            params,
+        ),
+        _parallel_query(
+            "SELECT pc.environment FROM film_place fpl "
+            "JOIN place_context pc ON fpl.place_context_id = pc.place_context_id "
+            "WHERE fpl.film_id = :fid ORDER BY pc.environment",
+            params,
+        ),
+        _parallel_query(
+            "SELECT g.continent, g.country, g.state_city, fsp.place_type "
+            "FROM film_set_place fsp "
+            "JOIN geography g ON fsp.geography_id = g.geography_id "
+            "WHERE fsp.film_id = :fid "
+            "ORDER BY g.continent, g.country",
+            params,
+        ),
+        _parallel_query(
+            "SELECT p.person_id, p.firstname, p.lastname, pj.role_name, p.photo_url "
+            "FROM crew cr "
+            "JOIN person p ON cr.person_id = p.person_id "
+            "JOIN person_job pj ON cr.job_id = pj.job_id "
+            "WHERE cr.film_id = :fid "
+            "ORDER BY pj.role_name, p.lastname",
+            params,
+        ),
+        _parallel_query(
+            "SELECT p.person_id, p.firstname, p.lastname, ca.character_name, ca.cast_order, p.photo_url "
+            "FROM casting ca "
+            "JOIN person p ON ca.person_id = p.person_id "
+            "WHERE ca.film_id = :fid "
+            "ORDER BY ca.cast_order NULLS LAST",
+            params,
+        ),
+        _parallel_query(
+            "SELECT s.studio_name FROM production pr "
+            "JOIN studio s ON pr.studio_id = s.studio_id "
+            "WHERE pr.film_id = :fid ORDER BY s.studio_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT s.source_type, s.source_title, s.author "
+            "FROM film_origin fo "
+            "JOIN source s ON fo.source_id = s.source_id "
+            "WHERE fo.film_id = :fid",
+            params,
+        ),
+        _parallel_query(
+            "SELECT festival_name, category, award_year, result "
+            "FROM award WHERE film_id = :fid "
+            "ORDER BY award_year, festival_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT sp.platform_name FROM film_exploitation fe "
+            "JOIN stream_platform sp ON fe.platform_id = sp.platform_id "
+            "WHERE fe.film_id = :fid ORDER BY sp.platform_name",
+            params,
+        ),
+        _parallel_query(
+            "SELECT related_id, original_title, relation_type, poster_url "
+            "FROM ("
+            "  SELECT fs.related_film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date "
+            "  FROM film_sequel fs "
+            "  JOIN film f2 ON fs.related_film_id = f2.film_id "
+            "  WHERE fs.film_id = :fid "
+            "  UNION "
+            "  SELECT fs.film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date "
+            "  FROM film_sequel fs "
+            "  JOIN film f2 ON fs.film_id = f2.film_id "
+            "  WHERE fs.related_film_id = :fid "
+            ") sub "
+            "ORDER BY first_release_date ASC NULLS LAST",
+            params,
+        ),
     )
+
+    # Process titles
+    titles = [
+        FilmTitle(language_code=r[0], language_name=r[1], title=r[2], is_original=r[3])
+        for r in title_rows
+    ]
+
+    # Process categories — composite "Historical: biopic" for subcategories
     categories: list[str] = []
     seen_parents: set[str] = set()
-    for cat_name, sub_name in cat_rows.fetchall():
+    for cat_name, sub_name in cat_rows:
         if sub_name:
             categories.append(f"{cat_name}: {sub_name}")
             seen_parents.add(cat_name)
         else:
             categories.append(cat_name)
-    # Remove bare parent if subcategories are present (avoid "Historical" + "Historical: biopic")
     categories = [
         c for c in categories
         if ": " in c or c not in seen_parents
     ]
 
-    cinema_types = await load_names(
-        "SELECT ct.technique_name FROM film_technique ft "
-        "JOIN cinema_type ct ON ft.cinema_type_id = ct.cinema_type_id "
-        "WHERE ft.film_id = :fid ORDER BY ct.sort_order, ct.technique_name"
-    )
+    # Process simple name lists
+    cinema_types = [r[0] for r in cinema_rows]
+    themes_list = [r[0] for r in theme_rows]
+    characters_list = [r[0] for r in char_rows]
+    motivations_list = [r[0] for r in motiv_rows]
+    atmospheres_list = [r[0] for r in atmos_rows]
+    messages_list = [r[0] for r in msg_rows]
+    time_periods_list = [r[0] for r in time_rows]
+    place_contexts_list = [r[0] for r in place_rows]
+    studios = [r[0] for r in studio_rows]
+    streaming = [r[0] for r in streaming_rows]
 
-    themes_list = await load_names(
-        "SELECT tc.theme_name FROM film_theme fth "
-        "JOIN theme_context tc ON fth.theme_context_id = tc.theme_context_id "
-        "WHERE fth.film_id = :fid ORDER BY tc.theme_name"
-    )
-
-    characters_list = await load_names(
-        "SELECT cc.context_name FROM film_character_context fcc "
-        "JOIN character_context cc ON fcc.character_context_id = cc.character_context_id "
-        "WHERE fcc.film_id = :fid ORDER BY cc.sort_order, cc.context_name"
-    )
-
-    motivations_list = await load_names(
-        "SELECT mr.motivation_name FROM film_motivation fm "
-        "JOIN motivation_relation mr ON fm.motivation_id = mr.motivation_id "
-        "WHERE fm.film_id = :fid ORDER BY mr.motivation_name"
-    )
-
-    atmospheres_list = await load_names(
-        "SELECT a.atmosphere_name FROM film_atmosphere fa "
-        "JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id "
-        "WHERE fa.film_id = :fid ORDER BY a.atmosphere_name"
-    )
-
-    messages_list = await load_names(
-        "SELECT mc.message_name FROM film_message fmsg "
-        "JOIN message_conveyed mc ON fmsg.message_id = mc.message_id "
-        "WHERE fmsg.film_id = :fid ORDER BY mc.message_name"
-    )
-
-    time_periods_list = await load_names(
-        "SELECT tc.time_period FROM film_period fp "
-        "JOIN time_context tc ON fp.time_context_id = tc.time_context_id "
-        "WHERE fp.film_id = :fid ORDER BY tc.time_period"
-    )
-
-    place_contexts_list = await load_names(
-        "SELECT pc.environment FROM film_place fpl "
-        "JOIN place_context pc ON fpl.place_context_id = pc.place_context_id "
-        "WHERE fpl.film_id = :fid ORDER BY pc.environment"
-    )
-
-    # Set places (geography)
-    sp_rows = await db.execute(
-        text("""
-            SELECT g.continent, g.country, g.state_city, fsp.place_type
-            FROM film_set_place fsp
-            JOIN geography g ON fsp.geography_id = g.geography_id
-            WHERE fsp.film_id = :fid
-            ORDER BY g.continent, g.country
-        """),
-        {"fid": film_id},
-    )
+    # Process structured rows
     set_places = [
         FilmSetPlaceOut(continent=r[0], country=r[1], state_city=r[2], place_type=r[3])
-        for r in sp_rows.fetchall()
+        for r in sp_rows
     ]
-
-    # Crew
-    crew_rows = await db.execute(
-        text("""
-            SELECT p.person_id, p.firstname, p.lastname, pj.role_name, p.photo_url
-            FROM crew cr
-            JOIN person p ON cr.person_id = p.person_id
-            JOIN person_job pj ON cr.job_id = pj.job_id
-            WHERE cr.film_id = :fid
-            ORDER BY pj.role_name, p.lastname
-        """),
-        {"fid": film_id},
-    )
     crew = [
         CrewMember(person_id=r[0], firstname=r[1], lastname=r[2], role=r[3], photo_url=r[4])
-        for r in crew_rows.fetchall()
+        for r in crew_rows
     ]
-
-    # Cast
-    cast_rows = await db.execute(
-        text("""
-            SELECT p.person_id, p.firstname, p.lastname, ca.character_name, ca.cast_order, p.photo_url
-            FROM casting ca
-            JOIN person p ON ca.person_id = p.person_id
-            WHERE ca.film_id = :fid
-            ORDER BY ca.cast_order NULLS LAST
-        """),
-        {"fid": film_id},
-    )
     cast = [
         CastMember(person_id=r[0], firstname=r[1], lastname=r[2], character_name=r[3], cast_order=r[4], photo_url=r[5])
-        for r in cast_rows.fetchall()
+        for r in cast_rows
     ]
-
-    # Studios
-    studios = await load_names(
-        "SELECT s.studio_name FROM production pr "
-        "JOIN studio s ON pr.studio_id = s.studio_id "
-        "WHERE pr.film_id = :fid ORDER BY s.studio_name"
-    )
-
-    # Sources
-    src_rows = await db.execute(
-        text("""
-            SELECT s.source_type, s.source_title, s.author
-            FROM film_origin fo
-            JOIN source s ON fo.source_id = s.source_id
-            WHERE fo.film_id = :fid
-        """),
-        {"fid": film_id},
-    )
     sources = [
         SourceOut(source_type=r[0], source_title=r[1], author=r[2])
-        for r in src_rows.fetchall()
+        for r in src_rows
     ]
-
-    # Awards
-    award_rows = await db.execute(
-        text("""
-            SELECT festival_name, category, award_year, result
-            FROM award WHERE film_id = :fid
-            ORDER BY award_year, festival_name
-        """),
-        {"fid": film_id},
-    )
     awards = [
         AwardOut(festival_name=r[0], category=r[1], year=r[2], result=r[3])
-        for r in award_rows.fetchall()
+        for r in award_rows
     ]
-
-    # Streaming platforms
-    streaming = await load_names(
-        "SELECT sp.platform_name FROM film_exploitation fe "
-        "JOIN stream_platform sp ON fe.platform_id = sp.platform_id "
-        "WHERE fe.film_id = :fid ORDER BY sp.platform_name"
-    )
-
-    # Sequels / related films
-    seq_rows = await db.execute(
-        text("""
-            SELECT related_id, original_title, relation_type, poster_url
-            FROM (
-                SELECT fs.related_film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date
-                FROM film_sequel fs
-                JOIN film f2 ON fs.related_film_id = f2.film_id
-                WHERE fs.film_id = :fid
-                UNION
-                SELECT fs.film_id AS related_id, f2.original_title, fs.relation_type, f2.poster_url, f2.first_release_date
-                FROM film_sequel fs
-                JOIN film f2 ON fs.film_id = f2.film_id
-                WHERE fs.related_film_id = :fid
-            ) sub
-            ORDER BY first_release_date ASC NULLS LAST
-        """),
-        {"fid": film_id},
-    )
     sequels = [
         FilmRelation(related_film_id=r[0], related_film_title=r[1], relation_type=r[2], poster_url=r[3])
-        for r in seq_rows.fetchall()
+        for r in seq_rows
     ]
 
     return FilmDetail(

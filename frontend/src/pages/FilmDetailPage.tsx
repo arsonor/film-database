@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -39,31 +40,39 @@ export function FilmDetailPage() {
   const filmId = Number(id);
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const { film, setFilm, loading, error, refetch } = useFilmDetail(filmId);
+  const queryClient = useQueryClient();
+  const { film, loading, error, refetch } = useFilmDetail(filmId);
 
   const handleToggleVu = useCallback(async () => {
     if (!film) return;
     const newVu = !film.vu;
-    // Optimistic update
-    setFilm({ ...film, vu: newVu });
+    // Optimistic update via query cache
+    queryClient.setQueryData(["film", filmId], { ...film, vu: newVu });
     try {
       await toggleVu(film.film_id, newVu);
+      queryClient.invalidateQueries({ queryKey: ["films"] });
     } catch {
       // Revert on error
-      setFilm({ ...film, vu: film.vu });
+      queryClient.setQueryData(["film", filmId], film);
     }
-  }, [film, setFilm]);
+  }, [film, filmId, queryClient]);
 
   const handleDelete = useCallback(async () => {
     if (!film) return;
     if (!window.confirm(`Delete "${film.original_title}" and all its data? This cannot be undone.`)) return;
     try {
       await deleteFilm(film.film_id);
+      queryClient.invalidateQueries({ queryKey: ["films"] });
       navigate("/browse");
     } catch {
       // stay on page
     }
-  }, [film, navigate]);
+  }, [film, navigate, queryClient]);
+
+  const handleSaved = useCallback(() => {
+    refetch();
+    queryClient.invalidateQueries({ queryKey: ["films"] });
+  }, [refetch, queryClient]);
 
   if (loading) {
     return <LoadingSkeleton />;
@@ -317,7 +326,7 @@ export function FilmDetailPage() {
                       filmId={film.film_id}
                       budget={film.budget}
                       revenue={film.revenue}
-                      onSaved={refetch}
+                      onSaved={handleSaved}
                     />
                   )}
                 </div>
@@ -354,7 +363,7 @@ export function FilmDetailPage() {
         <RelatedFilmsSection
           filmId={film.film_id}
           sequels={film.sequels}
-          onSaved={refetch}
+          onSaved={handleSaved}
           readOnly={!isAdmin}
         />
 
@@ -418,14 +427,14 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="categories"
               currentValues={film.categories}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="cinema_types"
               currentValues={film.cinema_types}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
           </div>
@@ -439,35 +448,35 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="themes"
               currentValues={film.themes}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="characters"
               currentValues={film.characters}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="motivations"
               currentValues={film.motivations}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="atmospheres"
               currentValues={film.atmospheres}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
             <EditableTagSection
               filmId={film.film_id}
               dimension="messages"
               currentValues={film.messages}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
           </div>
@@ -484,7 +493,7 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="time_periods"
               currentValues={film.time_periods}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
 
@@ -493,7 +502,7 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="place_contexts"
               currentValues={film.place_contexts}
-              onSaved={refetch}
+              onSaved={handleSaved}
               readOnly={!isAdmin}
             />
 
@@ -524,7 +533,7 @@ export function FilmDetailPage() {
 
         {/* Awards */}
         <section>
-          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={refetch} readOnly={!isAdmin} />
+          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={handleSaved} readOnly={!isAdmin} />
         </section>
 
         <Separator />

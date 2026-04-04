@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -38,6 +39,7 @@ const ENRICHMENT_MESSAGES = [
 
 export function AddFilmPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
 
   useEffect(() => {
@@ -135,13 +137,14 @@ export function AddFilmPage() {
     setSaveError(null);
     try {
       const result = await saveFilm(preview);
+      queryClient.invalidateQueries({ queryKey: ["films"] });
       navigate(`/films/${result.film_id}`);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
-  }, [preview, navigate]);
+  }, [preview, navigate, queryClient]);
 
   const handleBackToSearch = useCallback(() => {
     setStep("search");

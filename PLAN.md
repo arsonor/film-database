@@ -23,6 +23,7 @@
 | 10.6 | Delete film, seen toggle on grid, backfill optimization, README | ✅ DONE | DELETE endpoint + trash button, FilmCard vu toggle, filtered backfill script, README.md |
 | 11 | Deployment + auth (Supabase + Render + Vercel) | ✅ DONE | Admin auth, CORS from env, frontend auth context, deploy to cloud |
 | 12 | Taxonomy restructure | ✅ DONE | merge dimensions, add sort_order grouping, rebalance tags |
+| 13 | Performance optimization (deployed) | 🔲 TODO | Parallel DB queries, React Query caching, region fix |
 
 ---
 
@@ -167,3 +168,42 @@
   sort_order-based grouping to 7 dimensions, adding new theme values (curse, game), renaming gang →
   team/group/gang. Full-stack update across migration, schema, backend, frontend, enrichment pipeline,
   and scripts.
+
+---
+
+## Step 13: Performance Optimization (Deployed)
+
+### Problem
+After deployment (Supabase Paris + Render Frankfurt + Vercel CDN), the app is slower than local dev:
+- Film detail page: ~1s load time (down from ~5s after moving Render from Oregon → Frankfurt)
+- Browse page: ~3s when returning from detail (no client-side cache, full re-fetch)
+
+Root causes:
+1. **Backend**: `get_film()` fires ~18 sequential DB queries (titles, categories, themes, cast, crew, etc.), each adding ~10ms network round-trip to Supabase
+2. **Frontend**: No caching — every page navigation triggers a fresh API call, including the browse list and taxonomy data
+
+### Solution
+
+#### 13a. Backend — Parallelize film detail queries
+- Rewrite `get_film()` in `films.py` to use `asyncio.gather()` for all taxonomy/relation queries after the core film row is fetched
+- Each parallel query uses an independent connection from the pool (SQLAlchemy serializes on a single AsyncSession)
+- Add a `_fetch_query()` helper that opens its own connection via `engine.connect()`
+- Increase `pool_size` in `database.py` from 5 → 10 (max_overflow stays at 10) to accommodate parallel connections
+- Expected improvement: detail endpoint from ~200ms sequential to ~30ms parallel
+
+#### 13b. Frontend — React Query caching
+- Install `@tanstack/react-query`
+- Wrap `App` in `QueryClientProvider` with default staleTime (browse: 30s, detail: 60s, taxonomy: 5min)
+- Convert `useFilms` hook → `useQuery` with filter state as cache key
+- Convert `useFilmDetail` hook → `useQuery` with `filmId` as cache key
+- Convert `useTaxonomy` hook → `useQuery` with `staleTime: Infinity` (taxonomy rarely changes at runtime)
+- Expected improvement: instant back-navigation (cached data shown immediately, background refetch)
+
+### Files modified
+- `backend/app/database.py` — pool_size increase
+- `backend/app/routers/films.py` — `get_film()` rewritten with `asyncio.gather()`
+- `frontend/package.json` — add `@tanstack/react-query`
+- `frontend/src/App.tsx` — `QueryClientProvider` wrapper
+- `frontend/src/hooks/useFilms.ts` — convert to `useQuery`
+- `frontend/src/hooks/useFilmDetail.ts` — convert to `useQuery`
+- `frontend/src/hooks/useTaxonomy.ts` — convert to `useQuery`

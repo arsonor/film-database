@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { AddFilmPage } from "@/pages/AddFilmPage";
@@ -6,19 +7,31 @@ import { FilmDetailPage } from "@/pages/FilmDetailPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { TaxonomyAdminPage } from "@/pages/TaxonomyAdminPage";
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000,
+      gcTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Navigate to="/browse" replace />} />
-          <Route path="/browse" element={<BrowsePage />} />
-          <Route path="/films/:id" element={<FilmDetailPage />} />
-          <Route path="/add" element={<AddFilmPage />} />
-          <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
-          <Route path="/login" element={<LoginPage />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Navigate to="/browse" replace />} />
+            <Route path="/browse" element={<BrowsePage />} />
+            <Route path="/films/:id" element={<FilmDetailPage />} />
+            <Route path="/add" element={<AddFilmPage />} />
+            <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
+            <Route path="/login" element={<LoginPage />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }

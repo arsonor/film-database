@@ -1,28 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchFilmDetail } from "@/api/client";
-import type { FilmDetail } from "@/types/api";
 
 export function useFilmDetail(filmId: number) {
-  const [film, setFilm] = useState<FilmDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: film = null, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ["film", filmId],
+    queryFn: () => fetchFilmDetail(filmId),
+    staleTime: 60 * 1000,
+  });
 
-  const fetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchFilmDetail(filmId);
-      setFilm(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load film");
-    } finally {
-      setLoading(false);
-    }
-  }, [filmId]);
-
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { film, setFilm, loading, error, refetch: fetch };
+  return { film, loading, error: error?.message ?? null, refetch };
 }
