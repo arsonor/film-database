@@ -25,6 +25,8 @@ interface LayoutProps {
     sortOrder: FilterState["sort_order"],
   ) => void;
   onToggleFilter: (dimension: ArrayFilterKey, value: string) => void;
+  onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
+  onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
   onSetVu: (vu: boolean | null) => void;
   children: React.ReactNode;
@@ -37,6 +39,8 @@ export function Layout({
   onSearchChange,
   onSortChange,
   onToggleFilter,
+  onExcludeFilter,
+  onSetFilterMode,
   onUpdateFilters,
   onSetVu,
   children,
@@ -55,6 +59,8 @@ export function Layout({
     taxonomies,
     languages,
     onToggleFilter,
+    onExcludeFilter,
+    onSetFilterMode,
     onUpdateFilters,
     onSetVu,
   };

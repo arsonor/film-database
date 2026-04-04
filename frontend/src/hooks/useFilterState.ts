@@ -3,18 +3,22 @@ import { useSearchParams } from "react-router-dom";
 import {
   ARRAY_FILTER_KEYS,
   DEFAULT_FILTER_STATE,
+  EMPTY_TAG_FILTER,
   type ArrayFilterKey,
   type FilterState,
+  type TagFilter,
 } from "@/types/api";
 
 function parseSearchParams(sp: URLSearchParams): FilterState {
-  const state = { ...DEFAULT_FILTER_STATE };
+  const state = structuredClone(DEFAULT_FILTER_STATE);
 
-  // Array filters
+  // Tag filters
   for (const key of ARRAY_FILTER_KEYS) {
-    const values = sp.getAll(key);
-    if (values.length > 0) {
-      state[key] = values;
+    const include = sp.getAll(key);
+    const exclude = sp.getAll(`${key}_not`);
+    const mode = sp.get(`${key}_mode`) === "and" ? "and" : "or";
+    if (include.length > 0 || exclude.length > 0) {
+      state[key] = { include, exclude, mode };
     }
   }
 
@@ -60,8 +64,15 @@ function stateToSearchParams(state: FilterState): URLSearchParams {
   const sp = new URLSearchParams();
 
   for (const key of ARRAY_FILTER_KEYS) {
-    for (const v of state[key]) {
+    const tf = state[key];
+    for (const v of tf.include) {
       sp.append(key, v);
+    }
+    for (const v of tf.exclude) {
+      sp.append(`${key}_not`, v);
+    }
+    if (tf.include.length >= 2 && tf.mode === "and") {
+      sp.set(`${key}_mode`, "and");
     }
   }
 
@@ -98,19 +109,46 @@ export function useFilterState() {
 
   const toggleFilter = useCallback(
     (dimension: ArrayFilterKey, value: string) => {
-      const current = filters[dimension];
-      const next = current.includes(value)
-        ? current.filter((v) => v !== value)
-        : [...current, value];
+      const tf = filters[dimension];
+      const inInclude = tf.include.includes(value);
+      const next: TagFilter = inInclude
+        ? { ...tf, include: tf.include.filter((v) => v !== value) }
+        : { ...tf, include: [...tf.include, value], exclude: tf.exclude.filter((v) => v !== value) };
       updateFilters({ [dimension]: next });
+    },
+    [filters, updateFilters],
+  );
+
+  const excludeFilter = useCallback(
+    (dimension: ArrayFilterKey, value: string) => {
+      const tf = filters[dimension];
+      const inExclude = tf.exclude.includes(value);
+      const next: TagFilter = inExclude
+        ? { ...tf, exclude: tf.exclude.filter((v) => v !== value) }
+        : { ...tf, exclude: [...tf.exclude, value], include: tf.include.filter((v) => v !== value) };
+      updateFilters({ [dimension]: next });
+    },
+    [filters, updateFilters],
+  );
+
+  const setFilterMode = useCallback(
+    (dimension: ArrayFilterKey, mode: "or" | "and") => {
+      const tf = filters[dimension];
+      updateFilters({ [dimension]: { ...tf, mode } }, false);
     },
     [filters, updateFilters],
   );
 
   const removeFilter = useCallback(
     (dimension: ArrayFilterKey, value: string) => {
-      const current = filters[dimension];
-      updateFilters({ [dimension]: current.filter((v) => v !== value) });
+      const tf = filters[dimension];
+      updateFilters({
+        [dimension]: {
+          ...tf,
+          include: tf.include.filter((v) => v !== value),
+          exclude: tf.exclude.filter((v) => v !== value),
+        },
+      });
     },
     [filters, updateFilters],
   );
@@ -144,6 +182,8 @@ export function useFilterState() {
     filters,
     updateFilters,
     toggleFilter,
+    excludeFilter,
+    setFilterMode,
     removeFilter,
     clearAllFilters,
     setSearch,

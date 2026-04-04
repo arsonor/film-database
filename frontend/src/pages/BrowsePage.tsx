@@ -11,6 +11,8 @@ export function BrowsePage() {
   const {
     filters,
     toggleFilter,
+    excludeFilter,
+    setFilterMode,
     removeFilter,
     clearAllFilters,
     setSearch,
@@ -32,6 +34,8 @@ export function BrowsePage() {
       onSearchChange={setSearch}
       onSortChange={setSort}
       onToggleFilter={toggleFilter}
+      onExcludeFilter={excludeFilter}
+      onSetFilterMode={setFilterMode}
       onUpdateFilters={updateFilters}
       onSetVu={setVu}
     >

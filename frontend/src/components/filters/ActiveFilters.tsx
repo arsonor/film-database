@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Ban, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ArrayFilterKey, FilterState } from "@/types/api";
@@ -18,14 +18,23 @@ export function ActiveFilters({
   onClearAll,
   onUpdateFilters,
 }: ActiveFiltersProps) {
-  const chips: { key: string; label: string; onRemove: () => void }[] = [];
+  const chips: { key: string; label: string; excluded?: boolean; onRemove: () => void }[] = [];
 
-  // Array filters
+  // Tag filters
   for (const key of ARRAY_FILTER_KEYS) {
-    for (const value of filters[key]) {
+    const tf = filters[key];
+    for (const value of tf.include) {
       chips.push({
         key: `${key}:${value}`,
         label: `${dimensionLabel(key)}: ${value}`,
+        onRemove: () => onRemoveArrayFilter(key, value),
+      });
+    }
+    for (const value of tf.exclude) {
+      chips.push({
+        key: `${key}:!${value}`,
+        label: `${dimensionLabel(key)}: ${value}`,
+        excluded: true,
         onRemove: () => onRemoveArrayFilter(key, value),
       });
     }
@@ -91,8 +100,11 @@ export function ActiveFilters({
         <Badge
           key={chip.key}
           variant="secondary"
-          className="gap-1 pl-2 pr-1 py-1 text-xs"
+          className={`gap-1 pl-2 pr-1 py-1 text-xs ${
+            chip.excluded ? "border-red-400/50 bg-red-500/10 text-red-400 line-through" : ""
+          }`}
         >
+          {chip.excluded && <Ban className="h-3 w-3 shrink-0" />}
           {chip.label}
           <button
             onClick={chip.onRemove}

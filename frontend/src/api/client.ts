@@ -42,13 +42,17 @@ async function fetchJson<T>(url: string): Promise<T> {
 export function buildFilmParams(filters: FilterState): string {
   const params = new URLSearchParams();
 
-  // Array filters: repeat key for each value
+  // Tag filters: include, exclude, and mode per dimension
   for (const key of ARRAY_FILTER_KEYS) {
-    const values = filters[key];
-    if (values.length > 0) {
-      for (const v of values) {
-        params.append(key, v);
-      }
+    const tf = filters[key];
+    for (const v of tf.include) {
+      params.append(key, v);
+    }
+    for (const v of tf.exclude) {
+      params.append(`${key}_not`, v);
+    }
+    if (tf.include.length >= 2 && tf.mode === "and") {
+      params.set(`${key}_mode`, "and");
     }
   }
 

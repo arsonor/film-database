@@ -26,6 +26,8 @@ interface SidebarProps {
   taxonomies: Record<string, TaxonomyItem[]>;
   languages: TaxonomyItem[];
   onToggleFilter: (dimension: ArrayFilterKey, value: string) => void;
+  onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
+  onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
   onSetVu: (vu: boolean | null) => void;
 }
@@ -41,6 +43,8 @@ export function SidebarContent({
   taxonomies,
   languages,
   onToggleFilter,
+  onExcludeFilter,
+  onSetFilterMode,
   onUpdateFilters,
   onSetVu,
 }: SidebarProps) {
@@ -133,8 +137,10 @@ export function SidebarContent({
               title={dimensionLabel(dim)}
               dimension={dim}
               items={items}
-              activeValues={filters[dim]}
+              tagFilter={filters[dim]}
               onToggle={(value) => onToggleFilter(dim, value)}
+              onExclude={(value) => onExcludeFilter(dim, value)}
+              onSetMode={(mode) => onSetFilterMode(dim, mode)}
               defaultExpanded={EXPANDED_BY_DEFAULT.has(dim)}
             />
           );
@@ -201,11 +207,11 @@ export function SidebarContent({
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
-              value={filters.studios.length === 1 && !studioQuery ? filters.studios[0]! : studioQuery}
+              value={filters.studios.include.length === 1 && !studioQuery ? filters.studios.include[0]! : studioQuery}
               onChange={(e) => {
                 setStudioQuery(e.target.value);
                 setShowStudioResults(true);
-                if (!e.target.value) onUpdateFilters({ studios: [] });
+                if (!e.target.value) onUpdateFilters({ studios: { include: [], exclude: [], mode: "or" } });
               }}
               onFocus={() => setShowStudioResults(true)}
               onBlur={() => setTimeout(() => setShowStudioResults(false), 200)}
@@ -214,11 +220,11 @@ export function SidebarContent({
             />
             {showStudioResults && filteredStudios.length > 0 && (
               <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
-                {filters.studios.length > 0 && (
+                {filters.studios.include.length > 0 && (
                   <button
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      onUpdateFilters({ studios: [] });
+                      onUpdateFilters({ studios: { include: [], exclude: [], mode: "or" } });
                       setStudioQuery("");
                       setShowStudioResults(false);
                     }}
@@ -232,7 +238,7 @@ export function SidebarContent({
                     key={studio.id}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      onUpdateFilters({ studios: [studio.name] });
+                      onUpdateFilters({ studios: { include: [studio.name], exclude: [], mode: "or" } });
                       setStudioQuery("");
                       setShowStudioResults(false);
                     }}

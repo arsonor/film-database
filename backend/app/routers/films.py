@@ -41,15 +41,35 @@ router = APIRouter(tags=["films"])
 async def list_films(
     q: str | None = None,
     categories: list[str] | None = Query(None),
+    categories_not: list[str] | None = Query(None),
+    categories_mode: str | None = Query(None, pattern="^(or|and)$"),
     themes: list[str] | None = Query(None),
+    themes_not: list[str] | None = Query(None),
+    themes_mode: str | None = Query(None, pattern="^(or|and)$"),
     atmospheres: list[str] | None = Query(None),
+    atmospheres_not: list[str] | None = Query(None),
+    atmospheres_mode: str | None = Query(None, pattern="^(or|and)$"),
     messages: list[str] | None = Query(None),
+    messages_not: list[str] | None = Query(None),
+    messages_mode: str | None = Query(None, pattern="^(or|and)$"),
     characters: list[str] | None = Query(None),
+    characters_not: list[str] | None = Query(None),
+    characters_mode: str | None = Query(None, pattern="^(or|and)$"),
     motivations: list[str] | None = Query(None),
+    motivations_not: list[str] | None = Query(None),
+    motivations_mode: str | None = Query(None, pattern="^(or|and)$"),
     cinema_types: list[str] | None = Query(None),
+    cinema_types_not: list[str] | None = Query(None),
+    cinema_types_mode: str | None = Query(None, pattern="^(or|and)$"),
     time_periods: list[str] | None = Query(None),
+    time_periods_not: list[str] | None = Query(None),
+    time_periods_mode: str | None = Query(None, pattern="^(or|and)$"),
     place_contexts: list[str] | None = Query(None),
+    place_contexts_not: list[str] | None = Query(None),
+    place_contexts_mode: str | None = Query(None, pattern="^(or|and)$"),
     studios: list[str] | None = Query(None),
+    studios_not: list[str] | None = Query(None),
+    studios_mode: str | None = Query(None, pattern="^(or|and)$"),
     year_min: int | None = None,
     year_max: int | None = None,
     director: str | None = None,
@@ -68,12 +88,13 @@ async def list_films(
 
     # --- Categories filter (special: composite key with historic_subcategory_name) ---
     if categories:
-        # Separate parent-only values from specific "Parent: sub" values
+        cat_mode = categories_mode or "or"
+
+        # Build WHERE conditions for each selected category value
         specific_ids_conditions = []
         parent_values = []
         for val in categories:
             if ": " in val:
-                # "Historical: biopic" → match category_name='Historical' AND historic_subcategory_name='biopic'
                 parent, sub = val.split(": ", 1)
                 specific_ids_conditions.append(
                     f"(c.category_name = :cat_p_{len(specific_ids_conditions)} "
@@ -84,130 +105,190 @@ async def list_films(
             else:
                 parent_values.append(val)
 
-        # For parent values: match base category OR any subcategory with that parent name
         parent_conditions = []
         for j, pv in enumerate(parent_values):
-            # Match base category (no subcategory) OR any subcategory of this parent
             parent_conditions.append(f"c.category_name = :cat_parent_{j}")
             params[f"cat_parent_{j}"] = pv
 
         all_conditions = specific_ids_conditions + parent_conditions
         if all_conditions:
             or_clause = " OR ".join(all_conditions)
-            # AND logic: film must match ALL selected filter values
-            # Each parent value counts as 1 match (any of its sub/base counts)
-            # Each specific "Parent: sub" value counts as 1 match
-            num_required = len(categories)
-            # Build a CASE that maps each matched row to which filter value it satisfies
-            case_parts = []
-            for idx, val in enumerate(categories):
-                if ": " in val:
-                    parent, sub = val.split(": ", 1)
-                    case_parts.append(
-                        f"WHEN c.category_name = :cat_case_p_{idx} "
-                        f"AND c.historic_subcategory_name = :cat_case_s_{idx} "
-                        f"THEN :cat_case_v_{idx}"
-                    )
-                    params[f"cat_case_p_{idx}"] = parent
-                    params[f"cat_case_s_{idx}"] = sub
-                    params[f"cat_case_v_{idx}"] = val
-                else:
-                    case_parts.append(
-                        f"WHEN c.category_name = :cat_case_p_{idx} THEN :cat_case_v_{idx}"
-                    )
-                    params[f"cat_case_p_{idx}"] = val
-                    params[f"cat_case_v_{idx}"] = val
 
-            case_expr = "CASE " + " ".join(case_parts) + " END"
-            where_clauses.append(
-                f"""f.film_id IN (
-                    SELECT fg.film_id FROM film_genre fg
-                    JOIN category c ON fg.category_id = c.category_id
-                    WHERE {or_clause}
-                    GROUP BY fg.film_id
-                    HAVING COUNT(DISTINCT {case_expr}) = :cat_count
-                )"""
-            )
-            params["cat_count"] = num_required
+            if cat_mode == "and":
+                # AND: film must match ALL selected values
+                case_parts = []
+                for idx, val in enumerate(categories):
+                    if ": " in val:
+                        parent, sub = val.split(": ", 1)
+                        case_parts.append(
+                            f"WHEN c.category_name = :cat_case_p_{idx} "
+                            f"AND c.historic_subcategory_name = :cat_case_s_{idx} "
+                            f"THEN :cat_case_v_{idx}"
+                        )
+                        params[f"cat_case_p_{idx}"] = parent
+                        params[f"cat_case_s_{idx}"] = sub
+                        params[f"cat_case_v_{idx}"] = val
+                    else:
+                        case_parts.append(
+                            f"WHEN c.category_name = :cat_case_p_{idx} THEN :cat_case_v_{idx}"
+                        )
+                        params[f"cat_case_p_{idx}"] = val
+                        params[f"cat_case_v_{idx}"] = val
 
-    # --- Generic taxonomy filters (AND logic with HAVING COUNT + parent expansion) ---
-    # Dimensions that have hierarchical "parent: sub" naming
+                case_expr = "CASE " + " ".join(case_parts) + " END"
+                where_clauses.append(
+                    f"""f.film_id IN (
+                        SELECT fg.film_id FROM film_genre fg
+                        JOIN category c ON fg.category_id = c.category_id
+                        WHERE {or_clause}
+                        GROUP BY fg.film_id
+                        HAVING COUNT(DISTINCT {case_expr}) = :cat_count
+                    )"""
+                )
+                params["cat_count"] = len(categories)
+            else:
+                # OR: film must match ANY selected value
+                where_clauses.append(
+                    f"""f.film_id IN (
+                        SELECT fg.film_id FROM film_genre fg
+                        JOIN category c ON fg.category_id = c.category_id
+                        WHERE {or_clause}
+                    )"""
+                )
+
+    # Categories NOT exclusion
+    if categories_not:
+        not_conditions = []
+        for idx, val in enumerate(categories_not):
+            if ": " in val:
+                parent, sub = val.split(": ", 1)
+                not_conditions.append(
+                    f"(c.category_name = :cat_not_p_{idx} AND c.historic_subcategory_name = :cat_not_s_{idx})"
+                )
+                params[f"cat_not_p_{idx}"] = parent
+                params[f"cat_not_s_{idx}"] = sub
+            else:
+                not_conditions.append(f"c.category_name = :cat_not_v_{idx}")
+                params[f"cat_not_v_{idx}"] = val
+        not_or = " OR ".join(not_conditions)
+        where_clauses.append(
+            f"""f.film_id NOT IN (
+                SELECT fg.film_id FROM film_genre fg
+                JOIN category c ON fg.category_id = c.category_id
+                WHERE {not_or}
+            )"""
+        )
+
+    # --- Generic taxonomy filters (OR/AND mode + NOT exclusions) ---
     HIERARCHICAL_FILTER_DIMS = {"themes"}
 
     _taxonomy_filters = [
-        (themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
-        (atmospheres, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
-        (messages, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
-        (characters, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
-        (motivations, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
-        (cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
-        (time_periods, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
-        (place_contexts, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
-        (studios, "production", "studio_id", "studio", "studio_id", "studio_name"),
+        (themes, themes_not, themes_mode, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
+        (atmospheres, atmospheres_not, atmospheres_mode, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
+        (messages, messages_not, messages_mode, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
+        (characters, characters_not, characters_mode, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
+        (motivations, motivations_not, motivations_mode, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
+        (cinema_types, cinema_types_not, cinema_types_mode, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
+        (time_periods, time_periods_not, time_periods_mode, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
+        (place_contexts, place_contexts_not, place_contexts_mode, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
+        (studios, studios_not, studios_mode, "production", "studio_id", "studio", "studio_id", "studio_name"),
     ]
 
-    # Dimension names corresponding to _taxonomy_filters entries (for hierarchical detection)
     _taxonomy_dim_names = [
         "themes", "atmospheres", "messages", "characters", "motivations",
         "cinema_types", "time_periods", "place_contexts", "studios",
     ]
 
-    for i, (values, junc_table, junc_fk, lookup_table, lookup_pk, lookup_name) in enumerate(_taxonomy_filters):
-        if not values:
-            continue
-        param_key = f"tax_{i}"
-        count_key = f"tax_{i}_count"
+    for i, (values, not_values, mode_param, junc_table, junc_fk, lookup_table, lookup_pk, lookup_name) in enumerate(_taxonomy_filters):
         dim_name = _taxonomy_dim_names[i]
+        mode = mode_param or "or"
 
-        # For hierarchical dimensions, expand parent values to also match children
-        is_hierarchical = dim_name in HIERARCHICAL_FILTER_DIMS
-        parent_values = []
-        if is_hierarchical:
-            parent_values = [v for v in values if ": " not in v]
+        # Include filter
+        if values:
+            param_key = f"tax_{i}"
+            count_key = f"tax_{i}_count"
 
-        if parent_values:
-            # Build WHERE that matches exact values OR children of parent values
-            parent_like_conditions = []
-            for j, pv in enumerate(parent_values):
-                pkey = f"{param_key}_parent_{j}"
-                parent_like_conditions.append(f"lt.{lookup_name} LIKE :{pkey}")
-                params[pkey] = f"{pv}: %"
+            is_hierarchical = dim_name in HIERARCHICAL_FILTER_DIMS
+            hier_parents = [v for v in values if ": " not in v] if is_hierarchical else []
 
-            # CASE maps each matched row back to which filter value it satisfies
-            # Children of "art" → map to "art"; exact matches → themselves
-            case_parts = []
-            for j, pv in enumerate(parent_values):
-                pkey = f"{param_key}_parent_{j}"
-                case_parts.append(f"WHEN lt.{lookup_name} LIKE :{pkey} THEN :tax_{i}_pv_{j}")
-                params[f"tax_{i}_pv_{j}"] = pv
-            case_parts.append(f"WHEN lt.{lookup_name} = ANY(:{param_key}) THEN lt.{lookup_name}")
-            case_expr = "CASE " + " ".join(case_parts) + " END"
+            if mode == "and":
+                # AND: film must match ALL selected values
+                if hier_parents:
+                    parent_like_conditions = []
+                    for j, pv in enumerate(hier_parents):
+                        pkey = f"{param_key}_parent_{j}"
+                        parent_like_conditions.append(f"lt.{lookup_name} LIKE :{pkey}")
+                        params[pkey] = f"{pv}: %"
 
-            or_likes = " OR ".join(parent_like_conditions)
+                    case_parts = []
+                    for j, pv in enumerate(hier_parents):
+                        pkey = f"{param_key}_parent_{j}"
+                        case_parts.append(f"WHEN lt.{lookup_name} LIKE :{pkey} THEN :tax_{i}_pv_{j}")
+                        params[f"tax_{i}_pv_{j}"] = pv
+                    case_parts.append(f"WHEN lt.{lookup_name} = ANY(:{param_key}) THEN lt.{lookup_name}")
+                    case_expr = "CASE " + " ".join(case_parts) + " END"
+
+                    or_likes = " OR ".join(parent_like_conditions)
+                    where_clauses.append(
+                        f"""f.film_id IN (
+                            SELECT jt.film_id FROM {junc_table} jt
+                            JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                               OR {or_likes}
+                            GROUP BY jt.film_id
+                            HAVING COUNT(DISTINCT {case_expr}) = :{count_key}
+                        )"""
+                    )
+                else:
+                    where_clauses.append(
+                        f"""f.film_id IN (
+                            SELECT jt.film_id FROM {junc_table} jt
+                            JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                            GROUP BY jt.film_id
+                            HAVING COUNT(DISTINCT lt.{lookup_name}) = :{count_key}
+                        )"""
+                    )
+                params[count_key] = len(values)
+            else:
+                # OR: film must match ANY selected value
+                if hier_parents:
+                    parent_like_conditions = []
+                    for j, pv in enumerate(hier_parents):
+                        pkey = f"{param_key}_parent_{j}"
+                        parent_like_conditions.append(f"lt.{lookup_name} LIKE :{pkey}")
+                        params[pkey] = f"{pv}: %"
+                    or_likes = " OR ".join(parent_like_conditions)
+                    where_clauses.append(
+                        f"""f.film_id IN (
+                            SELECT jt.film_id FROM {junc_table} jt
+                            JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                               OR {or_likes}
+                        )"""
+                    )
+                else:
+                    where_clauses.append(
+                        f"""f.film_id IN (
+                            SELECT jt.film_id FROM {junc_table} jt
+                            JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
+                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                        )"""
+                    )
+
+            params[param_key] = values
+
+        # NOT exclusion filter
+        if not_values:
+            not_key = f"tax_{i}_not"
             where_clauses.append(
-                f"""f.film_id IN (
+                f"""f.film_id NOT IN (
                     SELECT jt.film_id FROM {junc_table} jt
                     JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                    WHERE lt.{lookup_name} = ANY(:{param_key})
-                       OR {or_likes}
-                    GROUP BY jt.film_id
-                    HAVING COUNT(DISTINCT {case_expr}) = :{count_key}
+                    WHERE lt.{lookup_name} = ANY(:{not_key})
                 )"""
             )
-        else:
-            # Standard AND logic without parent expansion
-            where_clauses.append(
-                f"""f.film_id IN (
-                    SELECT jt.film_id FROM {junc_table} jt
-                    JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                    WHERE lt.{lookup_name} = ANY(:{param_key})
-                    GROUP BY jt.film_id
-                    HAVING COUNT(DISTINCT lt.{lookup_name}) = :{count_key}
-                )"""
-            )
-
-        params[param_key] = values
-        params[count_key] = len(values)
+            params[not_key] = not_values
 
     # Director filter (kept for API backward compatibility)
     if director:

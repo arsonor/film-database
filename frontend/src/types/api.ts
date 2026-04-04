@@ -175,18 +175,26 @@ export interface StatsResponse {
   top_countries: { name: string; count: number }[];
 }
 
+export interface TagFilter {
+  include: string[];
+  exclude: string[];
+  mode: "or" | "and";
+}
+
+export const EMPTY_TAG_FILTER: TagFilter = { include: [], exclude: [], mode: "or" };
+
 export interface FilterState {
   q: string;
-  categories: string[];
-  themes: string[];
-  atmospheres: string[];
-  characters: string[];
-  motivations: string[];
-  messages: string[];
-  cinema_types: string[];
-  time_periods: string[];
-  place_contexts: string[];
-  studios: string[];
+  categories: TagFilter;
+  themes: TagFilter;
+  atmospheres: TagFilter;
+  characters: TagFilter;
+  motivations: TagFilter;
+  messages: TagFilter;
+  cinema_types: TagFilter;
+  time_periods: TagFilter;
+  place_contexts: TagFilter;
+  studios: TagFilter;
   location: string;
   language: string;
   year_min: number | null;
@@ -214,16 +222,16 @@ export type TaxonomyDimension = (typeof TAXONOMY_DIMENSIONS)[number];
 
 export const DEFAULT_FILTER_STATE: FilterState = {
   q: "",
-  categories: [],
-  themes: [],
-  atmospheres: [],
-  characters: [],
-  motivations: [],
-  messages: [],
-  cinema_types: [],
-  time_periods: [],
-  place_contexts: [],
-  studios: [],
+  categories: { ...EMPTY_TAG_FILTER },
+  themes: { ...EMPTY_TAG_FILTER },
+  atmospheres: { ...EMPTY_TAG_FILTER },
+  characters: { ...EMPTY_TAG_FILTER },
+  motivations: { ...EMPTY_TAG_FILTER },
+  messages: { ...EMPTY_TAG_FILTER },
+  cinema_types: { ...EMPTY_TAG_FILTER },
+  time_periods: { ...EMPTY_TAG_FILTER },
+  place_contexts: { ...EMPTY_TAG_FILTER },
+  studios: { ...EMPTY_TAG_FILTER },
   location: "",
   language: "",
   year_min: null,
