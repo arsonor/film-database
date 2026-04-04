@@ -412,11 +412,15 @@ async def search_local_films(
 # =============================================================================
 
 
+_detail_semaphore = asyncio.Semaphore(6)
+
+
 async def _parallel_query(sql: str, params: dict) -> list:
     """Run a single query using its own connection for true parallelism."""
-    async with engine.connect() as conn:
-        result = await conn.execute(text(sql), params)
-        return result.fetchall()
+    async with _detail_semaphore:
+        async with engine.connect() as conn:
+            result = await conn.execute(text(sql), params)
+            return result.fetchall()
 
 
 @router.get("/films/{film_id}", response_model=FilmDetail)
