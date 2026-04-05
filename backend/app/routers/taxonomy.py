@@ -78,6 +78,7 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
 
     # Special handling for categories: show subcategories with "parent: sub" display
     if dimension == "categories":
+        # Get per-row counts (each category_id)
         result = await db.execute(text("""
             SELECT lt.category_id,
                    CASE
@@ -85,18 +86,36 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
                        THEN lt.category_name || ': ' || lt.historic_subcategory_name
                        ELSE lt.category_name
                    END AS display_name,
-                   COUNT(jt.film_id) AS film_count
+                   COUNT(jt.film_id) AS film_count,
+                   lt.sort_order
             FROM category lt
             LEFT JOIN film_genre jt ON lt.category_id = jt.category_id
-            GROUP BY lt.category_id, lt.category_name, lt.historic_subcategory_name
+            GROUP BY lt.category_id, lt.category_name, lt.historic_subcategory_name, lt.sort_order
             ORDER BY lt.sort_order, lt.category_name, lt.historic_subcategory_name NULLS FIRST
         """))
         items = [
-            TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+            TaxonomyItem(id=row[0], name=row[1], film_count=row[2], sort_order=row[3])
             for row in result.fetchall()
         ]
-        # Hierarchical aggregation for categories
-        _aggregate_hierarchical(items)
+
+        # For parent categories that have subcategories, replace the naive count
+        # with a DISTINCT film count across parent + all its subcategories
+        parent_names = {item.name.split(": ", 1)[0] for item in items if ": " in item.name}
+        if parent_names:
+            placeholders = ", ".join(f":pn_{i}" for i in range(len(parent_names)))
+            pn_params = {f"pn_{i}": name for i, name in enumerate(parent_names)}
+            parent_counts_result = await db.execute(text(f"""
+                SELECT c.category_name, COUNT(DISTINCT fg.film_id) AS film_count
+                FROM film_genre fg
+                JOIN category c ON fg.category_id = c.category_id
+                WHERE c.category_name IN ({placeholders})
+                GROUP BY c.category_name
+            """), pn_params)
+            parent_distinct = {row[0]: row[1] for row in parent_counts_result.fetchall()}
+            for item in items:
+                if ": " not in item.name and item.name in parent_distinct:
+                    item.film_count = parent_distinct[item.name]
+
         return TaxonomyList(dimension=dimension, items=items)
 
     lookup_table, id_col, name_col, junc_table, junc_fk = DIMENSION_MAP[dimension]
