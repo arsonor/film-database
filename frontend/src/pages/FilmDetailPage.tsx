@@ -255,7 +255,7 @@ export function FilmDetailPage() {
 
               {/* Seen toggle + External links row */}
               <div className="flex flex-wrap items-center gap-3">
-                {isAdmin ? (
+                {isAdmin && (
                   <Button
                     variant={film.vu ? "default" : "outline"}
                     size="sm"
@@ -272,10 +272,6 @@ export function FilmDetailPage() {
                       </>
                     )}
                   </Button>
-                ) : (
-                  <Badge variant={film.vu ? "default" : "outline"} className={`gap-1.5 ${film.vu ? "bg-emerald-600" : ""}`}>
-                    {film.vu ? <><Eye className="h-3 w-3" /> Seen</> : <><EyeOff className="h-3 w-3" /> Unseen</>}
-                  </Badge>
                 )}
 
                 <ExternalLinks
@@ -300,9 +296,14 @@ export function FilmDetailPage() {
 
               {/* Production info — compact, in hero area */}
               <div className="space-y-1 text-sm text-muted-foreground">
-                {film.studios.length > 0 && (
-                  <div>{film.studios.join(" · ")}</div>
-                )}
+                <EditableTagSection
+                  filmId={film.film_id}
+                  dimension="studios"
+                  currentValues={film.studios}
+                  onSaved={handleSaved}
+                  readOnly={!isAdmin}
+                  allowCustom
+                />
                 {film.sources.length > 0 &&
                   film.sources.map((src, i) => (
                     <div key={i}>

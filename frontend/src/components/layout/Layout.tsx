@@ -29,6 +29,7 @@ interface LayoutProps {
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
   onSetVu: (vu: boolean | null) => void;
+  isAdmin?: boolean;
   children: React.ReactNode;
 }
 
@@ -43,6 +44,7 @@ export function Layout({
   onSetFilterMode,
   onUpdateFilters,
   onSetVu,
+  isAdmin,
   children,
 }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -63,6 +65,7 @@ export function Layout({
     onSetFilterMode,
     onUpdateFilters,
     onSetVu,
+    isAdmin,
   };
 
   return (

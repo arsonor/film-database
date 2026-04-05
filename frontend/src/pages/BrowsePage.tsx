@@ -38,6 +38,7 @@ export function BrowsePage() {
       onSetFilterMode={setFilterMode}
       onUpdateFilters={updateFilters}
       onSetVu={setVu}
+      isAdmin={isAdmin}
     >
       <ActiveFilters
         filters={filters}

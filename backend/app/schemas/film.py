@@ -177,5 +177,6 @@ class FilmUpdate(BaseModel):
     messages: list[str] | None = None
     time_periods: list[str] | None = None
     place_contexts: list[str] | None = None
+    studios: list[str] | None = None
     streaming_platforms: list[str] | None = None
     awards: list[dict] | None = None

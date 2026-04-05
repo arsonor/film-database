@@ -1203,6 +1203,28 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     {"fid": film_id, "lid": lid},
                 )
 
+    # Studios (clear junction + re-insert, auto-create missing studios)
+    if update.studios is not None:
+        await db.execute(text("DELETE FROM production WHERE film_id = :fid"), {"fid": film_id})
+        for studio_name in update.studios:
+            if not studio_name:
+                continue
+            r = await db.execute(
+                text("SELECT studio_id FROM studio WHERE studio_name = :name"),
+                {"name": studio_name},
+            )
+            sid = r.scalar_one_or_none()
+            if not sid:
+                r = await db.execute(
+                    text("INSERT INTO studio (studio_name) VALUES (:name) RETURNING studio_id"),
+                    {"name": studio_name},
+                )
+                sid = r.scalar_one()
+            await db.execute(
+                text("INSERT INTO production (film_id, studio_id) VALUES (:fid, :sid) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "sid": sid},
+            )
+
     # Streaming platforms
     if update.streaming_platforms is not None:
         await db.execute(text("DELETE FROM film_exploitation WHERE film_id = :fid"), {"fid": film_id})

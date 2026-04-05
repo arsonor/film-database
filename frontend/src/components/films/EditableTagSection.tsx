@@ -13,6 +13,7 @@ interface EditableTagSectionProps {
   currentValues: string[];
   onSaved: () => void;
   readOnly?: boolean;
+  allowCustom?: boolean;
 }
 
 export function EditableTagSection({
@@ -21,6 +22,7 @@ export function EditableTagSection({
   currentValues,
   onSaved,
   readOnly,
+  allowCustom,
 }: EditableTagSectionProps) {
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState<string[]>([]);
@@ -44,6 +46,12 @@ export function EditableTagSection({
       !editValues.includes(opt) &&
       opt.toLowerCase().includes(search.toLowerCase()),
   );
+
+  const canAddCustom =
+    allowCustom &&
+    search.trim() !== "" &&
+    !editValues.includes(search.trim()) &&
+    !allOptions.some((opt) => opt.toLowerCase() === search.trim().toLowerCase());
 
   const handleRemoveTag = useCallback((tag: string) => {
     setEditValues((prev) => prev.filter((v) => v !== tag));
@@ -129,11 +137,26 @@ export function EditableTagSection({
               }}
               onFocus={() => setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && canAddCustom) {
+                  e.preventDefault();
+                  handleAddTag(search.trim());
+                }
+              }}
               placeholder={`Add ${dimensionLabel(dimension).toLowerCase()}...`}
               className="h-8 pl-8 text-xs"
             />
-            {showDropdown && availableOptions.length > 0 && (
+            {showDropdown && (availableOptions.length > 0 || canAddCustom) && (
               <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
+                {canAddCustom && (
+                  <button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleAddTag(search.trim())}
+                    className="flex w-full items-center px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Plus className="mr-1.5 h-3 w-3" /> Add "{search.trim()}"
+                  </button>
+                )}
                 {availableOptions.map((opt) => (
                   <button
                     key={opt}

@@ -30,10 +30,11 @@ interface SidebarProps {
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
   onSetVu: (vu: boolean | null) => void;
+  isAdmin?: boolean;
 }
 
 // Which dimensions start expanded
-const EXPANDED_BY_DEFAULT = new Set(["categories", "themes", "atmospheres"]);
+const EXPANDED_BY_DEFAULT = new Set<string>();
 
 const YEAR_MIN = 1900;
 const YEAR_MAX = 2030;
@@ -47,6 +48,7 @@ export function SidebarContent({
   onSetFilterMode,
   onUpdateFilters,
   onSetVu,
+  isAdmin,
 }: SidebarProps) {
   // Location autocomplete state
   const [locationQuery, setLocationQuery] = useState(filters.location);
@@ -253,24 +255,26 @@ export function SidebarContent({
           </div>
         </div>
 
-        {/* Seen toggle */}
-        <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Seen</label>
-          <Select value={vuValue} onValueChange={(val) => {
-            if (val === "all") onSetVu(null);
-            else if (val === "seen") onSetVu(true);
-            else onSetVu(false);
-          }}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="seen">Seen only</SelectItem>
-              <SelectItem value="unseen">Unseen only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Seen toggle (admin only) */}
+        {isAdmin && (
+          <div className="border-b border-border pb-3 pt-2">
+            <label className="mb-2 block text-sm font-medium text-foreground">Seen</label>
+            <Select value={vuValue} onValueChange={(val) => {
+              if (val === "all") onSetVu(null);
+              else if (val === "seen") onSetVu(true);
+              else onSetVu(false);
+            }}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="seen">Seen only</SelectItem>
+                <SelectItem value="unseen">Unseen only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Year range dual slider + inputs */}
         <div className="pb-3 pt-2">
