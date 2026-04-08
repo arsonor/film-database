@@ -197,6 +197,7 @@ export interface FilterState {
   studios: TagFilter;
   location: string;
   language: string;
+  source: string;
   year_min: number | null;
   year_max: number | null;
   vu: boolean | null;
@@ -234,6 +235,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   studios: { ...EMPTY_TAG_FILTER },
   location: "",
   language: "",
+  source: "",
   year_min: null,
   year_max: null,
   vu: null,

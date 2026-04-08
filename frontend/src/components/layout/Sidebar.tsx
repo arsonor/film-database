@@ -129,6 +129,53 @@ export function SidebarContent({
   return (
     <ScrollArea className="h-full">
       <div className="space-y-1 p-4">
+        {/* Year range dual slider + inputs */}
+        <div className="border-b border-border pb-3 pt-2">
+          <label className="mb-2 block text-sm font-medium text-foreground">Year Range</label>
+          <div className="px-1">
+            <div className="mb-2 flex items-center gap-2 text-xs">
+              <Input
+                type="number"
+                min={YEAR_MIN}
+                max={yearRange[1]}
+                value={yearRange[0] <= YEAR_MIN ? "" : yearRange[0]}
+                placeholder="Min"
+                onChange={(e) => {
+                  const v = e.target.value ? parseInt(e.target.value, 10) : YEAR_MIN;
+                  const clamped = Math.max(YEAR_MIN, Math.min(v, yearRange[1]));
+                  setYearRange([clamped, yearRange[1]]);
+                }}
+                onBlur={() => handleYearAfterChange(yearRange)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
+                className="h-7 w-20 text-center text-xs"
+              />
+              <span className="text-muted-foreground">—</span>
+              <Input
+                type="number"
+                min={yearRange[0]}
+                max={YEAR_MAX}
+                value={yearRange[1] >= YEAR_MAX ? "" : yearRange[1]}
+                placeholder="Max"
+                onChange={(e) => {
+                  const v = e.target.value ? parseInt(e.target.value, 10) : YEAR_MAX;
+                  const clamped = Math.min(YEAR_MAX, Math.max(v, yearRange[0]));
+                  setYearRange([yearRange[0], clamped]);
+                }}
+                onBlur={() => handleYearAfterChange(yearRange)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
+                className="h-7 w-20 text-center text-xs"
+              />
+            </div>
+            <DualRangeSlider
+              min={YEAR_MIN}
+              max={YEAR_MAX}
+              value={yearRange}
+              onChange={setYearRange}
+              onAfterChange={handleYearAfterChange}
+            />
+          </div>
+        </div>
+
         {/* Taxonomy filter sections */}
         {TAXONOMY_DIMENSIONS.map((dim) => {
           const items = taxonomies[dim] || [];
@@ -199,6 +246,34 @@ export function SidebarContent({
                     {lang.name} ({lang.film_count})
                   </SelectItem>
                 ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Source dropdown */}
+        <div className="border-b border-border pb-3 pt-2">
+          <label className="mb-2 block text-sm font-medium text-foreground">Source</label>
+          <Select
+            value={filters.source || "__all__"}
+            onValueChange={(val) =>
+              onUpdateFilters({ source: val === "__all__" ? "" : val })
+            }
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All sources</SelectItem>
+              <SelectItem value="original screenplay">Original screenplay</SelectItem>
+              <SelectItem value="novel">Novel</SelectItem>
+              <SelectItem value="comic">Comic</SelectItem>
+              <SelectItem value="TV series">TV series</SelectItem>
+              <SelectItem value="true story">True story</SelectItem>
+              <SelectItem value="play">Play</SelectItem>
+              <SelectItem value="video game">Video game</SelectItem>
+              <SelectItem value="poem">Poem</SelectItem>
+              <SelectItem value="short story">Short story</SelectItem>
+              <SelectItem value="remake">Remake</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -276,52 +351,6 @@ export function SidebarContent({
           </div>
         )}
 
-        {/* Year range dual slider + inputs */}
-        <div className="pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Year Range</label>
-          <div className="px-1">
-            <div className="mb-2 flex items-center gap-2 text-xs">
-              <Input
-                type="number"
-                min={YEAR_MIN}
-                max={yearRange[1]}
-                value={yearRange[0] <= YEAR_MIN ? "" : yearRange[0]}
-                placeholder="Min"
-                onChange={(e) => {
-                  const v = e.target.value ? parseInt(e.target.value, 10) : YEAR_MIN;
-                  const clamped = Math.max(YEAR_MIN, Math.min(v, yearRange[1]));
-                  setYearRange([clamped, yearRange[1]]);
-                }}
-                onBlur={() => handleYearAfterChange(yearRange)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
-                className="h-7 w-20 text-center text-xs"
-              />
-              <span className="text-muted-foreground">—</span>
-              <Input
-                type="number"
-                min={yearRange[0]}
-                max={YEAR_MAX}
-                value={yearRange[1] >= YEAR_MAX ? "" : yearRange[1]}
-                placeholder="Max"
-                onChange={(e) => {
-                  const v = e.target.value ? parseInt(e.target.value, 10) : YEAR_MAX;
-                  const clamped = Math.min(YEAR_MAX, Math.max(v, yearRange[0]));
-                  setYearRange([yearRange[0], clamped]);
-                }}
-                onBlur={() => handleYearAfterChange(yearRange)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
-                className="h-7 w-20 text-center text-xs"
-              />
-            </div>
-            <DualRangeSlider
-              min={YEAR_MIN}
-              max={YEAR_MAX}
-              value={yearRange}
-              onChange={setYearRange}
-              onAfterChange={handleYearAfterChange}
-            />
-          </div>
-        </div>
       </div>
     </ScrollArea>
   );

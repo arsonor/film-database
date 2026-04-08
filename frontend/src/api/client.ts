@@ -60,6 +60,7 @@ export function buildFilmParams(filters: FilterState): string {
   if (filters.q) params.set("q", filters.q);
   if (filters.location) params.set("location", filters.location);
   if (filters.language) params.set("language", filters.language);
+  if (filters.source) params.set("source", filters.source);
 
   // Number filters
   if (filters.year_min !== null) params.set("year_min", String(filters.year_min));

@@ -67,6 +67,15 @@ export function ActiveFilters({
     });
   }
 
+  // Source
+  if (filters.source) {
+    chips.push({
+      key: "source",
+      label: `Source: ${filters.source}`,
+      onRemove: () => onUpdateFilters({ source: "" }),
+    });
+  }
+
   // Year range
   if (filters.year_min !== null) {
     chips.push({

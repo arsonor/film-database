@@ -23,6 +23,8 @@ import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
 import { EditableFinancials } from "@/components/films/EditableFinancials";
 import { EditableTagSection } from "@/components/films/EditableTagSection";
+import { EditableGeographySection } from "@/components/films/EditableGeographySection";
+import { EditableSourceSection } from "@/components/films/EditableSourceSection";
 import { RelatedFilmsSection } from "@/components/films/RelatedFilmsSection";
 import { SimilarFilmsCarousel } from "@/components/films/SimilarFilmsCarousel";
 import { SectionHeading } from "@/components/films/SectionHeading";
@@ -304,14 +306,12 @@ export function FilmDetailPage() {
                   readOnly={!isAdmin}
                   allowCustom
                 />
-                {film.sources.length > 0 &&
-                  film.sources.map((src, i) => (
-                    <div key={i}>
-                      {src.source_type}
-                      {src.source_title && `: ${src.source_title}`}
-                      {src.author && ` by ${src.author}`}
-                    </div>
-                  ))}
+                <EditableSourceSection
+                  filmId={film.film_id}
+                  sources={film.sources}
+                  onSaved={handleSaved}
+                  readOnly={!isAdmin}
+                />
                 <div className="flex items-center gap-2">
                   {film.budget != null && film.budget > 0 && (
                     <span>Budget: {formatCurrency(film.budget)}</span>
@@ -508,25 +508,12 @@ export function FilmDetailPage() {
             />
 
             {/* Geography */}
-            {film.set_places.length > 0 && (
-              <div>
-                <h3 className="mb-3 text-lg font-semibold text-foreground">Geography</h3>
-                <div className="space-y-1">
-                  {film.set_places.map((place, i) => {
-                    const parts = [place.country, place.state_city].filter(Boolean);
-                    const label = parts.length > 0 ? parts.join(", ") : place.continent || "Unknown";
-                    return (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <span className="text-foreground">{label}</span>
-                        <Badge variant="outline" className="text-[10px]">
-                          {place.place_type}
-                        </Badge>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            <EditableGeographySection
+              filmId={film.film_id}
+              setPlaces={film.set_places}
+              onSaved={handleSaved}
+              readOnly={!isAdmin}
+            />
           </div>
         </section>
 

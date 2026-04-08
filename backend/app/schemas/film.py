@@ -179,4 +179,6 @@ class FilmUpdate(BaseModel):
     place_contexts: list[str] | None = None
     studios: list[str] | None = None
     streaming_platforms: list[str] | None = None
+    sources: list[dict] | None = None
+    set_places: list[dict] | None = None
     awards: list[dict] | None = None

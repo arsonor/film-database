@@ -29,6 +29,8 @@ function parseSearchParams(sp: URLSearchParams): FilterState {
   if (location) state.location = location;
   const language = sp.get("language");
   if (language) state.language = language;
+  const source = sp.get("source");
+  if (source) state.source = source;
 
   // Number filters
   const yearMin = sp.get("year_min");
@@ -79,6 +81,7 @@ function stateToSearchParams(state: FilterState): URLSearchParams {
   if (state.q) sp.set("q", state.q);
   if (state.location) sp.set("location", state.location);
   if (state.language) sp.set("language", state.language);
+  if (state.source) sp.set("source", state.source);
   if (state.year_min !== null) sp.set("year_min", String(state.year_min));
   if (state.year_max !== null) sp.set("year_max", String(state.year_max));
   if (state.vu !== null) sp.set("vu", String(state.vu));

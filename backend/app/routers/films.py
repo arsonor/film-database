@@ -76,6 +76,7 @@ async def list_films(
     location: str | None = None,
     country: str | None = None,
     language: str | None = None,
+    source: str | None = None,
     vu: bool | None = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -328,6 +329,17 @@ async def list_films(
             )"""
         )
         params["language"] = f"%{language}%"
+
+    # Source filter
+    if source:
+        where_clauses.append(
+            """f.film_id IN (
+                SELECT fo.film_id FROM film_origin fo
+                JOIN source s ON fo.source_id = s.source_id
+                WHERE s.source_type ILIKE :source
+            )"""
+        )
+        params["source"] = source
 
     # Year range
     if year_min is not None:
@@ -1241,6 +1253,83 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     text("INSERT INTO film_exploitation (film_id, platform_id) VALUES (:fid, :pid) ON CONFLICT DO NOTHING"),
                     {"fid": film_id, "pid": pid},
                 )
+
+    # Sources (find-or-create source rows, clear-and-reinsert junction)
+    if update.sources is not None:
+        await db.execute(text("DELETE FROM film_origin WHERE film_id = :fid"), {"fid": film_id})
+        for src in update.sources:
+            if not isinstance(src, dict):
+                continue
+            source_type = (src.get("source_type") or "").strip()
+            if not source_type:
+                continue
+            source_title = src.get("source_title") or None
+            author = src.get("author") or None
+            # Find existing source
+            r = await db.execute(
+                text("""
+                    SELECT source_id FROM source
+                    WHERE source_type = :st
+                      AND source_title IS NOT DISTINCT FROM :title
+                      AND author IS NOT DISTINCT FROM :author
+                """),
+                {"st": source_type, "title": source_title, "author": author},
+            )
+            sid = r.scalar_one_or_none()
+            if not sid:
+                r = await db.execute(
+                    text("""
+                        INSERT INTO source (source_type, source_title, author)
+                        VALUES (:st, :title, :author)
+                        RETURNING source_id
+                    """),
+                    {"st": source_type, "title": source_title, "author": author},
+                )
+                sid = r.scalar_one()
+            await db.execute(
+                text("INSERT INTO film_origin (film_id, source_id) VALUES (:fid, :sid) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "sid": sid},
+            )
+
+    # Set places (geography)
+    if update.set_places is not None:
+        await db.execute(text("DELETE FROM film_set_place WHERE film_id = :fid"), {"fid": film_id})
+        for sp in update.set_places:
+            if not isinstance(sp, dict):
+                continue
+            continent = sp.get("continent") or None
+            country = sp.get("country") or None
+            state_city = sp.get("state_city") or None
+            place_type = sp.get("place_type", "diegetic")
+            if place_type not in ("diegetic", "shooting", "fictional"):
+                continue
+            if not continent and not country and not state_city:
+                continue
+            # Find or create geography
+            r = await db.execute(
+                text("""
+                    SELECT geography_id FROM geography
+                    WHERE continent IS NOT DISTINCT FROM :continent
+                      AND country IS NOT DISTINCT FROM :country
+                      AND state_city IS NOT DISTINCT FROM :state_city
+                """),
+                {"continent": continent, "country": country, "state_city": state_city},
+            )
+            gid = r.scalar_one_or_none()
+            if not gid:
+                r = await db.execute(
+                    text("""
+                        INSERT INTO geography (continent, country, state_city)
+                        VALUES (:continent, :country, :state_city)
+                        RETURNING geography_id
+                    """),
+                    {"continent": continent, "country": country, "state_city": state_city},
+                )
+                gid = r.scalar_one()
+            await db.execute(
+                text("INSERT INTO film_set_place (film_id, geography_id, place_type) VALUES (:fid, :gid, :pt) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "gid": gid, "pt": place_type},
+            )
 
     # Awards
     if update.awards is not None:
