@@ -16,8 +16,7 @@ VALID_CATEGORIES = [
 ]
 
 VALID_HISTORIC_SUBCATEGORIES = [
-    "biopic", "human interest story", "judicial chronicle",
-    "western", "peplum", "swashbuckler", "event",
+    "biopic", "human interest story", "event",
 ]
 
 VALID_CINEMA_TYPES = [
@@ -26,16 +25,17 @@ VALID_CINEMA_TYPES = [
     "black and white", "aesthetics",
     # Group 2: Movements & eras
     "silent", "expressionism", "neo-realism", "noir", "hollywood golden age",
-    "new hollywood", "new wave", "realism", "neo-noir", "costume",
-    "dogma", "blaxploitation", "wu xia pian",
+    "new hollywood", "new wave", "realism", "neo-noir",
     # Group 3: Industry & culture
-    "blockbuster", "art house", "B", "Z", "Collection",
+    "blockbuster", "art house", "B", "Collection",
     "generational", "popular culture",
     # Group 4: Narrative techniques
     "sequence-shot", "found footage", "multi-sequence",
-    "slow cinema", "non linear narrative",
-    # Group 5: Dialog style
-    "dialogs", "slang dialogs",
+    "slow cinema", "non linear narrative", "dogma",
+    # Group 5: Dialog style & genres
+    "dialogs", "slang dialogs", "costume", "blaxploitation", "wu xia pian",
+    "western", "peplum", "swashbuckler", "slasher",
+    "voiceover", "docufiction",
 ]
 
 VALID_PLACE_ENVIRONMENTS = [
@@ -57,7 +57,7 @@ VALID_TIME_CONTEXTS = [
 VALID_THEMES = [
     # Group 1: Society
     "social", "class struggle", "societal", "immigration", "political",
-    "religion", "business", "censorship", "trial", "prison", "war",
+    "religion", "business", "censorship", "trial/judicial chronicle", "prison", "war",
     "tragedy", "apocalypse", "disaster",
     # Group 2: Personal / Psychological
     "trauma/accident", "psychological", "identity crisis", "disease",
@@ -67,7 +67,7 @@ VALID_THEMES = [
     "investigation", "spy", "crime", "sex crime", "organized crime",
     "police violence", "corruption", "delinquency", "organized fraud",
     "mafia", "gangster", "serial killer", "chase/escape", "terrorism",
-    "sect", "survival", "slasher",
+    "sect", "survival",
     # Group 4: Sci-fi / Fantasy
     "futuristic", "dystopia", "tales and legends", "supernatural",
     "sorcery", "alien contact", "paranormal", "time travel/loop",
@@ -79,7 +79,7 @@ VALID_THEMES = [
     "sport", "sport: individual", "sport: collective",
     "sport: tournament", "sport: motor",
     # Group 6: Miscellaneous
-    "nature", "AI/technology", "food/cooking", "party", "book", "game",
+    "nature", "AI/technology", "food/cooking", "party", "game",
 ]
 
 VALID_CHARACTERS = [
@@ -95,7 +95,7 @@ VALID_CHARACTERS = [
     "double", "cross-dressing", "unreliable narrator",
     # Group 5: Archetypes — human
     "super hero", "antihero", "cop", "detective", "vigilante", "soldier",
-    "femme fatale", "samourai", "pirate", "viking", "barbarian",
+    "femme fatale", "samourai", "pirate", "viking",
     # Group 6: Non-human & creatures
     "animal/wildlife", "monster/terrestrial creature", "evil", "witch",
     "ghost/spirit", "vampire", "zombie", "alien", "android", "vehicle",
@@ -109,7 +109,7 @@ VALID_ATMOSPHERES = [
     # Group 3: Contemplative
     "contemplative", "ethereal", "hypnotic", "psychedelic",
     # Group 4: Dark
-    "violent", "disturbing", "sulfurous", "trash", "gore",
+    "violent", "disturbing", "steamy", "gore",
     "awful/seedy/depraved",
 ]
 

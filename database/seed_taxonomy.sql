@@ -49,11 +49,7 @@ INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALU
     -- Historical subcategories
     ('Historical', 'biopic', 112),
     ('Historical', 'human interest story', 113),
-    ('Historical', 'judicial chronicle', 114),
-    ('Historical', 'western', 115),
-    ('Historical', 'peplum', 116),
-    ('Historical', 'swashbuckler', 117),
-    ('Historical', 'event', 118)
+    ('Historical', 'event', 114)
 ON CONFLICT (category_name, historic_subcategory_name) DO NOTHING;
 
 -- =============================================================================
@@ -79,15 +75,10 @@ INSERT INTO cinema_type (technique_name, sort_order) VALUES
     ('new wave', 206),
     ('realism', 207),
     ('neo-noir', 208),
-    ('costume', 209),
-    ('dogma', 210),
-    ('blaxploitation', 211),
-    ('wu xia pian', 212),
     -- Group 3: Industry & culture (300s)
     ('blockbuster', 300),
     ('art house', 301),
     ('B', 302),
-    ('Z', 303),
     ('Collection', 304),
     ('generational', 305),
     ('popular culture', 306),
@@ -97,9 +88,19 @@ INSERT INTO cinema_type (technique_name, sort_order) VALUES
     ('multi-sequence', 402),
     ('slow cinema', 403),
     ('non linear narrative', 404),
-    -- Group 5: Dialog style (500s)
+    ('dogma', 405),
+    -- Group 5: Cinema archetypes (500s)
     ('dialogs', 500),
-    ('slang dialogs', 501)
+    ('slang dialogs', 501),
+    ('costume', 502),
+    ('blaxploitation', 503),
+    ('wu xia pian', 504),
+    ('western', 505),
+    ('peplum', 506),
+    ('swashbuckler', 507),
+    ('slasher', 508),
+    ('voiceover', 509),
+    ('docufiction', 510)
 ON CONFLICT (technique_name) DO NOTHING;
 
 -- =============================================================================
@@ -176,7 +177,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('religion', 105),
     ('business', 106),
     ('censorship', 107),
-    ('trial', 108),
+    ('trial/judicial chronicle', 108),
     ('prison', 109),
     ('war', 110),
     ('tragedy', 111),
@@ -210,7 +211,6 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('terrorism', 313),
     ('sect', 314),
     ('survival', 315),
-    ('slasher', 316),
     -- Group 4: Sci-fi / Fantasy (400-499)
     ('futuristic', 400),
     ('dystopia', 401),
@@ -245,7 +245,6 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('AI/technology', 601),
     ('food/cooking', 602),
     ('party', 603),
-    ('book', 604),
     ('game', 605)
 ON CONFLICT (theme_name) DO NOTHING;
 
@@ -299,7 +298,6 @@ INSERT INTO character_context (context_name, sort_order) VALUES
     ('samourai', 507),
     ('pirate', 508),
     ('viking', 509),
-    ('barbarian', 510),
     -- Group 6: Non-human & creatures (600s)
     ('animal/wildlife', 600),
     ('monster/terrestrial creature', 601),
@@ -335,8 +333,7 @@ INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES
     -- Group 4: Dark (400s)
     ('violent', 400),
     ('disturbing', 401),
-    ('sulfurous', 402),
-    ('trash', 403),
+    ('steamy', 402),
     ('gore', 404),
     ('awful/seedy/depraved', 405)
 ON CONFLICT (atmosphere_name) DO NOTHING;

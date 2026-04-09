@@ -47,7 +47,7 @@ export function dimensionLabel(dimension: string): string {
     characters: "Characters",
     motivations: "Motivations",
     messages: "Messages",
-    cinema_types: "Cinema",
+    cinema_types: "Cinema Types",
     time_periods: "Time Periods",
     place_contexts: "Place Contexts",
     studios: "Studios",

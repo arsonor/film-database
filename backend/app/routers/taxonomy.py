@@ -154,24 +154,27 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
         for row in result.fetchall()
     ]
 
-    # For hierarchical dimensions, aggregate sub-item counts into parent items.
+    # For hierarchical dimensions, fix parent counts with COUNT(DISTINCT film_id)
     if dimension in HIERARCHICAL_DIMENSIONS:
-        _aggregate_hierarchical(items)
+        parent_names = {item.name.split(": ", 1)[0] for item in items if ": " in item.name}
+        if parent_names:
+            placeholders = ", ".join(f":pn_{i}" for i in range(len(parent_names)))
+            pn_params = {f"pn_{i}": name for i, name in enumerate(parent_names)}
+            like_array = ", ".join(f":pn_{i} || ': %%'" for i in range(len(parent_names)))
+            parent_counts_result = await db.execute(text(f"""
+                SELECT SPLIT_PART(lt.{name_col}, ': ', 1) AS parent_name,
+                       COUNT(DISTINCT jt.film_id) AS film_count
+                FROM {junc_table} jt
+                JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{id_col}
+                WHERE SPLIT_PART(lt.{name_col}, ': ', 1) IN ({placeholders})
+                GROUP BY SPLIT_PART(lt.{name_col}, ': ', 1)
+            """), pn_params)
+            parent_distinct = {row[0]: row[1] for row in parent_counts_result.fetchall()}
+            for item in items:
+                if ": " not in item.name and item.name in parent_distinct:
+                    item.film_count = parent_distinct[item.name]
 
     return TaxonomyList(dimension=dimension, items=items)
-
-
-def _aggregate_hierarchical(items: list[TaxonomyItem]) -> None:
-    """Aggregate sub-item counts into parent items for hierarchical naming."""
-    parent_extra: dict[str, int] = {}
-    for item in items:
-        if ": " in item.name:
-            parent = item.name.split(": ", 1)[0]
-            parent_extra[parent] = parent_extra.get(parent, 0) + (item.film_count or 0)
-
-    for item in items:
-        if ": " not in item.name and item.name in parent_extra:
-            item.film_count = (item.film_count or 0) + parent_extra[item.name]
 
 
 # Dimensions that can be managed (excludes studios, streaming, person_jobs, languages)
