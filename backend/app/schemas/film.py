@@ -73,6 +73,7 @@ class UserFilmStatus(BaseModel):
     favorite: bool = False
     watchlist: bool = False
     rating: int | None = None
+    notes: str | None = None
 
 
 # =============================================================================

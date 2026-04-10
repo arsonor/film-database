@@ -6,6 +6,7 @@ export function useFilmDetail(filmId: number) {
     queryKey: ["film", filmId],
     queryFn: () => fetchFilmDetail(filmId),
     staleTime: 60 * 1000,
+    refetchOnMount: "always",
   });
 
   return { film, loading, error: error?.message ?? null, refetch };

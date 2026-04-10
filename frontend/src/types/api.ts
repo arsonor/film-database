@@ -88,6 +88,7 @@ export interface UserFilmStatus {
   favorite: boolean;
   watchlist: boolean;
   rating: number | null;
+  notes?: string;
 }
 
 export interface FilmDetail {

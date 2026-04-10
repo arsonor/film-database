@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout/Layout";
 import { ActiveFilters } from "@/components/filters/ActiveFilters";
 import { FilmGrid } from "@/components/films/FilmGrid";
@@ -25,6 +27,13 @@ export function BrowsePage() {
   const { isAdmin, isAuthenticated } = useAuth();
   const { films, loading, error } = useFilms(filters);
   const { taxonomies } = useTaxonomy();
+  const queryClient = useQueryClient();
+
+  const handleStatusChanged = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["films"] });
+    queryClient.invalidateQueries({ queryKey: ["collection"] });
+    queryClient.invalidateQueries({ queryKey: ["film"] });
+  }, [queryClient]);
 
   return (
     <Layout
@@ -48,7 +57,7 @@ export function BrowsePage() {
         onUpdateFilters={updateFilters}
       />
 
-      <FilmGrid films={films} loading={loading} error={error} canToggleSeen={isAuthenticated} />
+      <FilmGrid films={films} loading={loading} error={error} canToggleStatus={isAuthenticated} onStatusChanged={handleStatusChanged} />
 
       {films && films.total_pages > 1 && (
         <Pagination

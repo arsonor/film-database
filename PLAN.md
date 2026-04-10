@@ -25,8 +25,9 @@
 | 12 | Taxonomy restructure | ✅ DONE | merge dimensions, add sort_order grouping, rebalance tags |
 | 13 | Performance optimization (deployed) | ✅ DONE | Parallel DB queries, React Query caching, region fix |
 | 14 | Advanced 'click on tag' behaviour | ✅ DONE | Addition of 'Exclude' and 'Or' on multi-select |
-| 15a | Supabase Auth + user roles + vu migration | 🔲 TODO | JWT auth, user_profile, user_film_status, migrate film.vu |
-| 15b | Personal film status UI | 🔲 TODO | Per-user seen/favorites/watchlist, My Collection page |
+| 15a | Supabase Auth + user roles + vu migration | ✅ DONE | JWT auth, user_profile, user_film_status, migrate film.vu |
+| 15b | Personal tracking UI + Collection + Nav menu | 🔲 TODO | Favorites/watchlist/rating/notes, /collection page, header dropdown |
+| 15c | Tier-gated taxonomy access | 🔲 TODO | Dimension gating by tier, filter limits, upgrade prompts |
 
 ---
 
@@ -218,139 +219,112 @@ Frontend:
 
 ## Step 15a: Supabase Auth + User Roles + vu Migration
 
+Replace bearer-token admin auth with Supabase Auth (email/password + Google
+   OAuth). Introduce user tiers (free/pro/admin) with auto-profile creation on
+   first login. Migrate global film.vu to per-user user_film_status table so
+   each user tracks their own seen/favorite/watchlist/rating independently.
+
+   Backend:
+   - Rewrite auth.py: JWKS (ES256) verification with HS256 fallback, PyJWT
+   - Add user_profile + user_film_status tables (migration 011)
+   - Add /users/me/films/{id}/status endpoints (GET/PUT)
+   - Add /api/auth/me endpoint, remove old login/check endpoints
+   - list_films + get_film: optional user via get_current_user, LEFT JOIN
+     user_film_status, replace vu filter with per-user seen filter
+   - Remove toggle_vu endpoint, remove vu from FilmUpdate
+   - Stats endpoint: per-user seen count
+
+   Frontend:
+   - Add @supabase/supabase-js, create Supabase client
+   - Rewrite AuthContext for Supabase sessions + tier fetching
+   - New AuthPage (email/password + Google) replaces LoginPage
+   - api/client: async getAuthHeaders via Supabase session, user status
+     endpoints replace toggleVu
+   - Seen toggle available to all authenticated users (not just admin)
+   - Rename vu→seen throughout types, filters, sidebar, active filters
+
+---
+
+## Step 15b: Personal Tracking UI + My Collection + Nav Menu
+
 ### Goal
-Replace the current `ADMIN_SECRET_KEY` bearer-token auth with Supabase Auth (email/password + Google OAuth). Introduce a user role model (`free`/`pro`/`admin`) and per-user film status. Migrate the global `film.vu` column to per-user `user_film_status.seen`.
-
-### Database changes (Migration 011)
-
-New tables:
-```sql
-CREATE TABLE IF NOT EXISTS user_profile (
-    id UUID PRIMARY KEY,                    -- matches Supabase auth.users.id
-    email TEXT NOT NULL,
-    display_name TEXT,
-    tier TEXT NOT NULL DEFAULT 'free',       -- 'free' | 'pro' | 'admin'
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS user_film_status (
-    user_id UUID NOT NULL REFERENCES user_profile(id) ON DELETE CASCADE,
-    film_id INTEGER NOT NULL REFERENCES film(film_id) ON DELETE CASCADE,
-    seen BOOLEAN DEFAULT FALSE,
-    favorite BOOLEAN DEFAULT FALSE,
-    watchlist BOOLEAN DEFAULT FALSE,
-    rating SMALLINT CHECK (rating >= 1 AND rating <= 10),
-    notes TEXT,
-    updated_at TIMESTAMP DEFAULT NOW(),
-    PRIMARY KEY (user_id, film_id)
-);
-```
-
-Migration script (run after Martin's admin user_profile row is created):
-1. Create tables above
-2. INSERT Martin's user_profile row with tier='admin' (UUID from Supabase dashboard after first login)
-3. Migrate `film.vu`: INSERT INTO user_film_status (user_id, film_id, seen) SELECT :admin_uuid, film_id, TRUE FROM film WHERE vu = TRUE
-4. ALTER TABLE film DROP COLUMN vu
-5. Update `schema.sql` for fresh installs (remove `vu` from film, add new tables)
+Add favorites, watchlist, star rating, and notes to the film interaction model. Create a "My Collection" page for users to view their tracked films. Add a navigation dropdown menu to the header.
 
 ### Backend changes
 
-**New dependency**: `python-jose[cryptography]` in `requirements.txt`
-
-**New env vars** (on Render):
-- `SUPABASE_JWT_SECRET` — from Supabase dashboard > Settings > API > JWT Secret
-- `SUPABASE_URL` — the Supabase project URL (for admin operations if needed later)
-
-**Rewrite `auth.py`**:
-- `verify_supabase_token(token)`: decode JWT using `python-jose`, verify with `SUPABASE_JWT_SECRET`, extract `sub` (user UUID)
-- `get_current_user(authorization)`: optional dependency — returns `UserInfo(id, email, tier)` or `None` for anonymous
-- `require_authenticated(user)`: raises 401 if no user
-- `require_admin(user)`: raises 403 if user.tier != 'admin'
-- On first token verification for a user, auto-create `user_profile` row if it doesn't exist yet (tier='free' default) — this avoids needing a separate registration API endpoint
-
-**Update all router dependencies**:
-- Admin endpoints: replace `Depends(require_admin)` with the new `Depends(require_admin)` (same name, new implementation that checks JWT + tier)
-- New user endpoints: use `Depends(require_authenticated)`
-
-**Remove from `main.py`**:
-- `POST /api/auth/login` — no longer needed (Supabase handles login)
-- `GET /api/auth/check` — replaced by `GET /api/auth/me` that returns user profile
-- `LoginRequest` model — removed
-
-**New endpoints**:
-- `GET /api/auth/me` — returns current user profile (id, email, display_name, tier) or 401
-- `GET /api/users/me/films/{film_id}/status` — get user's seen/favorite/watchlist for a film
-- `PUT /api/users/me/films/{film_id}/status` — update seen/favorite/watchlist
-- `GET /api/users/me/films?filter=seen|favorite|watchlist` — list user's films with status (for future My Collection page)
-
-**Update `list_films` and `get_film`**:
-- `vu` filter and `vu` field in responses must now be per-user: if a user is logged in, join `user_film_status` to include their `seen` status; if anonymous, return `seen: false` everywhere
-- The `FilmListItem` and `FilmDetail` schemas replace `vu: bool` with `user_status: { seen: bool, favorite: bool, watchlist: bool } | null`
-- The `PATCH /films/{id}/vu` endpoint is replaced by `PUT /api/users/me/films/{id}/status`
+**New endpoint in `users.py`**:
+- `GET /api/users/me/films` — returns paginated list of films with user status, filtered by `filter` param (`seen`, `favorite`, `watchlist`). Returns the same shape as `list_films` (poster, title, year, director, categories, user_status). Supports `page` and `per_page` params.
 
 ### Frontend changes
 
-**New dependency**: `@supabase/supabase-js` in `package.json`
+**FilmCard — add favorite + watchlist icons**:
+- Add heart icon (favorite) and bookmark icon (watchlist) alongside the existing eye (seen)
+- Layout: 3 icons stacked vertically in top-right corner of poster, visible on hover (like seen currently)
+- When active: heart = red/filled, bookmark = amber/filled, eye = green (existing)
+- Each icon calls `updateUserFilmStatus()` with the relevant field
+- Only visible to authenticated users (same gate as seen toggle)
 
-**New env vars** (on Vercel):
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — Supabase anon/public key (safe for frontend)
+**FilmDetailPage — full status section**:
+- New component `FilmStatusBar` placed in the hero section near the existing seen toggle
+- Contains: seen toggle (existing), favorite toggle (heart), watchlist toggle (bookmark)
+- Star rating: 5 stars, click to set rating 1-10 (each star = 2 points, click left-half = odd, right-half = even; or simpler: click star N = rating N*2, click again to set N*2-1, click again to clear)
+  - Alternative simpler UX: 10 small stars or a 5-star display where clicking sets 2/4/6/8/10 and the value is shown as "8/10" next to the stars
+  - Display: filled stars in amber/gold, empty stars in muted
+- Notes: small textarea, expandable, auto-saves on blur (debounced)
+- All status changes use `updateUserFilmStatus()` and optimistic updates via `queryClient.setQueryData`
+- Only visible to authenticated users
 
-**New file `src/lib/supabase.ts`**:
-- Creates and exports the Supabase client instance
-- Exposes helper functions for auth operations
+**New page: `/collection` — CollectionPage.tsx**:
+- 3 tabs or filter buttons: "Seen", "Favorites", "Watchlist"
+- Each tab calls `GET /api/users/me/films?filter=<tab>` and displays a poster grid (reuse FilmGrid)
+- Show count per tab
+- Uses React Query with cache key `["collection", filter]`
+- Redirects to `/auth` if not authenticated
+- Consistent dark theme with browse page
 
-**Rewrite `AuthContext.tsx`**:
-- Replace localStorage token with Supabase session management
-- `supabase.auth.onAuthStateChange()` listener to track login/logout
-- Expose `user` (id, email, tier), `isAdmin`, `isAuthenticated`, `signIn`, `signUp`, `signInWithGoogle`, `signOut`
-- On auth state change: send token to backend via `GET /api/auth/me` to sync user profile and get tier
+**Header nav menu dropdown**:
+- Replace the current flat button layout with a structured dropdown for authenticated users
+- Use a user icon or the user's email initial as the trigger
+- Dropdown contains:
+  - "My Collection" → `/collection`
+  - "Dashboard" → disabled/coming soon (greyed out with "Pro" badge)
+  - Separator
+  - "Add Film" → `/add` (admin only)
+  - "Manage Tags" → `/admin/taxonomy` (admin only)
+  - Separator
+  - "Sign out"
+- For anonymous users: keep the "Sign in" button as-is
+- Sort controls (sort_by, sort_order) stay outside the dropdown in the header bar
 
-**Rewrite `LoginPage.tsx`** → `AuthPage.tsx`:
-- Combined login + register page (toggle between modes)
-- Email/password form
-- "Sign in with Google" button (one-click via `supabase.auth.signInWithOAuth({ provider: 'google' })`)
-- Redirect to `/browse` on success
-- Dark theme, consistent with existing design
-
-**Update `api/client.ts`**:
-- `getAuthHeaders()` now gets the token from `supabase.auth.getSession()` instead of localStorage
-- Make this async: `async function getAuthHeaders(): Promise<Record<string, string>>`
-- All authenticated API calls become async for the header retrieval (minor refactor since `fetch` is already async)
-
-**Update `types/api.ts`**:
-- `FilmListItem` and `FilmDetail`: replace `vu: boolean` with `user_status: UserFilmStatus | null`
-- New `UserFilmStatus` type: `{ seen: boolean, favorite: boolean, watchlist: boolean, rating: number | null }`
-
-**Update components**:
-- `FilmCard.tsx`: seen toggle reads from `user_status?.seen`, calls new status endpoint
-- `FilmDetailPage.tsx`: seen toggle calls new status endpoint, uses `queryClient.setQueryData` for optimistic update
-- `Header.tsx`: show user menu (email + logout) when authenticated, "Sign in" button when anonymous
-- `BrowsePage.tsx`: `vu` filter now only visible to authenticated users (it filters their personal seen status)
-
-### Supabase dashboard configuration
-- Enable Email provider (Settings > Authentication > Providers)
-- Enable Google provider (requires Google Cloud Console OAuth credentials)
-- Set Site URL to the Vercel frontend URL
-- Add redirect URLs for both localhost:3000 (dev) and the Vercel domain
+**App.tsx**: Add `<Route path="/collection" element={<CollectionPage />} />`
 
 ### Files modified
-- `database/migrations/011_user_auth.sql` — new tables + vu migration
-- `database/schema.sql` — updated for fresh installs
-- `backend/requirements.txt` — add `python-jose[cryptography]`
-- `backend/app/auth.py` — full rewrite (JWT verification + role dependencies)
-- `backend/app/main.py` — remove old auth endpoints, add new `/api/auth/me`
-- `backend/app/routers/films.py` — user_status join in list/detail, remove PATCH vu endpoint
-- `backend/app/routers/users.py` — new router for user film status endpoints
-- `backend/app/schemas/film.py` — UserFilmStatus type, update FilmListItem/FilmDetail
-- `frontend/package.json` — add `@supabase/supabase-js`
-- `frontend/src/lib/supabase.ts` — new Supabase client
-- `frontend/src/context/AuthContext.tsx` — full rewrite
-- `frontend/src/pages/AuthPage.tsx` — new (replaces LoginPage.tsx)
-- `frontend/src/api/client.ts` — async getAuthHeaders via Supabase session
-- `frontend/src/types/api.ts` — UserFilmStatus, update vu → user_status
-- `frontend/src/components/films/FilmCard.tsx` — user_status.seen instead of vu
-- `frontend/src/pages/FilmDetailPage.tsx` — new status endpoint for seen toggle
-- `frontend/src/components/layout/Header.tsx` — user menu for authenticated users
-- `frontend/src/App.tsx` — replace /login route with /auth
+- `backend/app/routers/users.py` — new `GET /api/users/me/films` endpoint
+- `frontend/src/components/films/FilmCard.tsx` — add favorite + watchlist icons
+- `frontend/src/pages/FilmDetailPage.tsx` — add FilmStatusBar component
+- `frontend/src/components/films/FilmStatusBar.tsx` — new component (seen/favorite/watchlist/rating/notes)
+- `frontend/src/components/films/StarRating.tsx` — new component (5-star interactive rating)
+- `frontend/src/pages/CollectionPage.tsx` — new page
+- `frontend/src/api/client.ts` — add `fetchUserFilms()` function
+- `frontend/src/types/api.ts` — add collection response types if needed
+- `frontend/src/components/layout/Header.tsx` — nav menu dropdown
+- `frontend/src/App.tsx` — add /collection route
+
+---
+
+## Step 15c: Tier-Gated Taxonomy Access (planned)
+
+### Tier model
+
+| Feature | Anonymous | Free (registered) | Pro | Admin |
+|---|---|---|---|---|
+| Dimensions | categories, time_periods, place_contexts, year, location, language | + studios, source, themes G1-G2 | All | All |
+| Filter limit | Max 2 total | Max 5 total | Unlimited | Unlimited |
+| Tag logic | AND only | AND only | AND + OR + NOT | All |
+| Similar Films | Locked teaser | Locked teaser | ✅ | ✅ |
+| Dashboard | — | — | ✅ | ✅ |
+
+Themes groups:
+- G1 (Society): social → disaster (sort_order 100-139)
+- G2 (Personal): trauma → evolution (sort_order 200-209)
+- G3-G6 (Crime, Sci-fi, Art, Miscellaneous): pro-only

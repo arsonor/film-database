@@ -757,7 +757,7 @@ async def get_film(
     u_status = None
     if user:
         us_result = await db.execute(
-            text("SELECT seen, favorite, watchlist, rating FROM user_film_status WHERE user_id = :uid AND film_id = :fid"),
+            text("SELECT seen, favorite, watchlist, rating, notes FROM user_film_status WHERE user_id = :uid AND film_id = :fid"),
             {"uid": user.id, "fid": film_id},
         )
         us_row = us_result.fetchone()
@@ -767,6 +767,7 @@ async def get_film(
                 favorite=us_row[1] or False,
                 watchlist=us_row[2] or False,
                 rating=us_row[3],
+                notes=us_row[4],
             )
 
     return FilmDetail(

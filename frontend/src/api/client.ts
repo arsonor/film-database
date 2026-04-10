@@ -160,6 +160,20 @@ export async function deleteTaxonomyValue(
   }
 }
 
+export async function fetchUserFilms(
+  filter: "seen" | "favorite" | "watchlist",
+  page = 1,
+  perPage = 24,
+): Promise<PaginatedFilms> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(
+    `${BASE}/users/me/films?filter=${filter}&page=${page}&per_page=${perPage}`,
+    { headers: auth },
+  );
+  if (!res.ok) throw new ApiError(res.status, `Failed to fetch collection: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchStats(): Promise<StatsResponse> {
   return fetchJson<StatsResponse>(`${BASE}/films/stats`);
 }

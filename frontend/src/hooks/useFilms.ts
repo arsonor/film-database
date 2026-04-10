@@ -14,6 +14,7 @@ export function useFilms(filters: FilterState) {
   const { data: films = null, isLoading: loading, error } = useQuery({
     queryKey: ["films", debouncedFilters],
     queryFn: () => fetchFilms(debouncedFilters),
+    refetchOnMount: "always",
   });
 
   return { films, loading, error: error?.message ?? null };

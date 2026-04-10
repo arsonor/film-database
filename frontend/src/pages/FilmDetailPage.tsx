@@ -4,8 +4,6 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
-  Eye,
-  EyeOff,
   Film,
   Trash2,
   Tv,
@@ -18,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFilmDetail } from "@/hooks/useFilmDetail";
 import { deleteFilm, updateUserFilmStatus } from "@/api/client";
+import { FilmStatusBar } from "@/components/films/FilmStatusBar";
 import { PersonCard } from "@/components/films/PersonCard";
 import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
@@ -41,24 +40,23 @@ export function FilmDetailPage() {
   const { id } = useParams<{ id: string }>();
   const filmId = Number(id);
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { film, loading, error, refetch } = useFilmDetail(filmId);
 
-  const { isAuthenticated } = useAuth();
-
-  const handleToggleSeen = useCallback(async () => {
+  const handleStatusChange = useCallback(async (updated: Record<string, unknown>) => {
     if (!film) return;
-    const currentSeen = film.user_status?.seen ?? false;
-    const newSeen = !currentSeen;
-    // Optimistic update via query cache
+    const defaultStatus = { seen: false, favorite: false, watchlist: false, rating: null, notes: "" };
+    const prev = film.user_status ?? defaultStatus;
+    // Optimistic update
     queryClient.setQueryData(["film", filmId], {
       ...film,
-      user_status: { ...(film.user_status ?? { seen: false, favorite: false, watchlist: false, rating: null }), seen: newSeen },
+      user_status: { ...prev, ...updated },
     });
     try {
-      await updateUserFilmStatus(film.film_id, { seen: newSeen });
+      await updateUserFilmStatus(film.film_id, updated);
       queryClient.invalidateQueries({ queryKey: ["films"] });
+      queryClient.invalidateQueries({ queryKey: ["collection"] });
     } catch {
       queryClient.setQueryData(["film", filmId], film);
     }
@@ -260,25 +258,14 @@ export function FilmDetailPage() {
                 </p>
               )}
 
-              {/* Seen toggle + External links row */}
-              <div className="flex flex-wrap items-center gap-3">
+              {/* User status + External links row */}
+              <div className="flex flex-col gap-3">
                 {isAuthenticated && (
-                  <Button
-                    variant={(film.user_status?.seen) ? "default" : "outline"}
-                    size="sm"
-                    className={`gap-1.5 ${(film.user_status?.seen) ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-                    onClick={handleToggleSeen}
-                  >
-                    {(film.user_status?.seen) ? (
-                      <>
-                        <Eye className="h-4 w-4" /> Seen
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-4 w-4" /> Unseen
-                      </>
-                    )}
-                  </Button>
+                  <FilmStatusBar
+                    filmId={film.film_id}
+                    status={film.user_status}
+                    onStatusChange={handleStatusChange}
+                  />
                 )}
 
                 <ExternalLinks

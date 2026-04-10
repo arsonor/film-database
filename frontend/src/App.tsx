@@ -5,6 +5,7 @@ import { AddFilmPage } from "@/pages/AddFilmPage";
 import { BrowsePage } from "@/pages/BrowsePage";
 import { FilmDetailPage } from "@/pages/FilmDetailPage";
 import { AuthPage } from "@/pages/AuthPage";
+import { CollectionPage } from "@/pages/CollectionPage";
 import { TaxonomyAdminPage } from "@/pages/TaxonomyAdminPage";
 
 const queryClient = new QueryClient({
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/browse" element={<BrowsePage />} />
             <Route path="/films/:id" element={<FilmDetailPage />} />
             <Route path="/add" element={<AddFilmPage />} />
+            <Route path="/collection" element={<CollectionPage />} />
             <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
             <Route path="/auth" element={<AuthPage />} />
           </Routes>

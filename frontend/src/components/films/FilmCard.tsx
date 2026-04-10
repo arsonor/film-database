@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Heart, Bookmark } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { updateUserFilmStatus } from "@/api/client";
 import type { FilmListItem } from "@/types/api";
@@ -8,25 +8,65 @@ import { formatYear } from "@/lib/utils";
 
 interface FilmCardProps {
   film: FilmListItem;
-  canToggleSeen?: boolean;
+  canToggleStatus?: boolean;
+  onStatusChanged?: () => void;
 }
 
-export function FilmCard({ film, canToggleSeen }: FilmCardProps) {
+export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardProps) {
   const [seen, setSeen] = useState(film.user_status?.seen ?? false);
+  const [favorite, setFavorite] = useState(film.user_status?.favorite ?? false);
+  const [watchlist, setWatchlist] = useState(film.user_status?.watchlist ?? false);
 
-  const handleToggle = useCallback(
+  useEffect(() => { setSeen(film.user_status?.seen ?? false); }, [film.user_status?.seen]);
+  useEffect(() => { setFavorite(film.user_status?.favorite ?? false); }, [film.user_status?.favorite]);
+  useEffect(() => { setWatchlist(film.user_status?.watchlist ?? false); }, [film.user_status?.watchlist]);
+
+  const handleToggleSeen = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const newSeen = !seen;
-      setSeen(newSeen);
+      const next = !seen;
+      setSeen(next);
       try {
-        await updateUserFilmStatus(film.film_id, { seen: newSeen });
+        await updateUserFilmStatus(film.film_id, { seen: next });
+        onStatusChanged?.();
       } catch {
         setSeen(seen);
       }
     },
     [film.film_id, seen],
+  );
+
+  const handleToggleFavorite = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = !favorite;
+      setFavorite(next);
+      try {
+        await updateUserFilmStatus(film.film_id, { favorite: next });
+        onStatusChanged?.();
+      } catch {
+        setFavorite(favorite);
+      }
+    },
+    [film.film_id, favorite],
+  );
+
+  const handleToggleWatchlist = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = !watchlist;
+      setWatchlist(next);
+      try {
+        await updateUserFilmStatus(film.film_id, { watchlist: next });
+        onStatusChanged?.();
+      } catch {
+        setWatchlist(watchlist);
+      }
+    },
+    [film.film_id, watchlist],
   );
 
   return (
@@ -48,20 +88,44 @@ export function FilmCard({ film, canToggleSeen }: FilmCardProps) {
             <span className="text-sm text-muted-foreground">{film.original_title}</span>
           </div>
         )}
-        {/* Seen toggle */}
-        {canToggleSeen ? (
-          <button
-            onClick={handleToggle}
-            className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
-              seen
-                ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
-                : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
-            }`}
-            title={seen ? "Mark as unseen" : "Mark as seen"}
-          >
-            {seen ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          </button>
-        ) : null}
+        {/* Status icons */}
+        {canToggleStatus && (
+          <div className="absolute right-2 top-2 flex flex-col gap-1.5">
+            <button
+              onClick={handleToggleSeen}
+              className={`flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
+                seen
+                  ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
+                  : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
+              }`}
+              title={seen ? "Mark as unseen" : "Mark as seen"}
+            >
+              {seen ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={handleToggleFavorite}
+              className={`flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
+                favorite
+                  ? "bg-rose-500/90 text-white hover:bg-rose-600"
+                  : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
+              }`}
+              title={favorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={`h-3.5 w-3.5 ${favorite ? "fill-current" : ""}`} />
+            </button>
+            <button
+              onClick={handleToggleWatchlist}
+              className={`flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
+                watchlist
+                  ? "bg-amber-500/90 text-white hover:bg-amber-600"
+                  : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
+              }`}
+              title={watchlist ? "Remove from watchlist" : "Add to watchlist"}
+            >
+              <Bookmark className={`h-3.5 w-3.5 ${watchlist ? "fill-current" : ""}`} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Info */}

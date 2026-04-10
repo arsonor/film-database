@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowDownAZ,
   ArrowUpAZ,
+  BookMarked,
   Film,
   Filter,
+  Lock,
   LogIn,
   LogOut,
   PanelLeftClose,
@@ -12,11 +14,19 @@ import {
   Plus,
   Search,
   Tags,
+  User,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -49,7 +59,7 @@ export function Header({
   onToggleSidebar,
 }: HeaderProps) {
   const navigate = useNavigate();
-  const { isAdmin, isAuthenticated, signOut } = useAuth();
+  const { isAdmin, isAuthenticated, user, signOut } = useAuth();
   const [searchInput, setSearchInput] = useState(filters.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -72,6 +82,8 @@ export function Header({
     setSearchInput("");
     onSearchChange("");
   }, [onSearchChange]);
+
+  const userInitial = user?.email?.charAt(0).toUpperCase() ?? "U";
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 lg:px-6">
@@ -130,30 +142,8 @@ export function Header({
         )}
       </div>
 
-      {/* Right: Add + Sort + Auth */}
+      {/* Right: Sort + User menu */}
       <div className="hidden items-center gap-2 sm:flex">
-        {isAdmin && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/add")}
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden lg:inline">Add Film</span>
-          </Button>
-        )}
-        {isAdmin && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => navigate("/admin/taxonomy")}
-            title="Manage Taxonomy"
-          >
-            <Tags className="h-4 w-4" />
-          </Button>
-        )}
         <Select
           value={filters.sort_by}
           onValueChange={(val) =>
@@ -189,14 +179,46 @@ export function Header({
         </Button>
 
         {isAuthenticated ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={signOut}
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full text-sm font-medium"
+              >
+                {userInitial}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => navigate("/collection")}>
+                <BookMarked className="mr-2 h-4 w-4" />
+                My Collection
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled>
+                <Lock className="mr-2 h-4 w-4" />
+                Dashboard
+                <span className="ml-auto text-[10px] text-muted-foreground">Pro</span>
+              </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/add")}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Film
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/taxonomy")}>
+                    <Tags className="mr-2 h-4 w-4" />
+                    Manage Tags
+                  </DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <Button
             variant="ghost"
