@@ -26,7 +26,7 @@
 | 13 | Performance optimization (deployed) | ✅ DONE | Parallel DB queries, React Query caching, region fix |
 | 14 | Advanced 'click on tag' behaviour | ✅ DONE | Addition of 'Exclude' and 'Or' on multi-select |
 | 15a | Supabase Auth + user roles + vu migration | ✅ DONE | JWT auth, user_profile, user_film_status, migrate film.vu |
-| 15b | Personal tracking UI + Collection + Nav menu | 🔲 TODO | Favorites/watchlist/rating/notes, /collection page, header dropdown |
+| 15b | Personal tracking UI + Collection + Nav menu | ✅ DONE | Favorites/watchlist/rating/notes, /collection page, header dropdown |
 | 15c | Tier-gated taxonomy access | 🔲 TODO | Dimension gating by tier, filter limits, upgrade prompts |
 
 ---
