@@ -8,8 +8,10 @@ import type {
   TMDBSearchResult,
   TaxonomyItem,
   TaxonomyList,
+  UserFilmStatus,
 } from "@/types/api";
 import { ARRAY_FILTER_KEYS } from "@/types/api";
+import { supabase } from "@/lib/supabase";
 
 const BASE = import.meta.env.VITE_API_URL || "/api";
 
@@ -23,8 +25,9 @@ class ApiError extends Error {
   }
 }
 
-function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem("admin_token");
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
   if (token) {
     return { Authorization: `Bearer ${token}` };
   }
@@ -32,7 +35,8 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const headers = await getAuthHeaders();
+  const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new ApiError(res.status, `API error: ${res.status} ${res.statusText}`);
   }
@@ -67,7 +71,7 @@ export function buildFilmParams(filters: FilterState): string {
   if (filters.year_max !== null) params.set("year_max", String(filters.year_max));
 
   // Boolean filter
-  if (filters.vu !== null) params.set("vu", String(filters.vu));
+  if (filters.seen !== null) params.set("seen", String(filters.seen));
 
   // Pagination & sorting
   params.set("page", String(filters.page));
@@ -92,9 +96,10 @@ export async function addTaxonomyValue(
   name: string,
   sortOrder?: number,
 ): Promise<TaxonomyItem> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/taxonomy/${dimension}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ name, sort_order: sortOrder }),
   });
   if (!res.ok) {
@@ -110,9 +115,10 @@ export async function renameTaxonomyValue(
   name: string,
   sortOrder?: number,
 ): Promise<TaxonomyItem> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/taxonomy/${dimension}/${itemId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ name, sort_order: sortOrder }),
   });
   if (!res.ok) {
@@ -127,9 +133,10 @@ export async function mergeTaxonomyValues(
   sourceId: number,
   targetId: number,
 ): Promise<{ merged: boolean; films_affected: number }> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/taxonomy/${dimension}/merge`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ source_id: sourceId, target_id: targetId }),
   });
   if (!res.ok) {
@@ -145,7 +152,8 @@ export async function deleteTaxonomyValue(
   force = false,
 ): Promise<void> {
   const url = `${BASE}/taxonomy/${dimension}/${itemId}${force ? "?force=true" : ""}`;
-  const res = await fetch(url, { method: "DELETE", headers: { ...getAuthHeaders() } });
+  const auth = await getAuthHeaders();
+  const res = await fetch(url, { method: "DELETE", headers: { ...auth } });
   if (!res.ok) {
     const detail = await res.text();
     throw new ApiError(res.status, detail);
@@ -168,7 +176,8 @@ export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
 }
 
 export async function deleteFilm(filmId: number): Promise<void> {
-  const res = await fetch(`${BASE}/films/${filmId}`, { method: "DELETE", headers: { ...getAuthHeaders() } });
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/films/${filmId}`, { method: "DELETE", headers: { ...auth } });
   if (!res.ok) {
     const detail = await res.text();
     throw new ApiError(res.status, detail || "Delete failed");
@@ -176,20 +185,30 @@ export async function deleteFilm(filmId: number): Promise<void> {
 }
 
 export async function updateFilm(filmId: number, data: Record<string, unknown>): Promise<void> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/films/${filmId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new ApiError(res.status, `Update failed: ${res.statusText}`);
 }
 
-export async function toggleVu(filmId: number, vu: boolean): Promise<void> {
-  const res = await fetch(`${BASE}/films/${filmId}/vu?vu=${vu}`, {
-    method: "PATCH",
-    headers: { ...getAuthHeaders() },
+export async function fetchUserFilmStatus(filmId: number): Promise<UserFilmStatus> {
+  return fetchJson<UserFilmStatus>(`${BASE}/users/me/films/${filmId}/status`);
+}
+
+export async function updateUserFilmStatus(
+  filmId: number,
+  status: Partial<UserFilmStatus>,
+): Promise<void> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/films/${filmId}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(status),
   });
-  if (!res.ok) throw new ApiError(res.status, `Toggle failed: ${res.statusText}`);
+  if (!res.ok) throw new ApiError(res.status, `Status update failed: ${res.statusText}`);
 }
 
 // =============================================================================
@@ -202,8 +221,9 @@ export async function searchTMDB(
 ): Promise<TMDBSearchResult[]> {
   const params = new URLSearchParams({ title });
   if (year) params.set("year", String(year));
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/add-film/search?${params}`, {
-    headers: { ...getAuthHeaders() },
+    headers: { ...auth },
   });
   if (!res.ok) throw new ApiError(res.status, `Search failed: ${res.statusText}`);
   const data = await res.json();
@@ -211,9 +231,10 @@ export async function searchTMDB(
 }
 
 export async function enrichFilm(tmdbId: number): Promise<EnrichmentPreview> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/add-film/enrich`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ tmdb_id: tmdbId }),
   });
   if (!res.ok) {
@@ -236,9 +257,10 @@ export async function addFilmRelation(
   relatedFilmId: number,
   relationType: string,
 ): Promise<void> {
+  const auth = await getAuthHeaders();
   await fetch(`${BASE}/films/${filmId}/relations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify({ related_film_id: relatedFilmId, relation_type: relationType }),
   });
 }
@@ -247,18 +269,20 @@ export async function deleteFilmRelation(
   filmId: number,
   relatedFilmId: number,
 ): Promise<void> {
+  const auth = await getAuthHeaders();
   await fetch(`${BASE}/films/${filmId}/relations/${relatedFilmId}`, {
     method: "DELETE",
-    headers: { ...getAuthHeaders() },
+    headers: { ...auth },
   });
 }
 
 export async function saveFilm(
   data: EnrichmentPreview,
 ): Promise<{ film_id: number }> {
+  const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/films`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+    headers: { "Content-Type": "application/json", ...auth },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -272,26 +296,14 @@ export async function saveFilm(
 // Auth
 // =============================================================================
 
-export async function checkAuth(): Promise<boolean> {
+export async function fetchAuthMe(): Promise<{ id: string; email: string; tier: string } | null> {
   try {
-    const res = await fetch(`${BASE}/auth/check`, {
-      headers: { ...getAuthHeaders() },
-    });
-    return res.ok;
+    const auth = await getAuthHeaders();
+    if (!auth.Authorization) return null;
+    const res = await fetch(`${BASE}/auth/me`, { headers: auth });
+    if (!res.ok) return null;
+    return res.json();
   } catch {
-    return false;
+    return null;
   }
-}
-
-export async function loginAdmin(password: string): Promise<string> {
-  const res = await fetch(`${BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
-  if (!res.ok) {
-    throw new ApiError(res.status, "Login failed");
-  }
-  const data = await res.json();
-  return data.token;
 }

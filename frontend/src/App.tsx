@@ -4,7 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { AddFilmPage } from "@/pages/AddFilmPage";
 import { BrowsePage } from "@/pages/BrowsePage";
 import { FilmDetailPage } from "@/pages/FilmDetailPage";
-import { LoginPage } from "@/pages/LoginPage";
+import { AuthPage } from "@/pages/AuthPage";
 import { TaxonomyAdminPage } from "@/pages/TaxonomyAdminPage";
 
 const queryClient = new QueryClient({
@@ -28,7 +28,7 @@ export default function App() {
             <Route path="/films/:id" element={<FilmDetailPage />} />
             <Route path="/add" element={<AddFilmPage />} />
             <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/auth" element={<AuthPage />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

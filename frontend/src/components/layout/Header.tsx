@@ -49,7 +49,7 @@ export function Header({
   onToggleSidebar,
 }: HeaderProps) {
   const navigate = useNavigate();
-  const { isAdmin, logout } = useAuth();
+  const { isAdmin, isAuthenticated, signOut } = useAuth();
   const [searchInput, setSearchInput] = useState(filters.q);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -188,12 +188,12 @@ export function Header({
           )}
         </Button>
 
-        {isAdmin ? (
+        {isAuthenticated ? (
           <Button
             variant="ghost"
             size="icon"
-            onClick={logout}
-            title="Logout"
+            onClick={signOut}
+            title="Sign out"
           >
             <LogOut className="h-4 w-4" />
           </Button>
@@ -201,8 +201,8 @@ export function Header({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/login")}
-            title="Admin login"
+            onClick={() => navigate("/auth")}
+            title="Sign in"
           >
             <LogIn className="h-4 w-4" />
           </Button>

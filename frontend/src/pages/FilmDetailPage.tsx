@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useFilmDetail } from "@/hooks/useFilmDetail";
-import { deleteFilm, toggleVu } from "@/api/client";
+import { deleteFilm, updateUserFilmStatus } from "@/api/client";
 import { PersonCard } from "@/components/films/PersonCard";
 import { ExternalLinks } from "@/components/films/ExternalLinks";
 import { AwardsTable } from "@/components/films/AwardsTable";
@@ -45,16 +45,21 @@ export function FilmDetailPage() {
   const queryClient = useQueryClient();
   const { film, loading, error, refetch } = useFilmDetail(filmId);
 
-  const handleToggleVu = useCallback(async () => {
+  const { isAuthenticated } = useAuth();
+
+  const handleToggleSeen = useCallback(async () => {
     if (!film) return;
-    const newVu = !film.vu;
+    const currentSeen = film.user_status?.seen ?? false;
+    const newSeen = !currentSeen;
     // Optimistic update via query cache
-    queryClient.setQueryData(["film", filmId], { ...film, vu: newVu });
+    queryClient.setQueryData(["film", filmId], {
+      ...film,
+      user_status: { ...(film.user_status ?? { seen: false, favorite: false, watchlist: false, rating: null }), seen: newSeen },
+    });
     try {
-      await toggleVu(film.film_id, newVu);
+      await updateUserFilmStatus(film.film_id, { seen: newSeen });
       queryClient.invalidateQueries({ queryKey: ["films"] });
     } catch {
-      // Revert on error
       queryClient.setQueryData(["film", filmId], film);
     }
   }, [film, filmId, queryClient]);
@@ -257,14 +262,14 @@ export function FilmDetailPage() {
 
               {/* Seen toggle + External links row */}
               <div className="flex flex-wrap items-center gap-3">
-                {isAdmin && (
+                {isAuthenticated && (
                   <Button
-                    variant={film.vu ? "default" : "outline"}
+                    variant={(film.user_status?.seen) ? "default" : "outline"}
                     size="sm"
-                    className={`gap-1.5 ${film.vu ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-                    onClick={handleToggleVu}
+                    className={`gap-1.5 ${(film.user_status?.seen) ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+                    onClick={handleToggleSeen}
                   >
-                    {film.vu ? (
+                    {(film.user_status?.seen) ? (
                       <>
                         <Eye className="h-4 w-4" /> Seen
                       </>

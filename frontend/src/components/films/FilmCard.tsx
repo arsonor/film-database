@@ -2,31 +2,31 @@ import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { toggleVu } from "@/api/client";
+import { updateUserFilmStatus } from "@/api/client";
 import type { FilmListItem } from "@/types/api";
 import { formatYear } from "@/lib/utils";
 
 interface FilmCardProps {
   film: FilmListItem;
-  canToggleVu?: boolean;
+  canToggleSeen?: boolean;
 }
 
-export function FilmCard({ film, canToggleVu }: FilmCardProps) {
-  const [vu, setVu] = useState(film.vu);
+export function FilmCard({ film, canToggleSeen }: FilmCardProps) {
+  const [seen, setSeen] = useState(film.user_status?.seen ?? false);
 
   const handleToggle = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const newVu = !vu;
-      setVu(newVu);
+      const newSeen = !seen;
+      setSeen(newSeen);
       try {
-        await toggleVu(film.film_id, newVu);
+        await updateUserFilmStatus(film.film_id, { seen: newSeen });
       } catch {
-        setVu(vu);
+        setSeen(seen);
       }
     },
-    [film.film_id, vu],
+    [film.film_id, seen],
   );
 
   return (
@@ -49,17 +49,17 @@ export function FilmCard({ film, canToggleVu }: FilmCardProps) {
           </div>
         )}
         {/* Seen toggle */}
-        {canToggleVu ? (
+        {canToggleSeen ? (
           <button
             onClick={handleToggle}
             className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full shadow-md transition-colors ${
-              vu
+              seen
                 ? "bg-emerald-500/90 text-white hover:bg-emerald-600"
                 : "bg-background/60 text-muted-foreground opacity-0 backdrop-blur hover:bg-background/80 group-hover:opacity-100"
             }`}
-            title={vu ? "Mark as unseen" : "Mark as seen"}
+            title={seen ? "Mark as unseen" : "Mark as seen"}
           >
-            {vu ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {seen ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
           </button>
         ) : null}
       </div>

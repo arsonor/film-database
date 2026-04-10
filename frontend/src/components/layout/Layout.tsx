@@ -28,8 +28,9 @@ interface LayoutProps {
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
-  onSetVu: (vu: boolean | null) => void;
+  onSetSeen: (seen: boolean | null) => void;
   isAdmin?: boolean;
+  isAuthenticated?: boolean;
   children: React.ReactNode;
 }
 
@@ -43,8 +44,9 @@ export function Layout({
   onExcludeFilter,
   onSetFilterMode,
   onUpdateFilters,
-  onSetVu,
+  onSetSeen,
   isAdmin,
+  isAuthenticated,
   children,
 }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,8 +66,9 @@ export function Layout({
     onExcludeFilter,
     onSetFilterMode,
     onUpdateFilters,
-    onSetVu,
+    onSetSeen,
     isAdmin,
+    isAuthenticated,
   };
 
   return (

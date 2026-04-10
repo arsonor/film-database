@@ -5,13 +5,12 @@ Film Database API — FastAPI application entry point.
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 
-from backend.app.auth import require_admin
+from backend.app.auth import UserInfo, require_authenticated
 from backend.app.database import engine
-from backend.app.routers import add_film, films, geography, persons, taxonomy
+from backend.app.routers import add_film, films, geography, persons, taxonomy, users
 
 
 @asynccontextmanager
@@ -23,7 +22,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Film Database API",
     description="Personal film database with rich taxonomy classification",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -43,6 +42,7 @@ app.include_router(taxonomy.router, prefix="/api")
 app.include_router(persons.router, prefix="/api")
 app.include_router(geography.router, prefix="/api")
 app.include_router(add_film.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
 
 
 # =============================================================================
@@ -50,20 +50,6 @@ app.include_router(add_film.router, prefix="/api")
 # =============================================================================
 
 
-class LoginRequest(BaseModel):
-    password: str
-
-
-@app.post("/api/auth/login")
-async def auth_login(body: LoginRequest):
-    admin_key = os.getenv("ADMIN_SECRET_KEY")
-    if not admin_key:
-        raise HTTPException(status_code=401, detail="Admin auth not configured")
-    if body.password != admin_key:
-        raise HTTPException(status_code=401, detail="Invalid password")
-    return {"token": body.password}
-
-
-@app.get("/api/auth/check")
-async def auth_check(admin: None = Depends(require_admin)):
-    return {"admin": True}
+@app.get("/api/auth/me")
+async def auth_me(user: UserInfo = Depends(require_authenticated)):
+    return {"id": user.id, "email": user.email, "tier": user.tier}

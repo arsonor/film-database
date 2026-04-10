@@ -39,9 +39,9 @@ function parseSearchParams(sp: URLSearchParams): FilterState {
   if (yearMax) state.year_max = parseInt(yearMax, 10);
 
   // Boolean filter
-  const vu = sp.get("vu");
-  if (vu === "true") state.vu = true;
-  else if (vu === "false") state.vu = false;
+  const seen = sp.get("seen");
+  if (seen === "true") state.seen = true;
+  else if (seen === "false") state.seen = false;
 
   // Sort
   const sortBy = sp.get("sort_by");
@@ -84,7 +84,7 @@ function stateToSearchParams(state: FilterState): URLSearchParams {
   if (state.source) sp.set("source", state.source);
   if (state.year_min !== null) sp.set("year_min", String(state.year_min));
   if (state.year_max !== null) sp.set("year_max", String(state.year_max));
-  if (state.vu !== null) sp.set("vu", String(state.vu));
+  if (state.seen !== null) sp.set("seen", String(state.seen));
 
   if (state.sort_by !== "year") sp.set("sort_by", state.sort_by);
   if (state.sort_order !== "desc") sp.set("sort_order", state.sort_order);
@@ -176,8 +176,8 @@ export function useFilterState() {
     [updateFilters],
   );
 
-  const setVu = useCallback(
-    (vu: boolean | null) => updateFilters({ vu }),
+  const setSeen = useCallback(
+    (seen: boolean | null) => updateFilters({ seen }),
     [updateFilters],
   );
 
@@ -192,6 +192,6 @@ export function useFilterState() {
     setSearch,
     setSort,
     setPage,
-    setVu,
+    setSeen,
   };
 }

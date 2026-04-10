@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.auth import require_admin
+from backend.app.auth import UserInfo, get_current_user, require_admin
 from backend.app.database import engine, get_db
 from backend.app.schemas.film import (
     AwardOut,
@@ -25,6 +25,7 @@ from backend.app.schemas.film import (
     FilmUpdate,
     PaginatedFilms,
     SourceOut,
+    UserFilmStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,12 +78,13 @@ async def list_films(
     country: str | None = None,
     language: str | None = None,
     source: str | None = None,
-    vu: bool | None = None,
+    seen: bool | None = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     sort_by: str = Query("year", pattern="^(year|title|duration|budget|revenue)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
+    user: UserInfo | None = Depends(get_current_user),
 ):
     params: dict = {}
     where_clauses: list[str] = []
@@ -349,10 +351,17 @@ async def list_films(
         where_clauses.append("EXTRACT(YEAR FROM f.first_release_date) <= :year_max")
         params["year_max"] = year_max
 
-    # Vu filter
-    if vu is not None:
-        where_clauses.append("f.vu = :vu")
-        params["vu"] = vu
+    # Seen filter (per-user)
+    if seen is not None and user:
+        if seen:
+            where_clauses.append(
+                "f.film_id IN (SELECT film_id FROM user_film_status WHERE user_id = :uid AND seen = TRUE)"
+            )
+        else:
+            where_clauses.append(
+                "f.film_id NOT IN (SELECT film_id FROM user_film_status WHERE user_id = :uid AND seen = TRUE)"
+            )
+        params["uid"] = user.id
 
     # Full-text search
     if q:
@@ -399,10 +408,17 @@ async def list_films(
     offset = (page - 1) * per_page
 
     # Main query
+    user_join = ""
+    user_cols = "NULL AS seen, NULL AS favorite, NULL AS watchlist, NULL AS rating"
+    if user:
+        user_join = "LEFT JOIN user_film_status ufs ON f.film_id = ufs.film_id AND ufs.user_id = :user_id"
+        user_cols = "ufs.seen, ufs.favorite, ufs.watchlist, ufs.rating"
+        params["user_id"] = user.id
     list_sql = f"""
         SELECT f.film_id, f.original_title, f.first_release_date, f.duration,
-               f.poster_url, f.vu
+               f.poster_url, {user_cols}
         FROM film f
+        {user_join}
         WHERE {where_sql}
         ORDER BY {sort_col} {order} NULLS LAST, f.film_id ASC
         LIMIT :limit OFFSET :offset
@@ -450,6 +466,15 @@ async def list_films(
 
         for r in rows:
             fid = r[0]
+            # r[5]=seen, r[6]=favorite, r[7]=watchlist, r[8]=rating
+            u_status = None
+            if user and r[5] is not None:
+                u_status = UserFilmStatus(
+                    seen=r[5] or False,
+                    favorite=r[6] or False,
+                    watchlist=r[7] or False,
+                    rating=r[8],
+                )
             items.append(
                 FilmListItem(
                     film_id=fid,
@@ -457,7 +482,7 @@ async def list_films(
                     first_release_date=r[2],
                     duration=r[3],
                     poster_url=r[4],
-                    vu=r[5] or False,
+                    user_status=u_status,
                     categories=cat_map.get(fid, []),
                     director=dir_map.get(fid),
                 )
@@ -517,7 +542,11 @@ async def _parallel_query(sql: str, params: dict) -> list:
 
 
 @router.get("/films/{film_id}", response_model=FilmDetail)
-async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
+async def get_film(
+    film_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: UserInfo | None = Depends(get_current_user),
+):
     # Core film — must run first to check existence
     result = await db.execute(
         text("SELECT * FROM film WHERE film_id = :fid"),
@@ -724,6 +753,22 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
         for r in seq_rows
     ]
 
+    # Fetch per-user status if logged in
+    u_status = None
+    if user:
+        us_result = await db.execute(
+            text("SELECT seen, favorite, watchlist, rating FROM user_film_status WHERE user_id = :uid AND film_id = :fid"),
+            {"uid": user.id, "fid": film_id},
+        )
+        us_row = us_result.fetchone()
+        if us_row:
+            u_status = UserFilmStatus(
+                seen=us_row[0] or False,
+                favorite=us_row[1] or False,
+                watchlist=us_row[2] or False,
+                rating=us_row[3],
+            )
+
     return FilmDetail(
         film_id=film["film_id"],
         original_title=film["original_title"],
@@ -731,7 +776,7 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
         color=film["color"] if film["color"] is not None else True,
         first_release_date=film["first_release_date"],
         summary=film["summary"],
-        vu=film["vu"] or False,
+        user_status=u_status,
         poster_url=film["poster_url"],
         backdrop_url=film["backdrop_url"],
         imdb_id=film["imdb_id"],
@@ -757,23 +802,6 @@ async def get_film(film_id: int, db: AsyncSession = Depends(get_db)):
         streaming_platforms=streaming,
         sequels=sequels,
     )
-
-
-# =============================================================================
-# PATCH /api/films/{film_id}/vu — Quick seen/unseen toggle
-# =============================================================================
-
-
-@router.patch("/films/{film_id}/vu")
-async def toggle_vu(film_id: int, vu: bool = Query(...), db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
-    result = await db.execute(
-        text("UPDATE film SET vu = :vu WHERE film_id = :fid RETURNING film_id"),
-        {"fid": film_id, "vu": vu},
-    )
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Film not found")
-    await db.commit()
-    return {"film_id": film_id, "vu": vu}
 
 
 # =============================================================================
@@ -1138,7 +1166,6 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
         "color": update.color,
         "first_release_date": update.first_release_date,
         "summary": update.summary,
-        "vu": update.vu,
         "poster_url": update.poster_url,
         "backdrop_url": update.backdrop_url,
         "budget": update.budget,
@@ -1426,16 +1453,25 @@ async def delete_film_relation(
 
 
 @router.get("/stats")
-async def get_stats(db: AsyncSession = Depends(get_db)):
+async def get_stats(
+    db: AsyncSession = Depends(get_db),
+    user: UserInfo | None = Depends(get_current_user),
+):
     stats: dict = {}
 
     # Total films
     r = await db.execute(text("SELECT COUNT(*) FROM film"))
     stats["total_films"] = r.scalar_one()
 
-    # Seen vs unseen
-    r = await db.execute(text("SELECT COUNT(*) FROM film WHERE vu = TRUE"))
-    stats["seen"] = r.scalar_one()
+    # Seen vs unseen (per-user)
+    if user:
+        r = await db.execute(
+            text("SELECT COUNT(*) FROM user_film_status WHERE user_id = :uid AND seen = TRUE"),
+            {"uid": user.id},
+        )
+        stats["seen"] = r.scalar_one()
+    else:
+        stats["seen"] = 0
     stats["unseen"] = stats["total_films"] - stats["seen"]
 
     # By decade

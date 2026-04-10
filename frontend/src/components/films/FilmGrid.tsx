@@ -6,7 +6,7 @@ interface FilmGridProps {
   films: PaginatedFilms | null;
   loading: boolean;
   error: string | null;
-  canToggleVu?: boolean;
+  canToggleSeen?: boolean;
 }
 
 function SkeletonCard() {
@@ -21,7 +21,7 @@ function SkeletonCard() {
   );
 }
 
-export function FilmGrid({ films, loading, error, canToggleVu }: FilmGridProps) {
+export function FilmGrid({ films, loading, error, canToggleSeen }: FilmGridProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
@@ -59,7 +59,7 @@ export function FilmGrid({ films, loading, error, canToggleVu }: FilmGridProps) 
       </p>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {films.items.map((film) => (
-          <FilmCard key={film.film_id} film={film} canToggleVu={canToggleVu} />
+          <FilmCard key={film.film_id} film={film} canToggleSeen={canToggleSeen} />
         ))}
       </div>
     </div>

@@ -18,11 +18,11 @@ export function BrowsePage() {
     setSearch,
     setSort,
     setPage,
-    setVu,
+    setSeen,
     updateFilters,
   } = useFilterState();
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, isAuthenticated } = useAuth();
   const { films, loading, error } = useFilms(filters);
   const { taxonomies } = useTaxonomy();
 
@@ -37,8 +37,9 @@ export function BrowsePage() {
       onExcludeFilter={excludeFilter}
       onSetFilterMode={setFilterMode}
       onUpdateFilters={updateFilters}
-      onSetVu={setVu}
+      onSetSeen={setSeen}
       isAdmin={isAdmin}
+      isAuthenticated={isAuthenticated}
     >
       <ActiveFilters
         filters={filters}
@@ -47,7 +48,7 @@ export function BrowsePage() {
         onUpdateFilters={updateFilters}
       />
 
-      <FilmGrid films={films} loading={loading} error={error} canToggleVu={isAdmin} />
+      <FilmGrid films={films} loading={loading} error={error} canToggleSeen={isAuthenticated} />
 
       {films && films.total_pages > 1 && (
         <Pagination

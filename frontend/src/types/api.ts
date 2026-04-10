@@ -83,6 +83,13 @@ export interface FilmRelation {
   poster_url: string | null;
 }
 
+export interface UserFilmStatus {
+  seen: boolean;
+  favorite: boolean;
+  watchlist: boolean;
+  rating: number | null;
+}
+
 export interface FilmDetail {
   film_id: number;
   original_title: string;
@@ -90,7 +97,7 @@ export interface FilmDetail {
   color: boolean;
   first_release_date: string | null;
   summary: string | null;
-  vu: boolean;
+  user_status: UserFilmStatus | null;
   poster_url: string | null;
   backdrop_url: string | null;
   imdb_id: string | null;
@@ -127,7 +134,7 @@ export interface FilmListItem {
   first_release_date: string | null;
   duration: number | null;
   poster_url: string | null;
-  vu: boolean;
+  user_status: UserFilmStatus | null;
   categories: string[];
   director: string | null;
 }
@@ -200,7 +207,7 @@ export interface FilterState {
   source: string;
   year_min: number | null;
   year_max: number | null;
-  vu: boolean | null;
+  seen: boolean | null;
   sort_by: "year" | "title" | "duration";
   sort_order: "asc" | "desc";
   page: number;
@@ -238,7 +245,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   source: "",
   year_min: null,
   year_max: null,
-  vu: null,
+  seen: null,
   sort_by: "year",
   sort_order: "desc",
   page: 1,

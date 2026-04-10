@@ -29,8 +29,9 @@ interface SidebarProps {
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
-  onSetVu: (vu: boolean | null) => void;
+  onSetSeen: (seen: boolean | null) => void;
   isAdmin?: boolean;
+  isAuthenticated?: boolean;
 }
 
 // Which dimensions start expanded
@@ -47,8 +48,9 @@ export function SidebarContent({
   onExcludeFilter,
   onSetFilterMode,
   onUpdateFilters,
-  onSetVu,
+  onSetSeen,
   isAdmin,
+  isAuthenticated,
 }: SidebarProps) {
   // Location autocomplete state
   const [locationQuery, setLocationQuery] = useState(filters.location);
@@ -124,7 +126,7 @@ export function SidebarContent({
     );
 
   // Seen toggle
-  const vuValue = filters.vu === null ? "all" : filters.vu ? "seen" : "unseen";
+  const seenValue = filters.seen === null ? "all" : filters.seen ? "seen" : "unseen";
 
   return (
     <ScrollArea className="h-full">
@@ -330,14 +332,14 @@ export function SidebarContent({
           </div>
         </div>
 
-        {/* Seen toggle (admin only) */}
-        {isAdmin && (
+        {/* Seen toggle (authenticated users) */}
+        {isAuthenticated && (
           <div className="border-b border-border pb-3 pt-2">
             <label className="mb-2 block text-sm font-medium text-foreground">Seen</label>
-            <Select value={vuValue} onValueChange={(val) => {
-              if (val === "all") onSetVu(null);
-              else if (val === "seen") onSetVu(true);
-              else onSetVu(false);
+            <Select value={seenValue} onValueChange={(val) => {
+              if (val === "all") onSetSeen(null);
+              else if (val === "seen") onSetSeen(true);
+              else onSetSeen(false);
             }}>
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue />

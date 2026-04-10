@@ -64,6 +64,18 @@ class FilmRelation(BaseModel):
 
 
 # =============================================================================
+# User film status
+# =============================================================================
+
+
+class UserFilmStatus(BaseModel):
+    seen: bool = False
+    favorite: bool = False
+    watchlist: bool = False
+    rating: int | None = None
+
+
+# =============================================================================
 # FilmListItem — compact, for grid display
 # =============================================================================
 
@@ -74,7 +86,7 @@ class FilmListItem(BaseModel):
     first_release_date: date | None = None
     duration: int | None = None
     poster_url: str | None = None
-    vu: bool = False
+    user_status: UserFilmStatus | None = None
     categories: list[str] = []
     director: str | None = None
 
@@ -93,7 +105,7 @@ class FilmDetail(BaseModel):
     color: bool = True
     first_release_date: date | None = None
     summary: str | None = None
-    vu: bool = False
+    user_status: UserFilmStatus | None = None
     poster_url: str | None = None
     backdrop_url: str | None = None
     imdb_id: str | None = None
@@ -163,7 +175,6 @@ class FilmUpdate(BaseModel):
     color: bool | None = None
     first_release_date: date | None = None
     summary: str | None = None
-    vu: bool | None = None
     poster_url: str | None = None
     backdrop_url: str | None = None
     budget: int | None = None

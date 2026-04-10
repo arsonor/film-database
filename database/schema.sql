@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS film (
     color BOOLEAN DEFAULT TRUE,                -- Color film (false = black & white original)
     first_release_date DATE,
     summary TEXT,
-    vu BOOLEAN DEFAULT FALSE,                  -- Seen by user
     poster_url TEXT,
     backdrop_url TEXT,
     imdb_id VARCHAR(20) UNIQUE,
@@ -46,7 +45,6 @@ CREATE TABLE IF NOT EXISTS film (
 );
 
 COMMENT ON TABLE film IS 'Central table storing all film metadata, linked to classification dimensions via junction tables';
-COMMENT ON COLUMN film.vu IS 'Boolean indicating if the user has seen this film';
 COMMENT ON COLUMN film.color IS 'True for color films, false for originally black & white films';
 COMMENT ON COLUMN film.budget IS 'Production budget in USD';
 COMMENT ON COLUMN film.revenue IS 'Worldwide box office revenue in USD';
@@ -558,6 +556,60 @@ COMMENT ON COLUMN award.result IS 'Whether the film won or was only nominated';
 CREATE INDEX IF NOT EXISTS idx_award_film_id ON award(film_id);
 CREATE INDEX IF NOT EXISTS idx_award_festival_name ON award(festival_name);
 CREATE INDEX IF NOT EXISTS idx_award_year ON award(award_year);
+
+-- =============================================================================
+-- USER AUTH & FILM STATUS
+-- =============================================================================
+
+-- User profile (id matches Supabase auth.users UUID)
+CREATE TABLE IF NOT EXISTS user_profile (
+    id UUID PRIMARY KEY,
+    email TEXT NOT NULL,
+    display_name TEXT,
+    tier TEXT NOT NULL DEFAULT 'free'
+        CHECK (tier IN ('free', 'pro', 'admin')),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+COMMENT ON TABLE user_profile IS 'User profiles synced from Supabase Auth';
+COMMENT ON COLUMN user_profile.tier IS 'User tier: free, pro, or admin';
+
+CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email);
+CREATE INDEX IF NOT EXISTS idx_user_profile_tier ON user_profile(tier);
+
+DROP TRIGGER IF EXISTS user_profile_updated_at_trigger ON user_profile;
+CREATE TRIGGER user_profile_updated_at_trigger
+    BEFORE UPDATE ON user_profile
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- Per-user film status (seen, favorite, watchlist, rating)
+CREATE TABLE IF NOT EXISTS user_film_status (
+    user_id UUID NOT NULL REFERENCES user_profile(id) ON DELETE CASCADE,
+    film_id INTEGER NOT NULL REFERENCES film(film_id) ON DELETE CASCADE,
+    seen BOOLEAN DEFAULT FALSE,
+    favorite BOOLEAN DEFAULT FALSE,
+    watchlist BOOLEAN DEFAULT FALSE,
+    rating SMALLINT CHECK (rating IS NULL OR (rating >= 1 AND rating <= 10)),
+    notes TEXT,
+    updated_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (user_id, film_id)
+);
+
+COMMENT ON TABLE user_film_status IS 'Per-user film status tracking (seen, favorites, watchlist, ratings)';
+
+CREATE INDEX IF NOT EXISTS idx_user_film_status_user ON user_film_status(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_film_status_film ON user_film_status(film_id);
+CREATE INDEX IF NOT EXISTS idx_user_film_status_seen ON user_film_status(user_id, seen) WHERE seen = TRUE;
+CREATE INDEX IF NOT EXISTS idx_user_film_status_favorite ON user_film_status(user_id, favorite) WHERE favorite = TRUE;
+CREATE INDEX IF NOT EXISTS idx_user_film_status_watchlist ON user_film_status(user_id, watchlist) WHERE watchlist = TRUE;
+
+DROP TRIGGER IF EXISTS user_film_status_updated_at_trigger ON user_film_status;
+CREATE TRIGGER user_film_status_updated_at_trigger
+    BEFORE UPDATE ON user_film_status
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- =============================================================================
 -- END OF SCHEMA

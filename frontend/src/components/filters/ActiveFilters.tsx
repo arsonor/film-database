@@ -93,11 +93,11 @@ export function ActiveFilters({
   }
 
   // Seen
-  if (filters.vu !== null) {
+  if (filters.seen !== null) {
     chips.push({
-      key: "vu",
-      label: filters.vu ? "Seen" : "Unseen",
-      onRemove: () => onUpdateFilters({ vu: null }),
+      key: "seen",
+      label: filters.seen ? "Seen" : "Unseen",
+      onRemove: () => onUpdateFilters({ seen: null }),
     });
   }
 
