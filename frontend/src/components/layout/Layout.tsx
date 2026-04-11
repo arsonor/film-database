@@ -95,14 +95,16 @@ export function Layout({
 
         {/* Mobile sidebar (Sheet) */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="w-80 p-0">
-            <SheetHeader className="p-4 pb-0">
+          <SheetContent side="left" className="flex w-80 flex-col p-0">
+            <SheetHeader className="shrink-0 p-4 pb-0">
               <SheetTitle>Filters</SheetTitle>
               <SheetDescription className="sr-only">
                 Filter films by taxonomy dimensions
               </SheetDescription>
             </SheetHeader>
-            <SidebarContent {...sidebarProps} />
+            <div className="min-h-0 flex-1">
+              <SidebarContent {...sidebarProps} />
+            </div>
           </SheetContent>
         </Sheet>
 

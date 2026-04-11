@@ -138,38 +138,39 @@ export function FilmDetailPage() {
       {/* ================================================================ */}
       {/* Hero Section */}
       {/* ================================================================ */}
+      {/* ================================================================ */}
+      {/* Backdrop + Back button */}
+      {/* ================================================================ */}
       <div className="relative">
-        {/* Backdrop */}
         {backdropUrl ? (
-          <div className="relative h-[320px] w-full overflow-hidden sm:h-[420px] lg:h-[480px]">
+          <div className="relative h-[200px] w-full overflow-hidden sm:h-[420px] lg:h-[480px]">
             <img
               src={backdropUrl}
               alt=""
               className="h-full w-full object-cover"
             />
-            {/* Gradient overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
           </div>
         ) : (
-          <div className="h-[200px] w-full bg-card sm:h-[300px]" />
+          <div className="h-[120px] w-full bg-card sm:h-[300px]" />
         )}
 
-        {/* Hero Content — overlaid on backdrop */}
-        <div className="absolute inset-x-0 bottom-0 px-4 pb-6 sm:px-6 lg:px-8">
-          <div className="mx-auto flex max-w-6xl gap-6">
-            {/* Back button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 top-4 z-10 bg-background/50 backdrop-blur sm:left-6"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+        {/* Back button — always visible */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-4 top-4 z-10 bg-background/50 backdrop-blur sm:left-6"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
 
+        {/* Desktop hero overlay (sm+) */}
+        <div className="absolute inset-x-0 bottom-0 hidden px-6 pb-6 sm:block lg:px-8">
+          <div className="mx-auto flex max-w-6xl gap-6">
             {/* Poster */}
-            <div className="hidden shrink-0 sm:block">
+            <div className="shrink-0">
               {posterUrl ? (
                 <img
                   src={posterUrl}
@@ -183,14 +184,11 @@ export function FilmDetailPage() {
               )}
             </div>
 
-            {/* Info block */}
+            {/* Info block — desktop */}
             <div className="flex min-w-0 flex-1 flex-col justify-end gap-3">
-              {/* Title */}
-              <h1 className="text-2xl font-bold leading-tight text-foreground sm:text-3xl lg:text-4xl">
+              <h1 className="text-3xl font-bold leading-tight text-foreground lg:text-4xl">
                 {film.original_title}
               </h1>
-
-              {/* Localized titles */}
               {localizedTitles.length > 0 && (
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {localizedTitles.map((t) => (
@@ -201,8 +199,6 @@ export function FilmDetailPage() {
                   ))}
                 </div>
               )}
-
-              {/* Meta line: year, duration, color */}
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">{year}</span>
                 {film.duration && (
@@ -224,19 +220,13 @@ export function FilmDetailPage() {
                   </>
                 )}
               </div>
-
-              {/* Categories */}
               {film.categories.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {film.categories.map((cat) => (
-                    <Badge key={cat} className="text-xs">
-                      {cat}
-                    </Badge>
+                    <Badge key={cat} className="text-xs">{cat}</Badge>
                   ))}
                 </div>
               )}
-
-              {/* Directors */}
               {directors.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   Directed by{" "}
@@ -244,11 +234,7 @@ export function FilmDetailPage() {
                     <span key={d.person_id}>
                       {i > 0 && ", "}
                       <button
-                        onClick={() =>
-                          navigate(
-                            `/browse?q=${encodeURIComponent(formatPersonName(d.firstname, d.lastname))}`,
-                          )
-                        }
+                        onClick={() => navigate(`/browse?q=${encodeURIComponent(formatPersonName(d.firstname, d.lastname))}`)}
                         className="font-medium text-foreground hover:text-primary"
                       >
                         {formatPersonName(d.firstname, d.lastname)}
@@ -257,71 +243,25 @@ export function FilmDetailPage() {
                   ))}
                 </p>
               )}
-
-              {/* User status + External links row */}
               <div className="flex flex-col gap-3">
                 {isAuthenticated && (
-                  <FilmStatusBar
-                    filmId={film.film_id}
-                    status={film.user_status}
-                    onStatusChange={handleStatusChange}
-                  />
+                  <FilmStatusBar filmId={film.film_id} status={film.user_status} onStatusChange={handleStatusChange} />
                 )}
-
-                <ExternalLinks
-                  tmdbId={film.tmdb_id}
-                  imdbId={film.imdb_id}
-                  title={film.original_title}
-                  year={film.first_release_date}
-                />
-
+                <ExternalLinks tmdbId={film.tmdb_id} imdbId={film.imdb_id} title={film.original_title} year={film.first_release_date} />
                 {isAdmin && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={handleDelete}
-                    title="Delete film"
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleDelete} title="Delete film">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
               </div>
-
-              {/* Production info — compact, in hero area */}
               <div className="space-y-1 text-sm text-muted-foreground">
-                <EditableTagSection
-                  filmId={film.film_id}
-                  dimension="studios"
-                  currentValues={film.studios}
-                  onSaved={handleSaved}
-                  readOnly={!isAdmin}
-                  allowCustom
-                />
-                <EditableSourceSection
-                  filmId={film.film_id}
-                  sources={film.sources}
-                  onSaved={handleSaved}
-                  readOnly={!isAdmin}
-                />
+                <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom />
+                <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
                 <div className="flex items-center gap-2">
-                  {film.budget != null && film.budget > 0 && (
-                    <span>Budget: {formatCurrency(film.budget)}</span>
-                  )}
-                  {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && (
-                    <span className="text-border">|</span>
-                  )}
-                  {film.revenue != null && film.revenue > 0 && (
-                    <span>Revenue: {formatCurrency(film.revenue)}</span>
-                  )}
-                  {isAdmin && (
-                    <EditableFinancials
-                      filmId={film.film_id}
-                      budget={film.budget}
-                      revenue={film.revenue}
-                      onSaved={handleSaved}
-                    />
-                  )}
+                  {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
+                  {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
+                  {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
+                  {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
                 </div>
               </div>
             </div>
@@ -329,15 +269,102 @@ export function FilmDetailPage() {
         </div>
       </div>
 
-      {/* Mobile poster (shown below hero on small screens) */}
-      <div className="px-4 sm:hidden">
+      {/* ================================================================ */}
+      {/* Mobile hero content (below backdrop, normal flow) */}
+      {/* ================================================================ */}
+      <div className="sm:hidden">
+        {/* Mobile poster — pulled up over backdrop */}
         {posterUrl && (
-          <img
-            src={posterUrl}
-            alt={film.original_title}
-            className="-mt-24 relative z-10 mx-auto w-40 rounded-lg shadow-2xl"
-          />
+          <div className="px-4">
+            <img
+              src={posterUrl}
+              alt={film.original_title}
+              className="-mt-20 relative z-10 mx-auto w-36 rounded-lg shadow-2xl"
+            />
+          </div>
         )}
+
+        {/* Mobile info — normal document flow */}
+        <div className="space-y-3 px-4 pt-4 pb-2">
+          <h1 className="text-xl font-bold leading-tight text-foreground text-center">
+            {film.original_title}
+          </h1>
+          {localizedTitles.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+              {localizedTitles.map((t) => (
+                <span key={t.language_code} className="text-xs text-muted-foreground">
+                  {t.title}
+                  <span className="ml-1 opacity-60">({t.language_name})</span>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{year}</span>
+            {film.duration && (
+              <>
+                <span className="text-border">|</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  {formatDuration(film.duration)}
+                </span>
+              </>
+            )}
+            {!film.color && (
+              <>
+                <span className="text-border">|</span>
+                <span className="flex items-center gap-1">
+                  <Palette className="h-3.5 w-3.5" />
+                  B&W
+                </span>
+              </>
+            )}
+          </div>
+          {film.categories.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {film.categories.map((cat) => (
+                <Badge key={cat} className="text-xs">{cat}</Badge>
+              ))}
+            </div>
+          )}
+          {directors.length > 0 && (
+            <p className="text-center text-sm text-muted-foreground">
+              Directed by{" "}
+              {directors.map((d, i) => (
+                <span key={d.person_id}>
+                  {i > 0 && ", "}
+                  <button
+                    onClick={() => navigate(`/browse?q=${encodeURIComponent(formatPersonName(d.firstname, d.lastname))}`)}
+                    className="font-medium text-foreground hover:text-primary"
+                  >
+                    {formatPersonName(d.firstname, d.lastname)}
+                  </button>
+                </span>
+              ))}
+            </p>
+          )}
+          <div className="flex flex-col gap-3">
+            {isAuthenticated && (
+              <FilmStatusBar filmId={film.film_id} status={film.user_status} onStatusChange={handleStatusChange} />
+            )}
+            <ExternalLinks tmdbId={film.tmdb_id} imdbId={film.imdb_id} title={film.original_title} year={film.first_release_date} />
+            {isAdmin && (
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={handleDelete} title="Delete film">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom />
+            <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
+            <div className="flex items-center gap-2">
+              {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
+              {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
+              {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
+              {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ================================================================ */}
