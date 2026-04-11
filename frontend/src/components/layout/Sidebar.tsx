@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { Lock, Search } from "lucide-react";
 import { DualRangeSlider } from "@/components/ui/dual-range-slider";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { FilterSection } from "@/components/filters/FilterSection";
 import { searchGeography } from "@/api/client";
+import { useTierAccess } from "@/lib/tierAccess";
 import type {
   ArrayFilterKey,
   FilterState,
@@ -52,6 +53,16 @@ export function SidebarContent({
   isAdmin,
   isAuthenticated,
 }: SidebarProps) {
+  const tierAccess = useTierAccess(filters);
+
+  // Tier message banner
+  const [tierMessage, setTierMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (!tierMessage) return;
+    const t = setTimeout(() => setTierMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [tierMessage]);
+
   // Location autocomplete state
   const [locationQuery, setLocationQuery] = useState(filters.location);
   const [locationResults, setLocationResults] = useState<GeographySearchResult[]>([]);
@@ -93,14 +104,42 @@ export function SidebarContent({
     [onUpdateFilters],
   );
 
+  const locationLocked = !tierAccess.isDropdownAllowed("location");
+  const sourceLocked = !tierAccess.isDropdownAllowed("source");
+  const studiosLocked = !tierAccess.isDropdownAllowed("studios");
+
+  const handleLockedClick = useCallback(() => {
+    setTierMessage(
+      tierAccess.tierName === "anonymous"
+        ? "Create an account to unlock more filters"
+        : "Upgrade to Pro to unlock all filters"
+    );
+  }, [tierAccess.tierName]);
+
+  const handleLimitReached = useCallback(() => {
+    setTierMessage(
+      `Filter limit reached (${tierAccess.currentFilterCount}/${tierAccess.maxFilters}) — ${
+        tierAccess.tierName === "anonymous" ? "sign in for more" : "upgrade to Pro"
+      }`
+    );
+  }, [tierAccess.currentFilterCount, tierAccess.maxFilters, tierAccess.tierName]);
+
+  // Check if adding a new dropdown filter would exceed the limit
+  const checkFilterLimit = useCallback((): boolean => {
+    if (tierAccess.canAddFilter) return false;
+    handleLimitReached();
+    return true;
+  }, [tierAccess.canAddFilter, handleLimitReached]);
+
   const selectLocation = useCallback(
     (result: GeographySearchResult) => {
       setLocationQuery(result.label);
       setShowLocationResults(false);
+      if (!filters.location && checkFilterLimit()) return;
       const filterValue = result.state_city || result.country || result.continent || result.label;
       onUpdateFilters({ location: filterValue });
     },
-    [onUpdateFilters],
+    [filters.location, checkFilterLimit, onUpdateFilters],
   );
 
   // Year range slider commit
@@ -131,6 +170,13 @@ export function SidebarContent({
   return (
     <ScrollArea className="h-full">
       <div className="space-y-1 p-4">
+        {/* Tier message banner */}
+        {tierMessage && (
+          <div className="mb-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+            {tierMessage}
+          </div>
+        )}
+
         {/* Year range dual slider + inputs */}
         <div className="border-b border-border pb-3 pt-2">
           <label className="mb-2 block text-sm font-medium text-foreground">Year Range</label>
@@ -182,6 +228,18 @@ export function SidebarContent({
         {TAXONOMY_DIMENSIONS.map((dim) => {
           const items = taxonomies[dim] || [];
           if (items.length === 0) return null;
+
+          const locked = !tierAccess.isDimensionAllowed(dim);
+          const lockedTagNames = dim === "themes" && !locked
+            ? new Set(
+                items
+                  .filter((item) => !tierAccess.isTagAllowed("themes", item.sort_order))
+                  .map((item) => item.name)
+              )
+            : undefined;
+          // Don't pass empty set
+          const effectiveLockedTags = lockedTagNames && lockedTagNames.size > 0 ? lockedTagNames : undefined;
+
           return (
             <FilterSection
               key={dim}
@@ -193,13 +251,22 @@ export function SidebarContent({
               onExclude={(value) => onExcludeFilter(dim, value)}
               onSetMode={(mode) => onSetFilterMode(dim, mode)}
               defaultExpanded={EXPANDED_BY_DEFAULT.has(dim)}
+              locked={locked}
+              lockedTagNames={effectiveLockedTags}
+              canAddFilter={tierAccess.canAddFilter}
+              canUseOrNot={tierAccess.canUseOrNot}
+              onLockedClick={handleLockedClick}
+              onLimitReached={handleLimitReached}
             />
           );
         })}
 
         {/* Location autocomplete */}
-        <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Location</label>
+        <div className={`border-b border-border pb-3 pt-2 ${locationLocked ? "opacity-40 pointer-events-none" : ""}`}>
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+            Location
+            {locationLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+          </label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -232,9 +299,11 @@ export function SidebarContent({
           <label className="mb-2 block text-sm font-medium text-foreground">Language</label>
           <Select
             value={filters.language || "__all__"}
-            onValueChange={(val) =>
-              onUpdateFilters({ language: val === "__all__" ? "" : val })
-            }
+            onValueChange={(val) => {
+              const newVal = val === "__all__" ? "" : val;
+              if (newVal && !filters.language && checkFilterLimit()) return;
+              onUpdateFilters({ language: newVal });
+            }}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All languages" />
@@ -253,13 +322,18 @@ export function SidebarContent({
         </div>
 
         {/* Source dropdown */}
-        <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Source</label>
+        <div className={`border-b border-border pb-3 pt-2 ${sourceLocked ? "opacity-40 pointer-events-none" : ""}`}>
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+            Source
+            {sourceLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+          </label>
           <Select
             value={filters.source || "__all__"}
-            onValueChange={(val) =>
-              onUpdateFilters({ source: val === "__all__" ? "" : val })
-            }
+            onValueChange={(val) => {
+              const newVal = val === "__all__" ? "" : val;
+              if (newVal && !filters.source && checkFilterLimit()) return;
+              onUpdateFilters({ source: newVal });
+            }}
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="All sources" />
@@ -281,8 +355,11 @@ export function SidebarContent({
         </div>
 
         {/* Studios search */}
-        <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Studio</label>
+        <div className={`border-b border-border pb-3 pt-2 ${studiosLocked ? "opacity-40 pointer-events-none" : ""}`}>
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+            Studio
+            {studiosLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+          </label>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -317,6 +394,7 @@ export function SidebarContent({
                     key={studio.id}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
+                      if (filters.studios.include.length === 0 && checkFilterLimit()) return;
                       onUpdateFilters({ studios: { include: [studio.name], exclude: [], mode: "or" } });
                       setStudioQuery("");
                       setShowStudioResults(false);

@@ -172,6 +172,4 @@ Films are classified across 11 dimensions:
 | Time Periods | WW2, contemporary, medieval, future |
 | Place Contexts | urban, space, road movie, huis clos |
 
-## License
 
-MIT

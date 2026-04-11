@@ -12,6 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.auth import UserInfo, get_current_user, require_admin
 from backend.app.database import engine, get_db
+from backend.app.tier_config import (
+    TIER_ALLOWED_DIMENSIONS,
+    TIER_CAN_USE_OR_NOT,
+    TIER_MAX_FILTERS,
+    TIER_THEME_MAX_SORT_ORDER,
+)
 from backend.app.schemas.film import (
     AwardOut,
     CastMember,
@@ -88,6 +94,78 @@ async def list_films(
 ):
     params: dict = {}
     where_clauses: list[str] = []
+
+    # --- Tier-based filter validation ---
+    tier = user.tier if user else "anonymous"
+    allowed_dims = TIER_ALLOWED_DIMENSIONS.get(tier, TIER_ALLOWED_DIMENSIONS["anonymous"])
+
+    # Silently clear disallowed dimensions
+    dim_var_map: dict[str, str] = {
+        "categories": "categories", "themes": "themes", "atmospheres": "atmospheres",
+        "messages": "messages", "characters": "characters", "motivations": "motivations",
+        "cinema_types": "cinema_types", "time_periods": "time_periods",
+        "place_contexts": "place_contexts", "studios": "studios",
+    }
+    if "categories" not in allowed_dims:
+        categories = None; categories_not = None
+    if "themes" not in allowed_dims:
+        themes = None; themes_not = None
+    if "atmospheres" not in allowed_dims:
+        atmospheres = None; atmospheres_not = None
+    if "messages" not in allowed_dims:
+        messages = None; messages_not = None
+    if "characters" not in allowed_dims:
+        characters = None; characters_not = None
+    if "motivations" not in allowed_dims:
+        motivations = None; motivations_not = None
+    if "cinema_types" not in allowed_dims:
+        cinema_types = None; cinema_types_not = None
+    if "time_periods" not in allowed_dims:
+        time_periods = None; time_periods_not = None
+    if "place_contexts" not in allowed_dims:
+        place_contexts = None; place_contexts_not = None
+    if "studios" not in allowed_dims:
+        studios = None; studios_not = None
+
+    # Force AND mode and clear excludes for tiers without OR/NOT
+    if not TIER_CAN_USE_OR_NOT.get(tier, False):
+        categories_mode = "and"; categories_not = None
+        themes_mode = "and"; themes_not = None
+        atmospheres_mode = "and"; atmospheres_not = None
+        messages_mode = "and"; messages_not = None
+        characters_mode = "and"; characters_not = None
+        motivations_mode = "and"; motivations_not = None
+        cinema_types_mode = "and"; cinema_types_not = None
+        time_periods_mode = "and"; time_periods_not = None
+        place_contexts_mode = "and"; place_contexts_not = None
+        studios_mode = "and"; studios_not = None
+
+    # Theme sort_order filtering
+    theme_max = TIER_THEME_MAX_SORT_ORDER.get(tier)
+    if themes and theme_max is not None:
+        result = await db.execute(
+            text("SELECT theme_name, sort_order FROM theme_context WHERE theme_name = ANY(:names)"),
+            {"names": themes},
+        )
+        allowed_themes = [row[0] for row in result.fetchall() if row[1] is not None and row[1] <= theme_max]
+        themes = allowed_themes if allowed_themes else None
+
+    # Filter count enforcement
+    max_filters = TIER_MAX_FILTERS.get(tier)
+    if max_filters is not None:
+        filter_count = 0
+        for vals in [categories, themes, atmospheres, messages, characters, motivations,
+                     cinema_types, time_periods, place_contexts, studios]:
+            if vals:
+                filter_count += len(vals)
+        if location: filter_count += 1
+        if language: filter_count += 1
+        if source: filter_count += 1
+        if filter_count > max_filters:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Filter limit exceeded (max {max_filters} for your tier)",
+            )
 
     # --- Categories filter (special: composite key with historic_subcategory_name) ---
     if categories:

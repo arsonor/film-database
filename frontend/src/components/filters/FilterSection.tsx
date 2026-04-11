@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import type { TaxonomyItem } from "@/types/api";
 import type { TagFilter } from "@/types/api";
@@ -14,6 +14,12 @@ interface FilterSectionProps {
   onExclude: (value: string) => void;
   onSetMode: (mode: "or" | "and") => void;
   defaultExpanded?: boolean;
+  locked?: boolean;
+  lockedTagNames?: Set<string>;
+  canAddFilter?: boolean;
+  canUseOrNot?: boolean;
+  onLockedClick?: () => void;
+  onLimitReached?: () => void;
 }
 
 export function FilterSection({
@@ -24,6 +30,12 @@ export function FilterSection({
   onExclude,
   onSetMode,
   defaultExpanded = false,
+  locked,
+  lockedTagNames,
+  canAddFilter = true,
+  canUseOrNot = true,
+  onLockedClick,
+  onLimitReached,
 }: FilterSectionProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const activeCount = tagFilter.include.length + tagFilter.exclude.length;
@@ -36,6 +48,12 @@ export function FilterSection({
       >
         <span className="flex items-center gap-2">
           {title}
+          {locked && (
+            <>
+              <Lock className="h-3 w-3 text-amber-500/60" />
+              <span className="text-[10px] font-normal text-amber-500">Pro</span>
+            </>
+          )}
           {activeCount > 0 && (
             <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
               {activeCount}
@@ -50,7 +68,7 @@ export function FilterSection({
       </button>
       {expanded && (
         <>
-          {tagFilter.include.length >= 2 && (
+          {canUseOrNot && tagFilter.include.length >= 2 && (
             <div className="flex items-center gap-1 pb-1.5">
               <button
                 onClick={() => onSetMode(tagFilter.mode === "or" ? "and" : "or")}
@@ -77,11 +95,21 @@ export function FilterSection({
                 item.sort_order !== undefined &&
                 Math.floor(item.sort_order / 100) !== Math.floor(prevOrder / 100);
 
-              const chipState: ChipState = tagFilter.include.includes(item.name)
-                ? "include"
-                : tagFilter.exclude.includes(item.name)
-                  ? "exclude"
-                  : "off";
+              const isTagLocked = locked || lockedTagNames?.has(item.name);
+
+              let chipState: ChipState;
+              if (isTagLocked) {
+                chipState = "locked";
+              } else if (tagFilter.include.includes(item.name)) {
+                chipState = "include";
+              } else if (tagFilter.exclude.includes(item.name)) {
+                chipState = "exclude";
+              } else {
+                chipState = "off";
+              }
+
+              // If filter limit reached, "off" chips behave as locked
+              const effectiveState = chipState === "off" && !canAddFilter ? "locked" : chipState;
 
               return (
                 <Fragment key={item.id}>
@@ -91,9 +119,10 @@ export function FilterSection({
                   <FilterChip
                     name={item.name}
                     count={item.film_count}
-                    state={chipState}
+                    state={effectiveState}
                     onInclude={() => onToggle(item.name)}
-                    onExclude={() => onExclude(item.name)}
+                    onExclude={canUseOrNot ? () => onExclude(item.name) : () => {}}
+                    onLockedClick={isTagLocked ? onLockedClick : onLimitReached}
                   />
                 </Fragment>
               );

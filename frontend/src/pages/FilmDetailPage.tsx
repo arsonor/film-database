@@ -40,7 +40,7 @@ export function FilmDetailPage() {
   const { id } = useParams<{ id: string }>();
   const filmId = Number(id);
   const navigate = useNavigate();
-  const { isAdmin, isAuthenticated } = useAuth();
+  const { isAdmin, isAuthenticated, tier } = useAuth();
   const queryClient = useQueryClient();
   const { film, loading, error, refetch } = useFilmDetail(filmId);
 
@@ -537,7 +537,7 @@ export function FilmDetailPage() {
 
         {/* Similar Films (placeholder) */}
         <section>
-          <SimilarFilmsCarousel filmId={film.film_id} />
+          <SimilarFilmsCarousel filmId={film.film_id} locked={tier !== "pro" && tier !== "admin"} />
         </section>
       </div>
     </div>

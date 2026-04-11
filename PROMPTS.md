@@ -192,180 +192,294 @@ No particular prompt
 
 ## Step 15b Prompt — Personal Tracking UI + My Collection + Nav Menu
 
-Read PLAN.md (Step 15b), then these files:
-- `backend/app/routers/users.py`
-- `backend/app/routers/films.py` (for reference: how list_films builds queries + response)
-- `backend/app/schemas/film.py`
-- `frontend/src/components/films/FilmCard.tsx`
+*(see git history for original prompts)*
+
+---
+
+## Step 15c Prompt — Tier-Gated Taxonomy Access
+
+Read PLAN.md (Step 15c), then these files:
+- `frontend/src/context/AuthContext.tsx` (for tier info)
+- `frontend/src/components/filters/FilterChip.tsx`
+- `frontend/src/components/filters/FilterSection.tsx`
+- `frontend/src/components/layout/Sidebar.tsx`
+- `frontend/src/components/filters/ActiveFilters.tsx`
+- `frontend/src/components/films/SimilarFilmsCarousel.tsx`
 - `frontend/src/pages/FilmDetailPage.tsx`
-- `frontend/src/components/layout/Header.tsx`
-- `frontend/src/context/AuthContext.tsx`
-- `frontend/src/api/client.ts`
 - `frontend/src/types/api.ts`
-- `frontend/src/App.tsx`
+- `frontend/src/hooks/useFilterState.ts`
+- `backend/app/routers/films.py` (focus on list_films)
+- `backend/app/auth.py` (for UserInfo/tier)
+- `database/seed_taxonomy.sql` (for theme sort_order values)
 
-### Part 1 — Backend: User Films List Endpoint
+### Overview
 
-In `backend/app/routers/users.py`, add a new endpoint:
+Restrict taxonomy filter access by user tier. All dimensions remain visible in the sidebar but locked dimensions/tags show greyed-out chips with a lock icon. Clicking a locked chip shows an upgrade prompt. Filter count is limited per tier. OR/NOT logic is pro-only. The backend silently ignores filter params the user's tier doesn't allow.
+
+### Part 1 — Frontend: Tier Access Configuration
+
+Create `frontend/src/lib/tierAccess.ts`:
+
+```ts
+import { useAuth } from "@/context/AuthContext";
+import type { FilterState, ArrayFilterKey } from "@/types/api";
+
+type TierName = "anonymous" | "free" | "pro" | "admin";
+
+interface TierConfig {
+  allowedDimensions: Set<ArrayFilterKey>;
+  allowedDropdowns: Set<string>;           // "source", "studios", "language", "location"
+  allowedThemeSortOrderMax: number | null; // themes with sort_order <= this value are allowed; null = all or N/A
+  maxFilters: number | null;               // null = unlimited
+  canUseOrNot: boolean;
+}
+
+const TIER_CONFIGS: Record<TierName, TierConfig> = {
+  anonymous: {
+    allowedDimensions: new Set(["categories", "time_periods", "place_contexts"]),
+    allowedDropdowns: new Set(["language", "location"]),
+    allowedThemeSortOrderMax: null, // themes dimension not allowed at all for anonymous
+    maxFilters: 2,
+    canUseOrNot: false,
+  },
+  free: {
+    allowedDimensions: new Set([
+      "categories", "time_periods", "place_contexts",
+      "studios", "themes",
+    ]),
+    allowedDropdowns: new Set(["language", "location", "source", "studios"]),
+    allowedThemeSortOrderMax: 299, // G1 (100-113) + G2 (200-209) allowed; G3+ (300+) locked
+    maxFilters: 5,
+    canUseOrNot: false,
+  },
+  pro: {
+    allowedDimensions: new Set([
+      "categories", "themes", "atmospheres", "characters",
+      "motivations", "messages", "cinema_types",
+      "time_periods", "place_contexts", "studios",
+    ]),
+    allowedDropdowns: new Set(["language", "location", "source", "studios"]),
+    allowedThemeSortOrderMax: null, // all themes allowed
+    maxFilters: null,
+    canUseOrNot: true,
+  },
+  admin: {
+    allowedDimensions: new Set([
+      "categories", "themes", "atmospheres", "characters",
+      "motivations", "messages", "cinema_types",
+      "time_periods", "place_contexts", "studios",
+    ]),
+    allowedDropdowns: new Set(["language", "location", "source", "studios"]),
+    allowedThemeSortOrderMax: null,
+    maxFilters: null,
+    canUseOrNot: true,
+  },
+};
+```
+
+Export a `useTierAccess(filters: FilterState)` hook that:
+1. Gets `tier` and `isAuthenticated` from `useAuth()`
+2. Resolves effective tier: not authenticated → `"anonymous"`, else `tier ?? "free"`
+3. Returns an object with:
+   - `isDimensionAllowed(dim: ArrayFilterKey): boolean` — checks `allowedDimensions`
+   - `isTagAllowed(dim: ArrayFilterKey, sortOrder: number | null): boolean` — for dims other than themes: returns `isDimensionAllowed(dim)`. For themes: also checks `sortOrder !== null && (allowedThemeSortOrderMax === null || sortOrder <= allowedThemeSortOrderMax)`
+   - `isDropdownAllowed(name: string): boolean` — checks `allowedDropdowns`
+   - `maxFilters: number | null`
+   - `currentFilterCount: number` — sum of all `filters[dim].include.length + filters[dim].exclude.length` across all `ARRAY_FILTER_KEYS`, plus 1 for each non-empty string filter (location, language, source)
+   - `canAddFilter: boolean` — `maxFilters === null || currentFilterCount < maxFilters`
+   - `canUseOrNot: boolean`
+   - `tierName: TierName`
+
+### Part 2 — Frontend: FilterChip Locked State
+
+Update `frontend/src/components/filters/FilterChip.tsx`:
+
+Add `"locked"` to ChipState:
+```ts
+export type ChipState = "off" | "include" | "exclude" | "locked";
+```
+
+Add optional props:
+```ts
+onLockedClick?: () => void;
+```
+
+When state is `"locked"`:
+- Style: `opacity-40 cursor-not-allowed border-border/40 bg-transparent text-muted-foreground/50`
+- Add a small lock icon (`Lock` from lucide-react, `h-2.5 w-2.5`) before the name text
+- On click: call `onLockedClick?.()` instead of `onInclude()`. Do NOT call `onExclude` on right-click/long-press either.
+- Disable the context menu handler and long-press handler when locked.
+
+### Part 3 — Frontend: FilterSection Gating
+
+Update `frontend/src/components/filters/FilterSection.tsx`:
+
+Add new optional props:
+```ts
+locked?: boolean;              // entire dimension locked
+lockedTagNames?: Set<string>;  // specific tags locked (for themes G3-G6)
+canAddFilter?: boolean;        // false = filter limit reached
+canUseOrNot?: boolean;         // false = hide OR/AND toggle
+onLockedClick?: () => void;    // called when locked chip clicked
+onLimitReached?: () => void;   // called when user hits filter limit
+```
+
+Behavior:
+- If `locked` is true: add a small Lock icon + amber "Pro" badge text next to the section title. All chips render with state `"locked"` regardless of tagFilter. Section can still expand/collapse.
+- If `lockedTagNames` is set: chips whose `item.name` is in the set render as `"locked"`. Others render normally.
+- If `canAddFilter` is false: chips in state `"off"` should behave as locked (clicking calls `onLimitReached` instead of `onToggle`). Chips already in `"include"` or `"exclude"` state can still be toggled off (removing a filter should always work).
+- If `canUseOrNot` is false: never render the AND/OR toggle pill. The condition `tagFilter.include.length >= 2` should be combined with `canUseOrNot !== false`.
+
+### Part 4 — Frontend: Sidebar Integration
+
+Update `frontend/src/components/layout/Sidebar.tsx`:
+
+- Add `filters` to the `SidebarProps` interface if not already there (it's needed for `useTierAccess`)
+- Import and call `useTierAccess(filters)` at the top of `SidebarContent`
+- Add a `tierMessage` local state (`useState<string | null>(null)`) with a 3-second auto-clear timeout for showing upgrade/limit messages
+
+For each `TAXONOMY_DIMENSIONS` entry:
+```ts
+const locked = !tierAccess.isDimensionAllowed(dim);
+const lockedTagNames = dim === "themes" && !locked
+  ? new Set(
+      (taxonomies["themes"] || [])
+        .filter((item) => !tierAccess.isTagAllowed("themes", item.sort_order))
+        .map((item) => item.name)
+    )
+  : undefined;
+```
+
+Pass to FilterSection:
+```ts
+<FilterSection
+  key={dim}
+  // ... existing props ...
+  locked={locked}
+  lockedTagNames={lockedTagNames}
+  canAddFilter={tierAccess.canAddFilter}
+  canUseOrNot={tierAccess.canUseOrNot}
+  onLockedClick={() => setTierMessage(
+    tierAccess.tierName === "anonymous"
+      ? "Create an account to unlock more filters"
+      : "Upgrade to Pro to unlock all filters"
+  )}
+  onLimitReached={() => setTierMessage(
+    `Filter limit reached (${tierAccess.currentFilterCount}/${tierAccess.maxFilters}) — ${
+      tierAccess.tierName === "anonymous" ? "sign in for more" : "upgrade to Pro"
+    }`
+  )}
+/>
+```
+
+For the Source dropdown: if `!tierAccess.isDropdownAllowed("source")`, wrap it in a div with `opacity-40 pointer-events-none` and show a small lock icon next to the label.
+
+For the Studio search: same pattern — if `!tierAccess.isDropdownAllowed("studios")`, disable it.
+
+Display `tierMessage` at the top of the sidebar as a small amber-tinted banner that auto-dismisses:
+```tsx
+{tierMessage && (
+  <div className="mx-4 mb-2 rounded-md bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-xs text-amber-400">
+    {tierMessage}
+  </div>
+)}
+```
+
+### Part 5 — Frontend: SimilarFilmsCarousel Teaser
+
+Update `frontend/src/components/films/SimilarFilmsCarousel.tsx`:
+
+Add a `locked?: boolean` prop.
+
+When `locked` is true, replace the entire content with a styled teaser:
+```tsx
+<div>
+  <SectionHeading title="Similar Films" />
+  <div className="flex items-center gap-3 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5 p-6">
+    <Lock className="h-5 w-5 text-amber-500/60" />
+    <div>
+      <p className="text-sm font-medium text-foreground">Discover similar films</p>
+      <p className="text-xs text-muted-foreground">Upgrade to Pro to unlock personalized recommendations</p>
+    </div>
+  </div>
+</div>
+```
+
+When `locked` is false: keep the current "Recommendations coming soon" placeholder with skeletons.
+
+In `FilmDetailPage.tsx`: import `useAuth`, compute:
+```ts
+const { tier } = useAuth();
+const similarLocked = tier !== "pro" && tier !== "admin";
+```
+Pass `locked={similarLocked}` to `<SimilarFilmsCarousel>`.
+
+### Part 6 — Backend: Tier Validation
+
+Create `backend/app/tier_config.py`:
 
 ```python
-@router.get("/users/me/films")
-async def list_user_films(
-    filter: str = Query(..., pattern="^(seen|favorite|watchlist)$"),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(24, ge=1, le=100),
-    user: UserInfo = Depends(require_authenticated),
-    db: AsyncSession = Depends(get_db),
-):
-```
+"""
+Tier-based access configuration.
+Mirrors the frontend tier config for server-side validation.
+"""
 
-This endpoint should:
-- Query `user_film_status ufs JOIN film f ON ufs.film_id = f.film_id` filtered by `ufs.{filter} = TRUE`
-- Return the same shape as the browse endpoint: paginated with `total`, `page`, `per_page`, `total_pages`, `items`
-- Each item has: `film_id`, `original_title`, `first_release_date`, `duration`, `poster_url`, `categories` (batch loaded like in list_films), `director` (batch loaded), `user_status` (seen, favorite, watchlist, rating)
-- Sort by `ufs.updated_at DESC` (most recently updated first)
-- Import `Query` from fastapi if not already imported
+TIER_ALLOWED_DIMENSIONS: dict[str, set[str]] = {
+    "anonymous": {"categories", "time_periods", "place_contexts"},
+    "free": {"categories", "time_periods", "place_contexts", "studios", "themes"},
+    "pro": {"categories", "themes", "atmospheres", "characters", "motivations",
+            "messages", "cinema_types", "time_periods", "place_contexts", "studios"},
+    "admin": {"categories", "themes", "atmospheres", "characters", "motivations",
+              "messages", "cinema_types", "time_periods", "place_contexts", "studios"},
+}
 
-### Part 2 — Frontend: FilmCard — Favorite + Watchlist Icons
+# For themes: max sort_order allowed (None = all allowed)
+TIER_THEME_MAX_SORT_ORDER: dict[str, int | None] = {
+    "anonymous": None,   # themes not in allowed dims
+    "free": 299,         # G1 + G2 only
+    "pro": None,
+    "admin": None,
+}
 
-Update `frontend/src/components/films/FilmCard.tsx`:
+TIER_MAX_FILTERS: dict[str, int | None] = {
+    "anonymous": 2,
+    "free": 5,
+    "pro": None,
+    "admin": None,
+}
 
-Add two new icon buttons alongside the existing seen (eye) toggle in the poster overlay area:
-- **Heart** (favorite): `Heart` from lucide-react. When active: filled red (`bg-rose-500/90 text-white`). When inactive: same hover-reveal style as the eye icon.
-- **Bookmark** (watchlist): `Bookmark` from lucide-react. When active: filled amber (`bg-amber-500/90 text-white`). When inactive: same hover-reveal style.
-
-Layout: stack the 3 icons vertically in the top-right corner of the poster:
-```
-[eye]       ← top (existing, keep current position)
-[heart]     ← middle (new)
-[bookmark]  ← bottom (new)
-```
-
-Each icon needs its own local state + optimistic toggle, same pattern as the existing `seen` toggle:
-```ts
-const [favorite, setFavorite] = useState(film.user_status?.favorite ?? false);
-const [watchlist, setWatchlist] = useState(film.user_status?.watchlist ?? false);
-```
-
-Each calls `updateUserFilmStatus(film.film_id, { favorite: !favorite })` etc. on click.
-
-Only show all 3 icons when `canToggleSeen` is true (i.e., user is authenticated). Rename the prop to `canToggleStatus` for clarity.
-
-Update `FilmGrid.tsx` and `BrowsePage.tsx` to pass `canToggleStatus` instead of `canToggleSeen`.
-
-### Part 3 — Frontend: FilmDetailPage — Status Section
-
-Create a new component `frontend/src/components/films/FilmStatusBar.tsx`:
-
-This component displays the full user status controls for a film. It receives:
-```ts
-interface FilmStatusBarProps {
-  filmId: number;
-  status: UserFilmStatus | null;  // null if not authenticated
-  onStatusChange: (updated: Partial<UserFilmStatus>) => void;
+TIER_CAN_USE_OR_NOT: dict[str, bool] = {
+    "anonymous": False,
+    "free": False,
+    "pro": True,
+    "admin": True,
 }
 ```
 
-Layout (horizontal bar, consistent with the dark aesthetic):
-- **Seen** toggle: Eye icon + "Seen" text, green when active
-- **Favorite** toggle: Heart icon + "Favorite" text, red when active
-- **Watchlist** toggle: Bookmark icon + "Watchlist" text, amber when active
-- **Star Rating**: 5 stars, clickable. Display as 5 star icons. Each star represents 2 points (star 1 = 2, star 2 = 4, ... star 5 = 10). Clicking a star sets the rating. Clicking the same star again clears the rating. Half-star support is optional — if too complex, just do whole stars (2/4/6/8/10). Show the numeric value next to the stars (e.g. "8/10"). Stars use amber/gold color when filled, muted when empty.
-- **Notes**: A small "Add note..." button that expands into a textarea on click. Auto-saves on blur with a 500ms debounce. Show a subtle "Saved" indicator briefly after save.
+Update `backend/app/routers/films.py` — in `list_films()`, after collecting all filter params and before building WHERE clauses:
 
-All toggles call `onStatusChange` which triggers `updateUserFilmStatus()` in the parent.
+1. Determine tier: `tier = user.tier if user else "anonymous"`
 
-Create a separate `frontend/src/components/films/StarRating.tsx` component:
-```ts
-interface StarRatingProps {
-  value: number | null;   // 1-10 or null
-  onChange: (value: number | null) => void;
-  readonly?: boolean;
-}
-```
-- Renders 5 star icons (`Star` from lucide-react)
-- Maps value 1-10 to stars: value/2 stars filled (round up for half). For simplicity: value 1-2 → 1 star, 3-4 → 2 stars, etc. Or more precisely: fill star N if value >= N*2.
-- On click star N: if current value was N*2, set to null (clear). Otherwise set to N*2.
-- Hover effect: highlight stars up to the hovered position
+2. Import `TIER_ALLOWED_DIMENSIONS, TIER_MAX_FILTERS, TIER_CAN_USE_OR_NOT, TIER_THEME_MAX_SORT_ORDER` from `backend.app.tier_config`
 
-In `FilmDetailPage.tsx`:
-- Import and place `FilmStatusBar` in the hero area, below the film title/meta section, above the synopsis
-- Only render if `isAuthenticated`
-- Wire up `onStatusChange` to call `updateUserFilmStatus()` with optimistic query cache updates
-- After any status change, invalidate `["films"]` and `["collection"]` queries
+3. **Silently clear disallowed dimensions**: For each taxonomy filter variable (themes, atmospheres, etc.), if the dimension name is not in `TIER_ALLOWED_DIMENSIONS[tier]`, set its values to `None` (clearing the filter). Use a mapping from variable name to dimension name.
 
-### Part 4 — Frontend: Collection Page
+4. **Filter count enforcement**: Count total active filter values across all dimensions (sum of len(values) for each non-None taxonomy filter + 1 for each non-empty string filter like location, language). If `TIER_MAX_FILTERS[tier]` is not None and count exceeds it, return HTTP 400: `"Filter limit exceeded (max {limit} for your tier)"`
 
-Create `frontend/src/pages/CollectionPage.tsx`:
+5. **Force AND mode**: If `not TIER_CAN_USE_OR_NOT[tier]`: for all `_mode` params, force them to `"and"`. For all `_not` params, set them to `None` (clear excludes).
 
-- Top section: title "My Collection" + 3 tab buttons: "Seen (N)", "Favorites (N)", "Watchlist (N)"
-- The active tab filters the displayed films
-- Uses `useQuery` with key `["collection", activeFilter, page]` calling a new `fetchUserFilms(filter, page, perPage)` function in `client.ts`
-- Displays films in the same poster grid as BrowsePage (reuse `FilmGrid` component)
-- Pagination at the bottom (reuse `Pagination` component)
-- If not authenticated, redirect to `/auth`
-- Dark theme consistent with existing pages
-- Use the same `Layout` wrapper if appropriate, or a simpler layout without the sidebar (collection doesn't need taxonomy filters)
+6. **Theme sort_order filtering**: If `tier` has a `TIER_THEME_MAX_SORT_ORDER` value and themes are allowed but limited: after the themes values are collected but before building the WHERE clause, query the `theme_context` table to get sort_orders for the requested theme names. Remove any theme values whose sort_order exceeds the limit. This prevents users from bypassing the frontend's per-tag locking by calling the API directly with locked theme names.
 
-Add `fetchUserFilms` to `frontend/src/api/client.ts`:
-```ts
-export async function fetchUserFilms(
-  filter: "seen" | "favorite" | "watchlist",
-  page = 1,
-  perPage = 24,
-): Promise<PaginatedFilms> {
-  const headers = await getAuthHeaders();
-  return fetchJsonWithHeaders<PaginatedFilms>(
-    `${BASE}/users/me/films?filter=${filter}&page=${page}&per_page=${perPage}`,
-    headers,
-  );
-}
-```
-
-You'll need a `fetchJsonWithHeaders` helper (or modify the existing pattern) since this endpoint requires auth headers on a GET request. Alternatively, just inline the fetch:
-```ts
-const res = await fetch(url, { headers });
-if (!res.ok) throw new ApiError(res.status, ...);
-return res.json();
-```
-
-Add route in `App.tsx`: `<Route path="/collection" element={<CollectionPage />} />`
-
-### Part 5 — Frontend: Header Nav Menu Dropdown
-
-Rewrite the right section of `frontend/src/components/layout/Header.tsx`:
-
-For **authenticated users**, replace the current flat buttons with a dropdown menu:
-- Trigger: a button with the user's email initial (first letter, uppercase) in a circle, or a `User` icon from lucide-react
-- Use a shadcn/ui `DropdownMenu` component (may need to install `@radix-ui/react-dropdown-menu` if not already available)
-
-Dropdown content:
-```
-My Collection          → navigate("/collection")
-Dashboard              → disabled, shows "Coming soon" or a lock icon
-──────────────────
-Add Film               → navigate("/add")        [admin only]
-Manage Tags            → navigate("/admin/taxonomy") [admin only]
-──────────────────
-Sign out               → signOut()
-```
-
-Non-admin users don't see the admin section at all (not even disabled — just hidden).
-
-For **anonymous users**: keep the simple "Sign in" button (LogIn icon), unchanged.
-
-The sort controls (Select + arrow button) stay **outside** the dropdown, in the main header bar. The dropdown only contains navigation + auth actions.
-
-If `@radix-ui/react-dropdown-menu` is not in `package.json`, install it and create the shadcn/ui `DropdownMenu` component files. Check existing shadcn components in `frontend/src/components/ui/` for the pattern. Alternatively, you can use a simpler approach with a custom popover using existing components.
+This validation block should go BEFORE the existing WHERE clause construction loop, so that by the time the query is built, all disallowed filters have already been cleared.
 
 ### Verification
-- Authenticated user sees 3 icons (eye, heart, bookmark) on film cards on hover
-- Clicking each icon toggles the respective status with optimistic update
-- Film detail page shows FilmStatusBar with all controls for authenticated users
-- Star rating works: click to set, click same to clear, visual feedback on hover
-- Notes expand, auto-save on blur, show brief "Saved" confirmation
-- `/collection` page shows 3 tabs with correct film counts
-- Switching tabs loads the correct filtered films
-- Nav dropdown shows correct items based on role (admin sees add/tags, others don't)
-- Anonymous users see no status icons, no collection link, just "Sign in"
-- All existing functionality unchanged
+- Anonymous user: can use categories, time_periods, place_contexts filters (max 2). Other dimensions show greyed/locked chips with lock icon. Clicking locked chip shows upgrade banner. OR/AND toggle hidden. Source/Studio dropdowns locked.
+- Anonymous user: adding a 3rd filter shows "Filter limit reached (2/2)" banner. Removing one allows adding another.
+- Free registered user: can use categories, time_periods, place_contexts, studios, source, + themes G1 & G2 (max 5). Themes G3–G6 show locked chips within an otherwise usable themes section. Atmospheres, characters, motivations, messages, cinema_types show fully locked. OR/AND toggle hidden.
+- Pro user: full access to all dimensions, unlimited filters, OR/NOT enabled.
+- Admin: same as pro.
+- Similar Films section: shows locked teaser for anonymous/free, "coming soon" for pro/admin.
+- Backend: API call with filters for a locked dimension → silently ignored, results returned without that filter.
+- Backend: API call exceeding filter limit → 400 error with clear message.
+- Backend: API call with OR/NOT mode from anonymous/free → silently forced to AND, excludes ignored.
+- All existing functionality unchanged for pro/admin users.
