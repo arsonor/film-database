@@ -73,50 +73,5 @@
 
 ## Step 15c: Tier-Gated Taxonomy Access
 
-### Goal
 Restrict taxonomy filter access based on user tier. Anonymous and free users see all dimensions but can only interact with a subset. Pro users get full access. This creates the core value proposition for upgrading.
 
-### Tier model
-
-| Feature | Anonymous | Free (registered) | Pro | Admin |
-|---|---|---|---|---|
-| Dimensions | categories, time_periods, place_contexts, year, location, language | + studios, source, themes G1+G2 | All | All |
-| Filter limit | Max 2 filters total | Max 5 filters total | Unlimited | Unlimited |
-| Tag logic | AND only | AND only | AND + OR + NOT | All |
-| Similar Films | Locked teaser | Locked teaser | Unlocked (future) | Unlocked |
-
-Theme groups by sort_order:
-- G1 Society (100–113): social, class struggle, societal, immigration, political, religion, business, censorship, trial/judicial chronicle, prison, war, tragedy, apocalypse, disaster
-- G2 Personal (200–209): trauma/accident, psychological, identity crisis, disease, amnesia, death, mourning, addiction/drugs, time passing, evolution
-- G3 Crime (300–315): pro-only
-- G4 Sci-fi/Fantasy (400–411): pro-only
-- G5 Art/Sport (500–524): pro-only
-- G6 Miscellaneous (600–605): pro-only
-
-### Frontend changes
-
-**New file `frontend/src/lib/tierAccess.ts`** — tier configuration + `useTierAccess()` hook:
-- `isDimensionAllowed(dim)`, `isTagAllowed(dim, sortOrder)`, `isDropdownAllowed(name)`
-- `maxFilters`, `currentFilterCount`, `canAddFilter`, `canUseOrNot`
-
-**Update FilterChip.tsx**: add `"locked"` ChipState with lock icon, opacity-40, cursor-not-allowed
-**Update FilterSection.tsx**: accept `locked`, `lockedTagNames`, `canAddFilter`, `canUseOrNot` props; lock icon + "Pro" badge on locked sections; hide OR/AND toggle when `canUseOrNot` is false
-**Update Sidebar.tsx**: use `useTierAccess()`, compute locked state per dimension, lock Source/Studio dropdowns for anonymous
-**Update SimilarFilmsCarousel.tsx**: locked teaser mode with upgrade message
-**Update FilmDetailPage.tsx**: pass `locked` prop to SimilarFilmsCarousel
-
-### Backend changes
-
-**New file `backend/app/tier_config.py`**: tier dimension/limit config matching frontend
-**Update `films.py`**: silently ignore filters for locked dimensions, enforce filter count limit (400 error), force AND mode for anonymous/free
-
-### Files modified
-- `frontend/src/lib/tierAccess.ts` — new
-- `frontend/src/components/filters/FilterChip.tsx` — locked state
-- `frontend/src/components/filters/FilterSection.tsx` — gating props
-- `frontend/src/components/layout/Sidebar.tsx` — useTierAccess integration
-- `frontend/src/components/filters/ActiveFilters.tsx` — defensive locked check
-- `frontend/src/components/films/SimilarFilmsCarousel.tsx` — locked teaser
-- `frontend/src/pages/FilmDetailPage.tsx` — pass locked prop
-- `backend/app/tier_config.py` — new
-- `backend/app/routers/films.py` — tier validation

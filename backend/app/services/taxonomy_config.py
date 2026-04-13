@@ -10,9 +10,9 @@ Used by ClaudeEnricher to build prompts and validate outputs.
 # =============================================================================
 
 VALID_CATEGORIES = [
-    "Action", "Adventure", "Comedy", "Documentary", "Drama", "Romance",
-    "Thriller", "Horror", "Science-Fiction", "Fantasy", "Musical",
-    "Historical",
+    "Comedy", "Drama", "Romance", "Action", "Adventure",
+    "Thriller", "Science-Fiction", "Fantasy", "Horror", "Musical",
+    "Documentary", "Historical",
 ]
 
 VALID_HISTORIC_SUBCATEGORIES = [
@@ -24,119 +24,135 @@ VALID_CINEMA_TYPES = [
     "animation", "mixed animation", "CGI", "3D", "motion capture",
     "black and white", "aesthetics",
     # Group 2: Movements & eras
-    "silent", "expressionism", "neo-realism", "noir", "hollywood golden age",
-    "new hollywood", "new wave", "realism", "neo-noir",
+    "silent", "expressionism", "realism", "neo-realism", "noir",
+    "hollywood golden age", "new hollywood", "new wave", "neo-noir",
     # Group 3: Industry & culture
-    "blockbuster", "art house", "B", "Collection",
+    "blockbuster", "art house", "franchise", "B",
     "generational", "popular culture",
     # Group 4: Narrative techniques
     "sequence-shot", "found footage", "multi-sequence",
     "slow cinema", "non linear narrative", "dogma",
-    # Group 5: Dialog style & genres
-    "dialogs", "slang dialogs", "costume", "blaxploitation", "wu xia pian",
-    "western", "peplum", "swashbuckler", "slasher",
-    "voiceover", "docufiction",
+    "dialogs", "slang dialogs", "few/no dialogs", "voiceover",
+    # Group 5: Cinema archetypes
+    "western", "peplum", "swashbuckler", "costume/period drama",
+    "wu xia pian", "blaxploitation", "giallo", "slasher",
+    "black comedy", "docufiction",
 ]
 
 VALID_PLACE_ENVIRONMENTS = [
+    # Group 1: Natural environments
     "urban", "country-style", "forest", "mountains", "desert", "beach",
-    "maritime", "island", "space",
+    "maritime", "island", "underground", "space",
+    # Group 2: Buildings & institutions
     "building", "household/house/apartment", "company/factory",
     "school/university", "hospital", "jail", "military", "naval", "ship",
-    "road movie", "huis clos",
+    # Group 3: Narrative settings
+    "road movie", "huis clos/confined setting",
+    # Group 4: None
     "no particular",
 ]
 
 VALID_TIME_CONTEXTS = [
-    "undetermined", "future", "contemporary", "end 20th",
-    "30-year post-war boom", "WW2", "interwar", "WW1", "early 20th",
+    "future", "contemporary", "early 21st", "end 20th",
+    "20th post-war", "WW2", "interwar", "WW1", "early 20th",
     "19th", "modern age", "medieval", "antiquity", "prehistoric",
-    "summer", "winter", "autumn", "spring",
+    "undetermined",
+    "spring", "summer", "autumn", "winter",
 ]
 
 VALID_THEMES = [
     # Group 1: Society
-    "social", "class struggle", "societal", "immigration", "political",
-    "religion", "business", "censorship", "trial/judicial chronicle", "prison", "war",
-    "tragedy", "apocalypse", "disaster",
+    "social", "class struggle", "societal", "political",
+    "religion", "business", "journalism/media", "censorship",
+    "trial/judicial chronicle", "prison", "war", "immigration",
+    "slavery", "colonialism", "tragedy", "apocalypse", "disaster",
     # Group 2: Personal / Psychological
-    "trauma/accident", "psychological", "identity crisis", "disease",
+    "trauma/accident", "psychological", "identity crisis", "illness",
     "amnesia", "death", "mourning", "addiction/drugs", "time passing",
-    "evolution",
+    "transformation",
     # Group 3: Crime / Thriller
     "investigation", "spy", "crime", "sex crime", "organized crime",
+    "heist", "kidnapping/hostage",
     "police violence", "corruption", "delinquency", "organized fraud",
-    "mafia", "gangster", "serial killer", "chase/escape", "terrorism",
+    "mafia", "serial killer", "chase/escape", "terrorism",
     "sect", "survival",
     # Group 4: Sci-fi / Fantasy
-    "futuristic", "dystopia", "tales and legends", "supernatural",
-    "sorcery", "alien contact", "paranormal", "time travel/loop",
-    "virtual reality", "dream", "nonsense", "curse",
-    # Group 5: Art & Sport (hierarchical: "parent: sub")
+    "dystopia", "tales and legends", "supernatural",
+    "sorcery", "alien contact", "paranormal", "curse",
+    "time travel/loop", "virtual reality", "dream", "whimsical/zany",
+    # Group 5: Art, Sport & Entertainment
     "art", "art: music", "art: cinema", "art: literature", "art: fashion",
     "art: painting", "art: sculpture", "art: theatre", "art: radio",
-    "martial arts",
+    "art: architecture", "martial arts",
     "sport", "sport: individual", "sport: collective",
     "sport: tournament", "sport: motor",
+    "party", "game", "gambling",
     # Group 6: Miscellaneous
-    "nature", "AI/technology", "food/cooking", "party", "game",
+    "nature", "AI/technology", "food/cooking",
 ]
 
 VALID_CHARACTERS = [
     # Group 1: Group structure
     "solitary", "tandem", "trio", "couple", "relatives", "generations",
-    "buddies", "team/group/gang", "interracial", "ensemble cast",
+    "buddies", "team/group/gang", "ensemble cast",
     # Group 2: Age & identity
     "childhood", "teenager", "elderly", "adult/child", "female", "LGBT",
+    "interracial",
     # Group 3: Social status & traits
-    "ordinary", "poor/marginal", "wealthy", "genius", "idiot", "looser",
-    "star/celebrity", "madness", "freak/disabled", "prostitute", "psychopath",
+    "ordinary", "poor/marginal", "wealthy", "genius", "idiot",
+    "charismatic", "loser", "star/celebrity", "disturbed/madness",
+    "disabled", "outcast/misfit", "prostitute", "psychopath",
     # Group 4: Narrative devices
     "double", "cross-dressing", "unreliable narrator",
     # Group 5: Archetypes — human
-    "super hero", "antihero", "cop", "detective", "vigilante", "soldier",
-    "femme fatale", "samourai", "pirate", "viking",
+    "super hero", "antihero", "cop", "detective", "vigilante",
+    "gangster", "soldier", "femme fatale", "samurai", "pirate", "viking",
+    "scientist/researcher", "mentor",
     # Group 6: Non-human & creatures
     "animal/wildlife", "monster/terrestrial creature", "evil", "witch",
     "ghost/spirit", "vampire", "zombie", "alien", "android", "vehicle",
 ]
 
 VALID_ATMOSPHERES = [
-    # Group 1: Light
-    "family", "feel good", "crazy/nutty", "depressive/sad",
+    # Group 1: Light/Joyful
+    "family-friendly", "feel good", "crazy/nutty", "delicate/intimate",
+    "contemplative/meditative",
     # Group 2: Tension
     "mysterious", "oppressive", "claustrophobic",
-    # Group 3: Contemplative
-    "contemplative", "ethereal", "hypnotic", "psychedelic",
-    # Group 4: Dark
-    "violent", "disturbing", "steamy", "gore",
-    "awful/seedy/depraved",
+    # Group 3: Attention
+    "meticulous", "ethereal", "hypnotic/immersive", "psychedelic",
+    # Group 4: Dark/Extreme
+    "depressive/sad", "violent", "disturbing", "steamy", "gore", "sordid",
+    # Group 5: Scale & Tone
+    "gritty/realistic", "epic",
 ]
 
 VALID_MOTIVATIONS = [
     # Group 1: Positive bonds
-    "feelings", "friendship", "solidarity", "communication",
-    "emancipation", "redemption",
+    "love", "friendship", "solidarity", "communication",
+    "emancipation", "redemption", "honor/duty",
     # Group 2: Inner conflict
-    "obsession", "doubt/dilemma", "lie", "manipulation",
+    "obsession", "doubt/dilemma", "lie", "manipulation", "sacrifice",
     # Group 3: Desire & transgression
-    "sex", "adultery", "jealousy", "harassment", "perversion",
+    "greed/ambition", "sex", "adultery", "jealousy", "harassment",
+    "perversion",
     # Group 4: Conflict & struggle
     "power", "rivalry", "fight", "rebellion/revolt", "vengeance",
     # Group 5: Epic quests
-    "odyssey", "quest", "world saver", "invasion",
+    "odyssey", "quest", "world-saving", "invasion",
 ]
 
 VALID_MESSAGES = [
     # Group 1: Values & ideology
-    "humanist", "philosophical", "feminist", "ecological", "political",
-    # Group 2: Comedy & satire
-    "parodic", "satirical", "black comedy", "absurdist",
-    # Group 3: Cultural perspective
+    "humanist", "feminist", "ecological", "political",
     "anti establishment", "nostalgic", "patriotic",
-    "traditionalist/way of life", "history revisited",
+    "traditionalist/way of life",
+    # Group 2: Comedy & satire
+    "parodic", "satirical", "absurdist", "revisionist/alternate history",
+    # Group 3: Reflection
+    "philosophical", "metaphysical",
     # Group 4: Artistic expression
-    "dreamlike", "surreal", "symbolic", "metaphysical",
+    "dreamlike", "surreal", "symbolic", "poetic",
 ]
 
 VALID_SOURCE_TYPES = [
@@ -174,17 +190,17 @@ REFERENCE_EXAMPLES = {
             "categories": ["Science-Fiction", "Drama", "Adventure"],
             "historic_subcategories": [],
             "cinema_type": ["blockbuster", "art house", "slow cinema", "new hollywood", "aesthetics"],
-            "time_context": ["prehistoric", "30-year post-war boom", "future"],
+            "time_context": ["prehistoric", "20th post-war", "future"],
             "geography": [
                 {"continent": "Africa", "country": "Kenya", "state_city": None, "place_type": "diegetic"},
             ],
             "place_environment": ["space", "desert"],
             "themes": [
-                "futuristic", "alien contact", "AI/technology", "death",
-                "time passing", "evolution",
+                "alien contact", "AI/technology", "death",
+                "time passing", "transformation",
             ],
             "character_context": ["solitary", "tandem", "android", "alien"],
-            "atmosphere": ["contemplative", "oppressive", "mysterious", "disturbing", "psychedelic"],
+            "atmosphere": ["contemplative/meditative", "oppressive", "mysterious", "disturbing", "psychedelic"],
             "motivations": ["quest", "odyssey", "power", "doubt/dilemma"],
             "message": ["philosophical", "metaphysical", "symbolic", "surreal"],
             "source": {
@@ -222,7 +238,7 @@ REFERENCE_EXAMPLES = {
         "enrichment": {
             "categories": ["Drama", "Thriller"],
             "historic_subcategories": [],
-            "cinema_type": ["art house", "black and white", "realism", "generational"],
+            "cinema_type": ["art house", "black and white", "realism", "generational", "slang dialogs"],
             "time_context": ["end 20th"],
             "geography": [
                 {"continent": "Europe", "country": "France", "state_city": "Île-de-France", "place_type": "diegetic"},
@@ -234,11 +250,11 @@ REFERENCE_EXAMPLES = {
                 "tragedy", "death", "police violence", "immigration", "trauma/accident",
             ],
             "character_context": ["trio", "buddies", "interracial", "poor/marginal", "teenager", "cop"],
-            "atmosphere": ["violent", "oppressive", "depressive/sad"],
+            "atmosphere": ["violent", "oppressive", "depressive/sad", "gritty/realistic"],
             "motivations": [
                 "friendship", "solidarity", "rebellion/revolt", "vengeance", "fight",
             ],
-            "message": ["political", "humanist", "black comedy"],
+            "message": ["political", "humanist"],
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -285,9 +301,9 @@ REFERENCE_EXAMPLES = {
                 "investigation", "identity crisis", "amnesia", "trauma/accident", "mafia",
             ],
             "character_context": ["tandem", "couple", "female", "double", "LGBT"],
-            "atmosphere": ["mysterious", "sulfurous", "disturbing", "oppressive", "hypnotic"],
+            "atmosphere": ["mysterious", "steamy", "disturbing", "oppressive", "hypnotic/immersive"],
             "motivations": [
-                "feelings", "obsession", "jealousy", "manipulation",
+                "love", "obsession", "jealousy", "manipulation",
                 "lie", "sex", "adultery", "vengeance",
             ],
             "message": ["surreal", "dreamlike", "symbolic", "metaphysical"],

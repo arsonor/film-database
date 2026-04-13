@@ -38,5 +38,7 @@ scripts/data/batch_state.json
 scripts/data/review_atmospheres_steamy.json
 
 database/sync_to_supabase.ps1
+database/Tags and taxonomy sort order.txt
+database/taxonomy modifications.txt
 
 query.sql

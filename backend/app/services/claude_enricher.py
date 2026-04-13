@@ -40,7 +40,7 @@ Tag selection philosophy — tags must characterize the film as a whole:
 - Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
 Ex:For themes like "death": only tag if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
 - For motivations: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
-- For cinema_type: include "Collection" if the film is part of a major franchise with sequels/prequels.
+- For cinema_type: include "franchise" if the film is part of a major franchise with sequels/prequels.
 - For characters: apply 'ordinary' only if the film's characters are intentionally mundane, relatable and it represents the film's core values, not just because they aren't superheroes or historical figures.
 Apply 'ensemble cast' only if the film truly has multiple main characters with significant screen time and narrative importance, not just a large cast of minor characters.
 
@@ -337,7 +337,7 @@ Historical sub-categories (only if "Historical" is selected): {', '.join(dims['h
 
 ### Cinema Type (includes techniques, movements, and cultural eras)
 Valid: {', '.join(dims['cinema_type'])}
-Note: Use "Collection" for films that are part of a major franchise (sequels, prequels, shared universe).
+Note: Use "franchise" for films that are part of a major franchise (sequels, prequels, shared universe).
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
@@ -349,7 +349,7 @@ Specify place_type for each: diegetic (in-film), shooting (real location), or fi
 
 ### Place Context — Environment (pick all that apply, but ONLY if they characterize the film's overall setting)
 Valid: {', '.join(dims['place_environment'])}
-IMPORTANT: "huis clos" = entire film confined to one space. "road movie" = journey structures the narrative. Other environments should be significant/recurring settings, not just briefly visited locations.
+IMPORTANT: "huis clos/confined setting" = entire film confined to one space. "road movie" = journey structures the narrative. Other environments should be significant/recurring settings, not just briefly visited locations.
 
 ### Themes (pick all that apply — be thorough, but only CENTRAL themes)
 Valid: {', '.join(dims['themes'])}
