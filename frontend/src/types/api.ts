@@ -218,13 +218,13 @@ export interface FilterState {
 export const TAXONOMY_DIMENSIONS = [
   "categories",
   "themes",
+  "time_periods",
+  "place_contexts",
   "atmospheres",
   "characters",
   "motivations",
   "messages",
   "cinema_types",
-  "time_periods",
-  "place_contexts",
 ] as const;
 
 export type TaxonomyDimension = (typeof TAXONOMY_DIMENSIONS)[number];

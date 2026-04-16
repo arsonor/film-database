@@ -254,7 +254,7 @@ REFERENCE_EXAMPLES = {
             "motivations": [
                 "friendship", "solidarity", "rebellion/revolt", "vengeance", "fight",
             ],
-            "message": ["political", "humanist"],
+            "message": ["political", "humanist", "philosophical"],
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -290,7 +290,7 @@ REFERENCE_EXAMPLES = {
             "categories": ["Drama", "Thriller"],
             "historic_subcategories": [],
             "cinema_type": ["art house", "non linear narrative", "aesthetics", "neo-noir"],
-            "time_context": ["contemporary"],
+            "time_context": ["early 21st"],
             "geography": [
                 {"continent": "North America", "country": "United States", "state_city": "Los Angeles", "place_type": "diegetic"},
                 {"continent": "North America", "country": "United States", "state_city": "Hollywood", "place_type": "diegetic"},
@@ -300,7 +300,7 @@ REFERENCE_EXAMPLES = {
                 "psychological", "dream", "art: cinema", "crime",
                 "investigation", "identity crisis", "amnesia", "trauma/accident", "mafia",
             ],
-            "character_context": ["tandem", "couple", "female", "double", "LGBT"],
+            "character_context": ["tandem", "couple", "female", "double", "LGBT", "star/celebrity"],
             "atmosphere": ["mysterious", "steamy", "disturbing", "oppressive", "hypnotic/immersive"],
             "motivations": [
                 "love", "obsession", "jealousy", "manipulation",

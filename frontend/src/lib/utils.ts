@@ -41,7 +41,7 @@ export function tmdbImageUrl(path: string | null, size = "w500"): string | null 
 
 export function dimensionLabel(dimension: string): string {
   const labels: Record<string, string> = {
-    categories: "Categories",
+    categories: "Genres",
     themes: "Themes",
     atmospheres: "Atmospheres",
     characters: "Characters",

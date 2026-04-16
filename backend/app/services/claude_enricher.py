@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 from datetime import date
+from pathlib import Path
 
 import anthropic
 
@@ -38,11 +39,6 @@ Core principles:
 Tag selection philosophy — tags must characterize the film as a whole:
 - Each tag should represent a DEFINING or SIGNIFICANT aspect of the film, not an incidental detail.
 - Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
-Ex:For themes like "death": only tag if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
-- For motivations: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
-- For cinema_type: include "franchise" if the film is part of a major franchise with sequels/prequels.
-- For characters: apply 'ordinary' only if the film's characters are intentionally mundane, relatable and it represents the film's core values, not just because they aren't superheroes or historical figures.
-Apply 'ensemble cast' only if the film truly has multiple main characters with significant screen time and narrative importance, not just a large cast of minor characters.
 
 Source rules:
 - Identify if based on a novel, true story, play, original screenplay, etc.
@@ -58,13 +54,14 @@ class ClaudeEnricher:
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-6"):
         self.client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
         self.valid_sets = {
             dim: set(values) for dim, values in TAXONOMY_DIMENSIONS.items()
         }
         self.valid_source_types = set(VALID_SOURCE_TYPES)
+        self.tag_definitions = self._load_tag_definitions()
 
     # -------------------------------------------------------------------------
     # Core enrichment method
@@ -93,7 +90,7 @@ class ClaudeEnricher:
             try:
                 response = await self.client.messages.create(
                     model=self.model,
-                    max_tokens=2000,
+                    max_tokens=4096,
                     temperature=0.3,
                     system=ENRICHMENT_SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": prompt}],
@@ -101,6 +98,12 @@ class ClaudeEnricher:
 
                 # Extract text content
                 text = response.content[0].text.strip()
+                logger.info(
+                    "Claude response for '%s': stop_reason=%s, output_tokens=%s, text_length=%d",
+                    title, response.stop_reason,
+                    getattr(response.usage, 'output_tokens', '?'),
+                    len(text),
+                )
 
                 # Parse JSON — strip markdown fences if present
                 if text.startswith("```"):
@@ -222,6 +225,24 @@ class ClaudeEnricher:
         return flagged
 
     # -------------------------------------------------------------------------
+    # Tag definitions loader
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    def _load_tag_definitions() -> str:
+        """Load tag usage definitions from database/tags_definition.md."""
+        # Resolve path relative to this file: services/ -> app/ -> backend/ -> project root
+        project_root = Path(__file__).resolve().parent.parent.parent.parent
+        definitions_path = project_root / "database" / "tags_definition.md"
+        try:
+            content = definitions_path.read_text(encoding="utf-8").strip()
+            logger.info("Loaded tag definitions from %s (%d chars)", definitions_path, len(content))
+            return content
+        except FileNotFoundError:
+            logger.warning("Tag definitions file not found at %s", definitions_path)
+            return ""
+
+    # -------------------------------------------------------------------------
     # Prompt building
     # -------------------------------------------------------------------------
 
@@ -329,7 +350,8 @@ Respond with ONLY this JSON structure:
     def _build_taxonomy_section(self) -> str:
         """Build the taxonomy dimension section of the prompt."""
         dims = TAXONOMY_DIMENSIONS
-        return f"""## Taxonomy Dimensions — Use ONLY these values (or prefix new ones with [NEW])
+
+        section = f"""## Taxonomy Dimensions — Use ONLY these values (or prefix new ones with [NEW])
 
 ### Categories (pick all that apply)
 Valid: {', '.join(dims['categories'])}
@@ -337,34 +359,28 @@ Historical sub-categories (only if "Historical" is selected): {', '.join(dims['h
 
 ### Cinema Type (includes techniques, movements, and cultural eras)
 Valid: {', '.join(dims['cinema_type'])}
-Note: Use "franchise" for films that are part of a major franchise (sequels, prequels, shared universe).
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
-IMPORTANT: For films released after 2000 set in their present day, use ONLY "contemporary". Do NOT add "end 20th".
 
 ### Place Context — Geography
 Provide as: continent > country > state/city
 Specify place_type for each: diegetic (in-film), shooting (real location), or fictional
 
-### Place Context — Environment (pick all that apply, but ONLY if they characterize the film's overall setting)
+### Place Context — Environment (pick all that apply)
 Valid: {', '.join(dims['place_environment'])}
-IMPORTANT: "huis clos/confined setting" = entire film confined to one space. "road movie" = journey structures the narrative. Other environments should be significant/recurring settings, not just briefly visited locations.
 
 ### Themes (pick all that apply — be thorough, but only CENTRAL themes)
 Valid: {', '.join(dims['themes'])}
-IMPORTANT: Each theme must be a defining aspect of the film. "death" = death is a central narrative thread, not just an incidental event.
 
 ### Characters (group structure, contexts, and archetypes — pick all that apply)
 Valid: {', '.join(dims['character_context'])}
-Note: "ordinary" only if the film's characters are intentionally mundane, relatable and it represents the film's core values, not just because they aren't superheroes or historical figures. "ensemble cast" only if the film truly has multiple main characters with significant screen time and narrative importance, not just a large cast of minor characters.
 
 ### Atmosphere (pick all that apply)
 Valid: {', '.join(dims['atmosphere'])}
 
 ### Motivations & Relations (pick all that apply)
 Valid: {', '.join(dims['motivations'])}
-Note: "fight" = physical combat/action scenes are significant in the film.
 
 ### Message Conveyed (pick all that apply)
 Valid: {', '.join(dims['message'])}
@@ -387,6 +403,17 @@ List the most significant awards and nominations for this film. Focus on:
 
 For each, provide: festival_name, category, year, result ("won" or "nominated").
 Only include awards you are confident about. If unsure, include fewer rather than risk errors."""
+
+        # Append tag usage guide if available
+        if self.tag_definitions:
+            section += f"""
+
+## Tag Usage Guide — Definitions and Distinctions
+The following definitions clarify how to use ambiguous or easily confused tags. Follow these precisely.
+
+{self.tag_definitions}"""
+
+        return section
 
     def _build_examples_section(self) -> str:
         """Build the few-shot reference examples section."""

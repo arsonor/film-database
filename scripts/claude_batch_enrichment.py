@@ -852,7 +852,7 @@ Examples:
     group.add_argument("--status", type=str, metavar="BATCH_ID", help="Check batch status")
     group.add_argument("--collect", type=str, metavar="BATCH_ID", help="Collect batch results")
 
-    parser.add_argument("--model", default="claude-sonnet-4-20250514", help="Claude model (default: claude-sonnet-4-20250514)")
+    parser.add_argument("--model", default="claude-sonnet-4-6", help="Claude model (default: claude-sonnet-4-6)")
     parser.add_argument("--film-ids", type=str, help="Comma-separated tmdb_ids for --test (e.g., 775,550,680)")
     parser.add_argument("--save-test", action="store_true", help="Save test results to enriched_films.json")
     parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt for --submit")
