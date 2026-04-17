@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
   ArrowLeft,
+  ArrowUp,
   Film,
   Trash2,
   Tv,
@@ -243,6 +244,26 @@ export function FilmDetailPage() {
                   ))}
                 </p>
               )}
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
+                <div className="flex items-center gap-2">
+                  {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
+                  {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
+                  {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
+                  {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
+                </div>
+                <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom hideTitle />
+                {film.streaming_platforms.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {film.streaming_platforms.map((platform) => (
+                      <Badge key={platform} variant="secondary" className="gap-1.5 text-xs">
+                        <Tv className="h-3 w-3" />
+                        {platform}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="flex flex-col gap-3">
                 {isAuthenticated && (
                   <FilmStatusBar filmId={film.film_id} status={film.user_status} onStatusChange={handleStatusChange} />
@@ -253,16 +274,6 @@ export function FilmDetailPage() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 )}
-              </div>
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom />
-                <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
-                <div className="flex items-center gap-2">
-                  {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
-                  {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
-                  {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
-                  {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
-                </div>
               </div>
             </div>
           </div>
@@ -343,6 +354,26 @@ export function FilmDetailPage() {
               ))}
             </p>
           )}
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
+            <div className="flex items-center gap-2">
+              {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
+              {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
+              {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
+              {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
+            </div>
+            <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom hideTitle />
+            {film.streaming_platforms.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                {film.streaming_platforms.map((platform) => (
+                  <Badge key={platform} variant="secondary" className="gap-1.5 text-xs">
+                    <Tv className="h-3 w-3" />
+                    {platform}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex flex-col gap-3">
             {isAuthenticated && (
               <FilmStatusBar filmId={film.film_id} status={film.user_status} onStatusChange={handleStatusChange} />
@@ -354,16 +385,6 @@ export function FilmDetailPage() {
               </Button>
             )}
           </div>
-          <div className="space-y-1 text-sm text-muted-foreground">
-            <EditableTagSection filmId={film.film_id} dimension="studios" currentValues={film.studios} onSaved={handleSaved} readOnly={!isAdmin} allowCustom />
-            <EditableSourceSection filmId={film.film_id} sources={film.sources} onSaved={handleSaved} readOnly={!isAdmin} />
-            <div className="flex items-center gap-2">
-              {film.budget != null && film.budget > 0 && <span>Budget: {formatCurrency(film.budget)}</span>}
-              {film.budget != null && film.budget > 0 && film.revenue != null && film.revenue > 0 && <span className="text-border">|</span>}
-              {film.revenue != null && film.revenue > 0 && <span>Revenue: {formatCurrency(film.revenue)}</span>}
-              {isAdmin && <EditableFinancials filmId={film.film_id} budget={film.budget} revenue={film.revenue} onSaved={handleSaved} />}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -371,144 +392,49 @@ export function FilmDetailPage() {
       {/* Content Sections */}
       {/* ================================================================ */}
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        {/* Section navigation — uses scrollIntoView to avoid polluting browser history */}
+        <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border pb-4 text-sm font-medium">
+          {film.summary && (
+            <button onClick={() => document.getElementById("synopsis")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Synopsis</button>
+          )}
+          <button onClick={() => document.getElementById("related-films")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Related Films</button>
+          <button onClick={() => document.getElementById("similar-films")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Similar Films</button>
+          <button onClick={() => document.getElementById("taxonomy")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Taxonomy</button>
+          {(film.cast.length > 0 || crewGroups.length > 0) && (
+            <button onClick={() => document.getElementById("cast-crew")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Cast & Crew</button>
+          )}
+          <button onClick={() => document.getElementById("awards")?.scrollIntoView({ behavior: "smooth" })} className="text-muted-foreground transition-colors hover:text-primary">Awards</button>
+        </nav>
+
         {/* Synopsis */}
         {film.summary && (
-          <section>
+          <section id="synopsis" className="scroll-mt-20">
             <SectionHeading title="Synopsis" />
             <p className="leading-relaxed text-muted-foreground">{film.summary}</p>
           </section>
         )}
 
         {/* Related Films */}
-        <RelatedFilmsSection
-          filmId={film.film_id}
-          sequels={film.sequels}
-          onSaved={handleSaved}
-          readOnly={!isAdmin}
-        />
+        <div id="related-films" className="scroll-mt-20">
+          <RelatedFilmsSection
+            filmId={film.film_id}
+            sequels={film.sequels}
+            onSaved={handleSaved}
+            readOnly={!isAdmin}
+          />
+        </div>
 
-        <Separator />
-
-        {/* Cast */}
-        {film.cast.length > 0 && (
-          <section>
-            <SectionHeading title="Cast" />
-            <div className="flex gap-1 overflow-x-auto pb-2">
-              {film.cast.map((member) => (
-                <PersonCard
-                  key={`${member.person_id}-${member.character_name}`}
-                  personId={member.person_id}
-                  firstname={member.firstname}
-                  lastname={member.lastname}
-                  role={member.character_name || ""}
-                  photoUrl={member.photo_url}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Crew */}
-        {crewGroups.length > 0 && (
-          <section>
-            <SectionHeading title="Crew" />
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {crewGroups.map((group) => (
-                <div key={group.role}>
-                  <h3 className="mb-2 text-sm font-medium text-muted-foreground">
-                    {group.role}
-                  </h3>
-                  <div className="flex flex-wrap gap-1">
-                    {group.members.map((m) => (
-                      <PersonCard
-                        key={m.person_id}
-                        personId={m.person_id}
-                        firstname={m.firstname}
-                        lastname={m.lastname}
-                        role={m.role}
-                        photoUrl={m.photo_url}
-                        size="sm"
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <Separator />
-
-        {/* Classification — editable taxonomy sections */}
-        <section>
-          <h2 className="mb-4 text-xl font-bold text-foreground">Classification</h2>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="categories"
-              currentValues={film.categories}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="cinema_types"
-              currentValues={film.cinema_types}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-          </div>
-        </section>
-
-        {/* Context & Themes — editable */}
-        <section>
-          <h2 className="mb-4 text-xl font-bold text-foreground">Context & Themes</h2>
-          <div className="grid gap-6 sm:grid-cols-2">
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="themes"
-              currentValues={film.themes}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="characters"
-              currentValues={film.characters}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="motivations"
-              currentValues={film.motivations}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="atmospheres"
-              currentValues={film.atmospheres}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-            <EditableTagSection
-              filmId={film.film_id}
-              dimension="messages"
-              currentValues={film.messages}
-              onSaved={handleSaved}
-              readOnly={!isAdmin}
-            />
-          </div>
+        {/* Similar Films */}
+        <section id="similar-films" className="scroll-mt-20">
+          <SimilarFilmsCarousel filmId={film.film_id} locked={tier !== "pro" && tier !== "admin"} />
         </section>
 
         <Separator />
 
-        {/* Setting */}
-        <section>
-          <SectionHeading title="Setting" />
+        {/* Taxonomy */}
+        <section id="taxonomy" className="scroll-mt-20">
+          <SectionHeading title="Taxonomy" />
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Time periods */}
             <EditableTagSection
               filmId={film.film_id}
               dimension="time_periods"
@@ -516,8 +442,6 @@ export function FilmDetailPage() {
               onSaved={handleSaved}
               readOnly={!isAdmin}
             />
-
-            {/* Place contexts */}
             <EditableTagSection
               filmId={film.film_id}
               dimension="place_contexts"
@@ -525,8 +449,6 @@ export function FilmDetailPage() {
               onSaved={handleSaved}
               readOnly={!isAdmin}
             />
-
-            {/* Geography */}
             <EditableGeographySection
               filmId={film.film_id}
               setPlaces={film.set_places}
@@ -534,38 +456,138 @@ export function FilmDetailPage() {
               readOnly={!isAdmin}
             />
           </div>
-        </section>
-
-        <Separator />
-
-        {/* Awards */}
-        <section>
-          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={handleSaved} readOnly={!isAdmin} />
-        </section>
-
-        <Separator />
-
-        {/* Streaming */}
-        {film.streaming_platforms.length > 0 && (
-          <section>
-            <SectionHeading title="Streaming" />
-            <div className="flex flex-wrap gap-2">
-              {film.streaming_platforms.map((platform) => (
-                <Badge key={platform} variant="secondary" className="gap-1.5 text-xs">
-                  <Tv className="h-3 w-3" />
-                  {platform}
-                </Badge>
-              ))}
+          <div className="mt-6 space-y-4">
+            <div>
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="categories"
+                currentValues={film.categories}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
             </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="themes"
+                currentValues={film.themes}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="atmospheres"
+                currentValues={film.atmospheres}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="characters"
+                currentValues={film.characters}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="motivations"
+                currentValues={film.motivations}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="messages"
+                currentValues={film.messages}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+              <EditableTagSection
+                filmId={film.film_id}
+                dimension="cinema_types"
+                currentValues={film.cinema_types}
+                onSaved={handleSaved}
+                readOnly={!isAdmin}
+              />
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        {/* Cast & Crew */}
+        {(film.cast.length > 0 || crewGroups.length > 0) && (
+          <section id="cast-crew" className="scroll-mt-20 space-y-8">
+            {film.cast.length > 0 && (
+              <div>
+                <SectionHeading title="Cast" />
+                <div className="flex gap-1 overflow-x-auto pb-2">
+                  {film.cast.map((member) => (
+                    <PersonCard
+                      key={`${member.person_id}-${member.character_name}`}
+                      personId={member.person_id}
+                      firstname={member.firstname}
+                      lastname={member.lastname}
+                      role={member.character_name || ""}
+                      photoUrl={member.photo_url}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {crewGroups.length > 0 && (
+              <div>
+                <SectionHeading title="Crew" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {crewGroups.map((group) => (
+                    <div key={group.role}>
+                      <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+                        {group.role}
+                      </h3>
+                      <div className="flex flex-wrap gap-1">
+                        {group.members.map((m) => (
+                          <PersonCard
+                            key={m.person_id}
+                            personId={m.person_id}
+                            firstname={m.firstname}
+                            lastname={m.lastname}
+                            role={m.role}
+                            photoUrl={m.photo_url}
+                            size="sm"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
         <Separator />
 
-        {/* Similar Films (placeholder) */}
-        <section>
-          <SimilarFilmsCarousel filmId={film.film_id} locked={tier !== "pro" && tier !== "admin"} />
+        {/* Awards */}
+        <section id="awards" className="scroll-mt-20">
+          <AwardsTable awards={film.awards} filmId={film.film_id} onSaved={handleSaved} readOnly={!isAdmin} />
         </section>
+
+        {/* Back to top */}
+        <div className="flex justify-center pt-4 pb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs text-muted-foreground hover:text-primary"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+            Back to top
+          </Button>
+        </div>
       </div>
     </div>
   );

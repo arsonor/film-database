@@ -19,10 +19,6 @@ export function ExternalLinks({ tmdbId, imdbId, title, year }: ExternalLinksProp
       ? { label: "IMDb", href: `https://www.imdb.com/title/${imdbId}` }
       : null,
     {
-      label: "Allocine",
-      href: `https://www.google.com/search?q=allocine+${encodeURIComponent(title)}+${yearStr}`,
-    },
-    {
       label: "Wikipedia",
       href: `https://en.wikipedia.org/wiki/Special:Search/${encodeURIComponent(title)}_(film)`,
     },

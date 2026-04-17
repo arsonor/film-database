@@ -30,9 +30,7 @@ interface SidebarProps {
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
-  onSetSeen: (seen: boolean | null) => void;
   isAdmin?: boolean;
-  isAuthenticated?: boolean;
 }
 
 // Which dimensions start expanded
@@ -49,9 +47,7 @@ export function SidebarContent({
   onExcludeFilter,
   onSetFilterMode,
   onUpdateFilters,
-  onSetSeen,
   isAdmin,
-  isAuthenticated,
 }: SidebarProps) {
   const tierAccess = useTierAccess(filters);
 
@@ -165,7 +161,6 @@ export function SidebarContent({
     );
 
   // Seen toggle
-  const seenValue = filters.seen === null ? "all" : filters.seen ? "seen" : "unseen";
 
   return (
     <ScrollArea className="h-full">
@@ -324,7 +319,7 @@ export function SidebarContent({
         {/* Source dropdown */}
         <div className={`border-b border-border pb-3 pt-2 ${sourceLocked ? "opacity-40 pointer-events-none" : ""}`}>
           <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            Source
+            Origin/Adaptation
             {sourceLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
           </label>
           <Select
@@ -410,26 +405,6 @@ export function SidebarContent({
           </div>
         </div>
 
-        {/* Seen toggle (authenticated users) */}
-        {isAuthenticated && (
-          <div className="border-b border-border pb-3 pt-2">
-            <label className="mb-2 block text-sm font-medium text-foreground">Seen</label>
-            <Select value={seenValue} onValueChange={(val) => {
-              if (val === "all") onSetSeen(null);
-              else if (val === "seen") onSetSeen(true);
-              else onSetSeen(false);
-            }}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="seen">Seen only</SelectItem>
-                <SelectItem value="unseen">Unseen only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
 
       </div>
     </ScrollArea>

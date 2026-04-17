@@ -46,9 +46,7 @@ export function BrowsePage() {
       onExcludeFilter={excludeFilter}
       onSetFilterMode={setFilterMode}
       onUpdateFilters={updateFilters}
-      onSetSeen={setSeen}
       isAdmin={isAdmin}
-      isAuthenticated={isAuthenticated}
     >
       <ActiveFilters
         filters={filters}

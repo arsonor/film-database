@@ -15,7 +15,7 @@
 
 **death** — only used if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
 
-**transformation** — used when the film deliberately shows a significant change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation (e.g. Black Swan, Raging Bull, The Fly).
+**transformation** — used when the film deliberately shows a significant and radical change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation (e.g. Black Swan, Raging Bull, The Fly).
 
 **illness** — physical or mental illness as a significant theme in the narrative. Not when a character happens to be ill as a minor plot point.
 
@@ -103,7 +103,9 @@
 
 **female** — used when the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
 
-**outcast/misfit** — a character defined by being fundamentally outside social norms or community belonging — the oddity, the reject, the one who doesn't fit. Distinct from **poor/marginal** (which is economic) and from **disabled** (which is physical/cognitive).
+**disabled** — A character with a significant physical or cognitive disability that is explicitly depicted and relevant to the narrative. The disability must be a visible part of the character's identity or story arc, not a minor background detail. Includes blindness, deafness, paralysis, amputation, cognitive impairment, and severe disfigurement when treated with dramatic weight. Do not apply to characters who are injured temporarily during the plot.
+
+**outcast/misfit** — A character defined by social rejection or a profound inability to belong. The film explicitly makes this exclusion a central element of the story. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are. Think Edward Scissorhands, Donnie Darko, Amélie, Napoleon Dynamite.
 
 **double** — a character is duplicated, mirrored, or has a doppelgänger. Can be literal (twins, clones) or metaphorical (split personality, alter ego).
 
@@ -163,6 +165,7 @@
 
 **symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (which questions reality) and from **surreal** (which distorts it) — symbolic asks the viewer to decode the film's visual and narrative language (e.g. The Tree of Life, Stalker, Mother! by Aronofsky).
 
+**poetic** — film with poetic, lyrical, or metaphorical qualities in its storytelling, visuals, or themes.
 
 **CINEMA TYPES**
 

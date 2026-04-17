@@ -14,6 +14,7 @@ interface EditableTagSectionProps {
   onSaved: () => void;
   readOnly?: boolean;
   allowCustom?: boolean;
+  hideTitle?: boolean;
 }
 
 export function EditableTagSection({
@@ -23,6 +24,7 @@ export function EditableTagSection({
   onSaved,
   readOnly,
   allowCustom,
+  hideTitle,
 }: EditableTagSectionProps) {
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState<string[]>([]);
@@ -85,11 +87,13 @@ export function EditableTagSection({
 
   return (
     <div>
-      <SectionHeading
-        title={dimensionLabel(dimension)}
-        onEdit={readOnly ? undefined : () => setEditing(!editing)}
-        editing={editing}
-      />
+      {!hideTitle && (
+        <SectionHeading
+          title={dimensionLabel(dimension)}
+          onEdit={readOnly ? undefined : () => setEditing(!editing)}
+          editing={editing}
+        />
+      )}
 
       {!editing ? (
         // View mode
