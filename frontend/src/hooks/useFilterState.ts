@@ -45,7 +45,7 @@ function parseSearchParams(sp: URLSearchParams): FilterState {
 
   // Sort
   const sortBy = sp.get("sort_by");
-  if (sortBy === "year" || sortBy === "title" || sortBy === "duration") {
+  if (sortBy === "year" || sortBy === "title" || sortBy === "duration" || sortBy === "popularity") {
     state.sort_by = sortBy;
   }
   const sortOrder = sp.get("sort_order");

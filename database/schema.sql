@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS film (
     tmdb_id INTEGER UNIQUE,
     budget BIGINT,                             -- Production budget in USD
     revenue BIGINT,                            -- Worldwide box office in USD
+    tmdb_score NUMERIC(3,1),                   -- TMDB vote average (0.0–10.0)
+    tmdb_vote_count INTEGER,                   -- Number of TMDB user votes
+    weighted_score NUMERIC(4,2),               -- Bayesian weighted rating
     tmdb_collection_id INTEGER,                -- TMDB collection ID for franchise auto-linking
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()

@@ -68,6 +68,8 @@ class TMDBMapper:
 
         budget = tmdb_data.get("budget", 0)
         revenue = tmdb_data.get("revenue", 0)
+        vote_average = tmdb_data.get("vote_average")
+        vote_count = tmdb_data.get("vote_count")
 
         first_release_date = None
         release_str = tmdb_data.get("release_date", "")
@@ -89,6 +91,8 @@ class TMDBMapper:
             "tmdb_id": tmdb_data.get("tmdb_id"),
             "budget": budget if budget else None,   # 0 → None (unknown)
             "revenue": revenue if revenue else None,  # 0 → None (unknown)
+            "tmdb_score": vote_average,
+            "tmdb_vote_count": vote_count,
         }
 
         # --- Collection (franchise) ---

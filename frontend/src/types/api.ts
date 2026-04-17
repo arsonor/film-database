@@ -209,7 +209,7 @@ export interface FilterState {
   year_min: number | null;
   year_max: number | null;
   seen: boolean | null;
-  sort_by: "year" | "title" | "duration";
+  sort_by: "year" | "title" | "duration" | "popularity";
   sort_order: "asc" | "desc";
   page: number;
   per_page: number;

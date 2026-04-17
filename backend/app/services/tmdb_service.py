@@ -276,6 +276,8 @@ class TMDBService:
             "backdrop_path": data.get("backdrop_path"),
             "budget": data.get("budget", 0),
             "revenue": data.get("revenue", 0),
+            "vote_average": data.get("vote_average"),
+            "vote_count": data.get("vote_count"),
             "status": data.get("status", ""),
             "original_language": data.get("original_language", ""),
             # Genres

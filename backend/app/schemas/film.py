@@ -113,6 +113,9 @@ class FilmDetail(BaseModel):
     tmdb_id: int | None = None
     budget: int | None = None
     revenue: int | None = None
+    tmdb_score: float | None = None
+    tmdb_vote_count: int | None = None
+    weighted_score: float | None = None
     titles: list[FilmTitle] = []
     categories: list[str] = []
     cinema_types: list[str] = []

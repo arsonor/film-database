@@ -87,7 +87,7 @@ async def list_films(
     seen: bool | None = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("year", pattern="^(year|title|duration|budget|revenue)$"),
+    sort_by: str = Query("year", pattern="^(year|title|duration|budget|revenue|popularity)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     user: UserInfo | None = Depends(get_current_user),
@@ -473,6 +473,7 @@ async def list_films(
         "duration": "f.duration",
         "budget": "f.budget",
         "revenue": "f.revenue",
+        "popularity": "f.weighted_score",
     }
     sort_col = sort_col_map[sort_by]
     order = sort_order.upper()
@@ -862,6 +863,9 @@ async def get_film(
         tmdb_id=film["tmdb_id"],
         budget=film["budget"],
         revenue=film["revenue"],
+        tmdb_score=float(film["tmdb_score"]) if film["tmdb_score"] is not None else None,
+        tmdb_vote_count=film["tmdb_vote_count"],
+        weighted_score=float(film["weighted_score"]) if film["weighted_score"] is not None else None,
         titles=titles,
         categories=categories,
         cinema_types=cinema_types,
@@ -915,11 +919,11 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
             INSERT INTO film (
                 original_title, duration, color, first_release_date, summary,
                 poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue,
-                tmdb_collection_id
+                tmdb_score, tmdb_vote_count, tmdb_collection_id
             ) VALUES (
                 :original_title, :duration, :color, :first_release_date, :summary,
                 :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue,
-                :tmdb_collection_id
+                :tmdb_score, :tmdb_vote_count, :tmdb_collection_id
             ) RETURNING film_id
         """),
         {
@@ -938,6 +942,8 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
             "tmdb_id": tmdb_id,
             "budget": film.get("budget"),
             "revenue": film.get("revenue"),
+            "tmdb_score": film.get("tmdb_score"),
+            "tmdb_vote_count": film.get("tmdb_vote_count"),
             "tmdb_collection_id": film.get("tmdb_collection_id"),
         },
     )

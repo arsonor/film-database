@@ -157,6 +157,7 @@ export function Header({
             <SelectItem value="year">Year</SelectItem>
             <SelectItem value="title">Title</SelectItem>
             <SelectItem value="duration">Duration</SelectItem>
+            <SelectItem value="popularity">Popularity</SelectItem>
           </SelectContent>
         </Select>
 

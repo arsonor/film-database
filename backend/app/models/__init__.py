@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -47,6 +48,9 @@ class Film(Base):
     tmdb_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     budget: Mapped[int | None] = mapped_column(BigInteger)
     revenue: Mapped[int | None] = mapped_column(BigInteger)
+    tmdb_score: Mapped[float | None] = mapped_column(Numeric(3, 1))
+    tmdb_vote_count: Mapped[int | None] = mapped_column(Integer)
+    weighted_score: Mapped[float | None] = mapped_column(Numeric(4, 2))
     created_at: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, default=datetime.now)
 
