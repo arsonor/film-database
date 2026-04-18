@@ -8,27 +8,35 @@ type TierName = "anonymous" | "free" | "pro" | "admin";
 interface TierConfig {
   allowedDimensions: Set<ArrayFilterKey>;
   allowedDropdowns: Set<string>;
-  allowedThemeSortOrderMax: number | null;
+  dimensionSortOrderMax: Partial<Record<ArrayFilterKey, number>>;
   maxFilters: number | null;
   canUseOrNot: boolean;
 }
 
 const TIER_CONFIGS: Record<TierName, TierConfig> = {
   anonymous: {
-    allowedDimensions: new Set(["categories", "time_periods", "place_contexts"]),
+    allowedDimensions: new Set(["categories", "time_periods", "atmospheres"]),
     allowedDropdowns: new Set(["language", "location"]),
-    allowedThemeSortOrderMax: null,
+    dimensionSortOrderMax: { atmospheres: 299 },
     maxFilters: 2,
     canUseOrNot: false,
   },
   free: {
     allowedDimensions: new Set([
       "categories", "time_periods", "place_contexts",
-      "studios", "themes",
+      "themes", "atmospheres", "characters",
+      "motivations", "cinema_types",
     ]),
-    allowedDropdowns: new Set(["language", "location", "source", "studios"]),
-    allowedThemeSortOrderMax: 299,
-    maxFilters: 5,
+    allowedDropdowns: new Set(["language", "location"]),
+    dimensionSortOrderMax: {
+      themes: 399,
+      atmospheres: 299,
+      place_contexts: 299,
+      characters: 299,
+      motivations: 199,
+      cinema_types: 199,
+    },
+    maxFilters: 3,
     canUseOrNot: false,
   },
   pro: {
@@ -38,7 +46,7 @@ const TIER_CONFIGS: Record<TierName, TierConfig> = {
       "time_periods", "place_contexts", "studios",
     ]),
     allowedDropdowns: new Set(["language", "location", "source", "studios"]),
-    allowedThemeSortOrderMax: null,
+    dimensionSortOrderMax: {},
     maxFilters: null,
     canUseOrNot: true,
   },
@@ -49,7 +57,7 @@ const TIER_CONFIGS: Record<TierName, TierConfig> = {
       "time_periods", "place_contexts", "studios",
     ]),
     allowedDropdowns: new Set(["language", "location", "source", "studios"]),
-    allowedThemeSortOrderMax: null,
+    dimensionSortOrderMax: {},
     maxFilters: null,
     canUseOrNot: true,
   },
@@ -70,8 +78,9 @@ export function useTierAccess(filters: FilterState) {
 
     const isTagAllowed = (dim: ArrayFilterKey, sortOrder: number | null): boolean => {
       if (!isDimensionAllowed(dim)) return false;
-      if (dim === "themes" && config.allowedThemeSortOrderMax !== null) {
-        return sortOrder !== null && sortOrder <= config.allowedThemeSortOrderMax;
+      const maxOrder = config.dimensionSortOrderMax[dim];
+      if (maxOrder !== undefined) {
+        return sortOrder !== null && sortOrder <= maxOrder;
       }
       return true;
     };

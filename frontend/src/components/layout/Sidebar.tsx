@@ -225,10 +225,10 @@ export function SidebarContent({
           if (items.length === 0) return null;
 
           const locked = !tierAccess.isDimensionAllowed(dim);
-          const lockedTagNames = dim === "themes" && !locked
+          const lockedTagNames = !locked
             ? new Set(
                 items
-                  .filter((item) => !tierAccess.isTagAllowed("themes", item.sort_order))
+                  .filter((item) => !tierAccess.isTagAllowed(dim, item.sort_order))
                   .map((item) => item.name)
               )
             : undefined;

@@ -4,8 +4,12 @@ Mirrors the frontend tier config for server-side validation.
 """
 
 TIER_ALLOWED_DIMENSIONS: dict[str, set[str]] = {
-    "anonymous": {"categories", "time_periods", "place_contexts"},
-    "free": {"categories", "time_periods", "place_contexts", "studios", "themes"},
+    "anonymous": {"categories", "time_periods", "atmospheres"},
+    "free": {
+        "categories", "time_periods", "place_contexts",
+        "themes", "atmospheres", "characters",
+        "motivations", "cinema_types",
+    },
     "pro": {
         "categories", "themes", "atmospheres", "characters", "motivations",
         "messages", "cinema_types", "time_periods", "place_contexts", "studios",
@@ -16,17 +20,24 @@ TIER_ALLOWED_DIMENSIONS: dict[str, set[str]] = {
     },
 }
 
-# For themes: max sort_order allowed (None = all allowed)
-TIER_THEME_MAX_SORT_ORDER: dict[str, int | None] = {
-    "anonymous": None,   # themes not in allowed dims
-    "free": 299,         # G1 + G2 only
-    "pro": None,
-    "admin": None,
+# Per-dimension max sort_order allowed (missing = all allowed)
+TIER_DIMENSION_MAX_SORT_ORDER: dict[str, dict[str, int]] = {
+    "anonymous": {"atmospheres": 299},
+    "free": {
+        "themes": 399,
+        "atmospheres": 299,
+        "place_contexts": 299,
+        "characters": 299,
+        "motivations": 199,
+        "cinema_types": 199,
+    },
+    "pro": {},
+    "admin": {},
 }
 
 TIER_MAX_FILTERS: dict[str, int | None] = {
     "anonymous": 2,
-    "free": 5,
+    "free": 3,
     "pro": None,
     "admin": None,
 }

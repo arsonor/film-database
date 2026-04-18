@@ -66,7 +66,7 @@ export function FilterChip({ name, count, state, onInclude, onExclude, onLockedC
         state === "off" &&
           "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground",
         state === "locked" &&
-          "cursor-not-allowed border-border/40 bg-transparent text-muted-foreground/50 opacity-40",
+          "cursor-not-allowed border-border/40 bg-transparent text-muted-foreground/50 opacity-100",
       )}
     >
       {state === "locked" && <Lock className="h-2.5 w-2.5 shrink-0" />}

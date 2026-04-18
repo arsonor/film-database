@@ -30,6 +30,7 @@ import { SimilarFilmsCarousel } from "@/components/films/SimilarFilmsCarousel";
 import { SectionHeading } from "@/components/films/SectionHeading";
 import type { CrewMember } from "@/types/api";
 import {
+  dimensionLabel,
   formatYear,
   formatDuration,
   formatCurrency,
@@ -466,54 +467,89 @@ export function FilmDetailPage() {
                 readOnly={!isAdmin}
               />
             </div>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="themes"
-                currentValues={film.themes}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="atmospheres"
-                currentValues={film.atmospheres}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="characters"
-                currentValues={film.characters}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="motivations"
-                currentValues={film.motivations}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-            </div>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="messages"
-                currentValues={film.messages}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="cinema_types"
-                currentValues={film.cinema_types}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-            </div>
+            {isAuthenticated ? (
+              <>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="themes"
+                    currentValues={film.themes}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="atmospheres"
+                    currentValues={film.atmospheres}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="characters"
+                    currentValues={film.characters}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="motivations"
+                    currentValues={film.motivations}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="messages"
+                    currentValues={film.messages}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="cinema_types"
+                    currentValues={film.cinema_types}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  6 more dimensions available —{" "}
+                  <button
+                    onClick={() => navigate("/auth")}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    sign up free
+                  </button>{" "}
+                  to unveil all tags.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {([
+                    ["themes", film.themes],
+                    ["atmospheres", film.atmospheres],
+                    ["characters", film.characters],
+                    ["motivations", film.motivations],
+                    ["messages", film.messages],
+                    ["cinema_types", film.cinema_types],
+                  ] as [string, string[]][]).map(([dim, values]) => (
+                    <span
+                      key={dim}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border/50 px-2.5 py-1 text-xs text-muted-foreground"
+                    >
+                      {dimensionLabel(dim)}
+                      <span className="font-semibold text-foreground">{values.length}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

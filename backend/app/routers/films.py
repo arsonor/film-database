@@ -16,7 +16,7 @@ from backend.app.tier_config import (
     TIER_ALLOWED_DIMENSIONS,
     TIER_CAN_USE_OR_NOT,
     TIER_MAX_FILTERS,
-    TIER_THEME_MAX_SORT_ORDER,
+    TIER_DIMENSION_MAX_SORT_ORDER,
 )
 from backend.app.schemas.film import (
     AwardOut,
@@ -140,15 +140,38 @@ async def list_films(
         place_contexts_mode = "and"; place_contexts_not = None
         studios_mode = "and"; studios_not = None
 
-    # Theme sort_order filtering
-    theme_max = TIER_THEME_MAX_SORT_ORDER.get(tier)
-    if themes and theme_max is not None:
+    # Per-dimension sort_order filtering
+    dim_sort_limits = TIER_DIMENSION_MAX_SORT_ORDER.get(tier, {})
+    dim_sort_table_map = {
+        "themes": ("theme_context", "theme_name"),
+        "atmospheres": ("atmosphere", "atmosphere_name"),
+        "place_contexts": ("place_context", "environment"),
+        "characters": ("character_context", "context_name"),
+        "motivations": ("motivation_relation", "motivation_name"),
+        "cinema_types": ("cinema_type", "technique_name"),
+    }
+    for dim_key, max_order in dim_sort_limits.items():
+        vals = locals().get(dim_key)
+        if not vals:
+            continue
+        tbl, col = dim_sort_table_map[dim_key]
         result = await db.execute(
-            text("SELECT theme_name, sort_order FROM theme_context WHERE theme_name = ANY(:names)"),
-            {"names": themes},
+            text(f"SELECT {col}, sort_order FROM {tbl} WHERE {col} = ANY(:names)"),
+            {"names": vals},
         )
-        allowed_themes = [row[0] for row in result.fetchall() if row[1] is not None and row[1] <= theme_max]
-        themes = allowed_themes if allowed_themes else None
+        allowed = [row[0] for row in result.fetchall() if row[1] is not None and row[1] <= max_order]
+        if dim_key == "themes":
+            themes = allowed if allowed else None
+        elif dim_key == "atmospheres":
+            atmospheres = allowed if allowed else None
+        elif dim_key == "place_contexts":
+            place_contexts = allowed if allowed else None
+        elif dim_key == "characters":
+            characters = allowed if allowed else None
+        elif dim_key == "motivations":
+            motivations = allowed if allowed else None
+        elif dim_key == "cinema_types":
+            cinema_types = allowed if allowed else None
 
     # Filter count enforcement
     max_filters = TIER_MAX_FILTERS.get(tier)

@@ -144,40 +144,44 @@ export function Header({
 
       {/* Right: Sort + User menu */}
       <div className="hidden items-center gap-2 sm:flex">
-        <Select
-          value={filters.sort_by}
-          onValueChange={(val) =>
-            onSortChange(val as FilterState["sort_by"], filters.sort_order)
-          }
-        >
-          <SelectTrigger className="h-9 w-28 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="year">Year</SelectItem>
-            <SelectItem value="title">Title</SelectItem>
-            <SelectItem value="duration">Duration</SelectItem>
-            <SelectItem value="popularity">Popularity</SelectItem>
-          </SelectContent>
-        </Select>
+        {isAuthenticated && (
+          <>
+            <Select
+              value={filters.sort_by}
+              onValueChange={(val) =>
+                onSortChange(val as FilterState["sort_by"], filters.sort_order)
+              }
+            >
+              <SelectTrigger className="h-9 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="year">Year</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+                <SelectItem value="duration">Duration</SelectItem>
+                <SelectItem value="popularity">Popularity</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() =>
-            onSortChange(
-              filters.sort_by,
-              filters.sort_order === "asc" ? "desc" : "asc",
-            )
-          }
-          title={filters.sort_order === "asc" ? "Ascending" : "Descending"}
-        >
-          {filters.sort_order === "asc" ? (
-            <ArrowUpAZ className="h-4 w-4" />
-          ) : (
-            <ArrowDownAZ className="h-4 w-4" />
-          )}
-        </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() =>
+                onSortChange(
+                  filters.sort_by,
+                  filters.sort_order === "asc" ? "desc" : "asc",
+                )
+              }
+              title={filters.sort_order === "asc" ? "Ascending" : "Descending"}
+            >
+              {filters.sort_order === "asc" ? (
+                <ArrowUpAZ className="h-4 w-4" />
+              ) : (
+                <ArrowDownAZ className="h-4 w-4" />
+              )}
+            </Button>
+          </>
+        )}
 
         {isAuthenticated ? (
           <DropdownMenu>

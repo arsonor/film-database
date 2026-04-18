@@ -42,7 +42,19 @@
 
 **TIME PERIODS**
 
-**contemporary** — For films released after 2020 set in their present day, use ONLY "contemporary". Do NOT add "early 21st" (which covers 2001-2019) or "end 20th" (1975-1999).
+**future** — film set somewhere in the future, near (over 2030) or very far away. Think anticipation, dystopia, science-fiction
+
+**contemporary** — For films set in the present day, from year 2018 to 2029.
+
+**early 21st** — film set in the period covering 2000 to about 2020. If uncertain, help you determinating if film setting is the same as its released year.
+
+**end 20th** — film set in the period covering mainly 1980's and 1990's decades. If uncertain, help you determinating if film setting is the same as its released year.
+
+**20th post-war** — film set in the period covering mainly the 'Trente Glorieuses' era, from post-WW2 to end of seventies. If uncertain, help you determinating if film setting is the same as its released year.
+
+**interwar** — film set in the period covering mainly the 1920's and 1930's decades, from the end of WW1 in 1918 to the beginning of WW2 in 1939. If uncertain, help you determinating if film setting is the same as its released year.
+
+**early 20th** — film set in the period covering mainly 1900's to beginning of WW1 in 1914.
 
 **undetermined** — the time period is deliberately vague or impossible to place (often in fables, allegories, or abstract settings).
 
@@ -57,7 +69,7 @@
 
 **huis clos / confined setting** — the action is deliberately restricted to a single or very limited space, creating a sense of enclosure. The confinement is a narrative choice, not just a practical one (e.g. 12 Angry Men, Rear Window, The Hateful Eight).
 
-**road movie** — a film in which the central plot point is a journey or a road trip using various means of transport (by foot, moto, vehicle...).
+**road movie** — A film whose narrative structure is built entirely around a journey from one place to another. Remove the journey and the film has no structure left. The story progresses through the physical displacement of characters. The road itself is the plot. Can extend to unconventional transport or settings: on foot (The Road, Into the Wild), confined to a vehicle (Speed, Duel), or survival/escape (Essential Killing).
 
 **no particular** — the setting is irrelevant or interchangeable; the film doesn't rely on any specific location for its identity.
 
@@ -119,7 +131,7 @@
 
 **gangster** — a character embedded in organized crime culture and identity. Distinct from **mafia** (Theme), which describes the broader criminal organization as a thematic subject.
 
-**mentor** — a guiding figure who shapes the protagonist's journey through teaching, wisdom, or example.
+**mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
 
 
 **MOTIVATIONS**
