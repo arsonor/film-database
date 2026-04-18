@@ -262,7 +262,7 @@ export function CollectionPage() {
 
             {/* New list */}
             {(() => {
-              const maxLists = TIER_MAX_LISTS[tier ?? "free"];
+              const maxLists = TIER_MAX_LISTS[tier ?? "free"] ?? 0;
               const canCreate = maxLists === null || userLists.length < maxLists;
               if (showNewList) return (
                 <div className="flex items-center gap-1">
