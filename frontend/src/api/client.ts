@@ -160,16 +160,35 @@ export async function deleteTaxonomyValue(
   }
 }
 
-export async function fetchUserFilms(
-  filter: "seen" | "favorite" | "watchlist",
-  page = 1,
-  perPage = 24,
-): Promise<PaginatedFilms> {
+export interface CollectionFilters {
+  filter: "seen" | "favorite" | "watchlist";
+  page?: number;
+  perPage?: number;
+  sortBy?: string;
+  sortOrder?: string;
+  yearMin?: number | null;
+  yearMax?: number | null;
+  language?: string;
+  categories?: string[];
+  ratingMin?: number | null;
+  ratingMax?: number | null;
+}
+
+export async function fetchUserFilms(opts: CollectionFilters): Promise<PaginatedFilms> {
   const auth = await getAuthHeaders();
-  const res = await fetch(
-    `${BASE}/users/me/films?filter=${filter}&page=${page}&per_page=${perPage}`,
-    { headers: auth },
-  );
+  const sp = new URLSearchParams();
+  sp.set("filter", opts.filter);
+  sp.set("page", String(opts.page ?? 1));
+  sp.set("per_page", String(opts.perPage ?? 24));
+  sp.set("sort_by", opts.sortBy ?? "recent");
+  sp.set("sort_order", opts.sortOrder ?? "desc");
+  if (opts.yearMin != null) sp.set("year_min", String(opts.yearMin));
+  if (opts.yearMax != null) sp.set("year_max", String(opts.yearMax));
+  if (opts.language) sp.set("language", opts.language);
+  if (opts.categories?.length) opts.categories.forEach((c) => sp.append("categories", c));
+  if (opts.ratingMin != null) sp.set("rating_min", String(opts.ratingMin));
+  if (opts.ratingMax != null) sp.set("rating_max", String(opts.ratingMax));
+  const res = await fetch(`${BASE}/users/me/films?${sp}`, { headers: auth });
   if (!res.ok) throw new ApiError(res.status, `Failed to fetch collection: ${res.statusText}`);
   return res.json();
 }
@@ -309,6 +328,85 @@ export async function saveFilm(
 // =============================================================================
 // Auth
 // =============================================================================
+
+// =============================================================================
+// User Lists
+// =============================================================================
+
+export interface UserList {
+  list_id: number;
+  list_name: string;
+  film_count: number;
+}
+
+export async function fetchUserLists(): Promise<UserList[]> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/lists`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "Failed to fetch lists");
+  return res.json();
+}
+
+export async function createUserList(name: string): Promise<UserList> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/lists`, {
+    method: "POST",
+    headers: { ...auth, "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to create list");
+  return res.json();
+}
+
+export async function deleteUserList(listId: number): Promise<void> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/lists/${listId}`, {
+    method: "DELETE",
+    headers: auth,
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to delete list");
+}
+
+export async function fetchListFilms(
+  listId: number,
+  page = 1,
+  sortBy = "recent",
+  sortOrder = "desc",
+): Promise<PaginatedFilms> {
+  const auth = await getAuthHeaders();
+  const sp = new URLSearchParams({
+    page: String(page),
+    sort_by: sortBy,
+    sort_order: sortOrder,
+  });
+  const res = await fetch(`${BASE}/users/me/lists/${listId}/films?${sp}`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "Failed to fetch list films");
+  return res.json();
+}
+
+export async function addFilmToList(listId: number, filmId: number): Promise<void> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/lists/${listId}/films/${filmId}`, {
+    method: "POST",
+    headers: auth,
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to add film to list");
+}
+
+export async function removeFilmFromList(listId: number, filmId: number): Promise<void> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/lists/${listId}/films/${filmId}`, {
+    method: "DELETE",
+    headers: auth,
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to remove film from list");
+}
+
+export async function fetchFilmListMemberships(filmId: number): Promise<number[]> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/users/me/films/${filmId}/lists`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "Failed to fetch film list memberships");
+  return res.json();
+}
 
 export async function fetchAuthMe(): Promise<{ id: string; email: string; tier: string } | null> {
   try {

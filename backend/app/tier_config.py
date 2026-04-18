@@ -48,3 +48,10 @@ TIER_CAN_USE_OR_NOT: dict[str, bool] = {
     "pro": True,
     "admin": True,
 }
+
+TIER_MAX_LISTS: dict[str, int | None] = {
+    "anonymous": 0,
+    "free": 3,
+    "pro": None,
+    "admin": None,
+}

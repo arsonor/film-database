@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { updateUserFilmStatus } from "@/api/client";
 import type { FilmListItem } from "@/types/api";
 import { formatYear } from "@/lib/utils";
+import { StarRating } from "./StarRating";
 
 interface FilmCardProps {
   film: FilmListItem;
@@ -16,10 +17,12 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
   const [seen, setSeen] = useState(film.user_status?.seen ?? false);
   const [favorite, setFavorite] = useState(film.user_status?.favorite ?? false);
   const [watchlist, setWatchlist] = useState(film.user_status?.watchlist ?? false);
+  const [rating, setRating] = useState(film.user_status?.rating ?? null);
 
   useEffect(() => { setSeen(film.user_status?.seen ?? false); }, [film.user_status?.seen]);
   useEffect(() => { setFavorite(film.user_status?.favorite ?? false); }, [film.user_status?.favorite]);
   useEffect(() => { setWatchlist(film.user_status?.watchlist ?? false); }, [film.user_status?.watchlist]);
+  useEffect(() => { setRating(film.user_status?.rating ?? null); }, [film.user_status?.rating]);
 
   const handleToggleSeen = useCallback(
     async (e: React.MouseEvent) => {
@@ -67,6 +70,20 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
       }
     },
     [film.film_id, watchlist],
+  );
+
+  const handleRatingChange = useCallback(
+    async (value: number | null) => {
+      const prev = rating;
+      setRating(value);
+      try {
+        await updateUserFilmStatus(film.film_id, { rating: value });
+        onStatusChanged?.();
+      } catch {
+        setRating(prev);
+      }
+    },
+    [film.film_id, rating, onStatusChanged],
   );
 
   return (
@@ -149,6 +166,11 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
                 {cat}
               </Badge>
             ))}
+          </div>
+        )}
+        {canToggleStatus && film.user_status && (
+          <div className="mt-1" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <StarRating value={rating} onChange={handleRatingChange} />
           </div>
         )}
       </div>
