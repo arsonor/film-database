@@ -15,10 +15,6 @@ VALID_CATEGORIES = [
     "Documentary", "Historical",
 ]
 
-VALID_HISTORIC_SUBCATEGORIES = [
-    "biopic", "human interest story", "event",
-]
-
 VALID_CINEMA_TYPES = [
     # Group 1: Visual techniques & aesthetics
     "animation", "mixed animation", "CGI", "3D", "motion capture",
@@ -33,8 +29,9 @@ VALID_CINEMA_TYPES = [
     "sequence-shot", "found footage", "multi-sequence",
     "slow cinema", "non linear narrative", "dogma",
     "dialogs", "slang dialogs", "few/no dialogs", "voiceover",
-    # Group 5: Cinema archetypes
-    "western", "peplum", "swashbuckler", "costume/period drama",
+    # Group 5: Cinema sub-genres/archetypes
+    "biopic", "historical event", "fait divers/true incident",
+    "western", "peplum", "swashbuckler", "costume drama",
     "wu xia pian", "blaxploitation", "giallo", "slasher",
     "black comedy", "docufiction",
 ]
@@ -166,7 +163,6 @@ VALID_SOURCE_TYPES = [
 
 TAXONOMY_DIMENSIONS = {
     "categories": VALID_CATEGORIES,
-    "historic_subcategories": VALID_HISTORIC_SUBCATEGORIES,
     "cinema_type": VALID_CINEMA_TYPES,
     "time_context": VALID_TIME_CONTEXTS,
     "place_environment": VALID_PLACE_ENVIRONMENTS,
@@ -188,7 +184,6 @@ REFERENCE_EXAMPLES = {
         "year": 1968,
         "enrichment": {
             "categories": ["Science-Fiction", "Drama", "Adventure"],
-            "historic_subcategories": [],
             "cinema_type": ["blockbuster", "art house", "slow cinema", "new hollywood", "aesthetics"],
             "time_context": ["prehistoric", "20th post-war", "future"],
             "geography": [
@@ -237,7 +232,6 @@ REFERENCE_EXAMPLES = {
         "year": 1995,
         "enrichment": {
             "categories": ["Drama", "Thriller"],
-            "historic_subcategories": [],
             "cinema_type": ["art house", "black and white", "realism", "generational", "slang dialogs"],
             "time_context": ["end 20th"],
             "geography": [
@@ -288,7 +282,6 @@ REFERENCE_EXAMPLES = {
         "year": 2001,
         "enrichment": {
             "categories": ["Drama", "Thriller"],
-            "historic_subcategories": [],
             "cinema_type": ["art house", "non linear narrative", "aesthetics", "neo-noir"],
             "time_context": ["early 21st"],
             "geography": [

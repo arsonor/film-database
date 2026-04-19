@@ -30,7 +30,7 @@ INSERT INTO person_job (role_name) VALUES
 ON CONFLICT (role_name) DO NOTHING;
 
 -- =============================================================================
--- CATEGORY - Film genres with historical subcategories
+-- CATEGORY - Film genres
 -- =============================================================================
 
 INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALUES
@@ -45,11 +45,7 @@ INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALU
     ('Horror', NULL, 108),
     ('Musical', NULL, 109),
     ('Documentary', NULL, 110),
-    ('Historical', NULL, 111),
-    -- Historical subcategories
-    ('Historical', 'biopic', 112),
-    ('Historical', 'human interest story', 113),
-    ('Historical', 'event', 114)
+    ('Historical', NULL, 111)
 ON CONFLICT (category_name, historic_subcategory_name) DO NOTHING;
 
 -- =============================================================================
@@ -93,17 +89,20 @@ INSERT INTO cinema_type (technique_name, sort_order) VALUES
     ('slang dialogs', 407),
     ('few/no dialogs', 408),
     ('voiceover', 409),
-    -- Group 5: Cinema archetypes (500s)
-    ('western', 500),
-    ('peplum', 501),
-    ('swashbuckler', 502),
-    ('costume/period drama', 503),
-    ('wu xia pian', 504),
-    ('blaxploitation', 505),
-    ('giallo', 506),
-    ('slasher', 507),
-    ('black comedy', 508),
-    ('docufiction', 509)
+    -- Group 5: Cinema sub-genres/archetypes (500s)
+    ('biopic', 500),
+    ('historical event', 501),
+    ('fait divers/true incident', 502),
+    ('western', 503),
+    ('peplum', 504),
+    ('swashbuckler', 505),
+    ('costume drama', 506),
+    ('wu xia pian', 507),
+    ('blaxploitation', 508),
+    ('giallo', 509),
+    ('slasher', 510),
+    ('black comedy', 511),
+    ('docufiction', 512)
 ON CONFLICT (technique_name) DO NOTHING;
 
 -- =============================================================================

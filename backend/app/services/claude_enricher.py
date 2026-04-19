@@ -307,7 +307,6 @@ class ClaudeEnricher:
 Respond with ONLY this JSON structure:
 {{
   "categories": ["..."],
-  "historic_subcategories": [],
   "cinema_type": ["..."],
   "time_context": ["..."],
   "geography": [
@@ -355,9 +354,8 @@ Respond with ONLY this JSON structure:
 
 ### Categories (pick all that apply)
 Valid: {', '.join(dims['categories'])}
-Historical sub-categories (only if "Historical" is selected): {', '.join(dims['historic_subcategories'])}
 
-### Cinema Type (includes techniques, movements, and cultural eras)
+### Cinema Type (includes techniques, movements, sub-genres, and cultural eras)
 Valid: {', '.join(dims['cinema_type'])}
 
 ### Time Context (when is the film set — can be multiple)
@@ -468,14 +466,6 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
 
             enrichment[dim] = cleaned
 
-        # Validate historic_subcategories
-        subcats = enrichment.get("historic_subcategories", [])
-        if isinstance(subcats, list):
-            valid_subcats = self.valid_sets.get("historic_subcategories", set())
-            enrichment["historic_subcategories"] = [
-                s for s in subcats if isinstance(s, str) and s in valid_subcats
-            ]
-
         # Validate source
         source = enrichment.get("source", {})
         if isinstance(source, dict):
@@ -548,7 +538,6 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
         """Return an empty enrichment with low confidence scores."""
         return {
             "categories": [],
-            "historic_subcategories": [],
             "cinema_type": [],
             "time_context": [],
             "geography": [],

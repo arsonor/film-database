@@ -1022,21 +1022,6 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
                 {"fid": film_id, "lid": lid},
             )
 
-    # Insert historic subcategories (e.g. "biopic", "western" → linked to "Historical" parent)
-    for sub in enrichment.get("historic_subcategories", []):
-        if not sub:
-            continue
-        r = await db.execute(
-            text("SELECT category_id FROM category WHERE category_name = 'Historical' AND historic_subcategory_name = :sub"),
-            {"sub": sub},
-        )
-        lid = r.scalar_one_or_none()
-        if lid:
-            await db.execute(
-                text("INSERT INTO film_genre (film_id, category_id) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
-                {"fid": film_id, "lid": lid},
-            )
-
     # Insert taxonomy junctions from enrichment
     taxonomy_junctions = [
         ("cinema_type", "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),

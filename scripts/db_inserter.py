@@ -117,8 +117,7 @@ class DBInserter:
 
                     # 6. Insert film_genre junctions
                     categories = enrichment.get("categories") or film_data.get("categories", [])
-                    historic_subs = enrichment.get("historic_subcategories") or film_data.get("historic_subcategories", [])
-                    await self._insert_genres(session, film_id, categories, historic_subs)
+                    await self._insert_genres(session, film_id, categories, [])
 
                     # 7. Insert film_technique junctions (cinema types + movements merged)
                     await self._insert_junction_by_name(

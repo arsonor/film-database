@@ -74,9 +74,8 @@ def build_system_prompt() -> str:
 
 ### Categories (pick all that apply)
 Valid: {', '.join(dims['categories'])}
-Historical sub-categories (only if "Historical" is selected): {', '.join(dims['historic_subcategories'])}
 
-### Cinema Type (techniques + cultural movements)
+### Cinema Type (techniques, movements, sub-genres, and cultural eras)
 Valid: {', '.join(dims['cinema_type'])}
 Note: Use "Collection" for films that are part of a major franchise (sequels, prequels, shared universe).
 
@@ -144,7 +143,6 @@ Only include awards you are confident about. If unsure, include fewer rather tha
 Respond with ONLY this JSON structure:
 {
   "categories": ["..."],
-  "historic_subcategories": [],
   "cinema_type": ["..."],
   "time_context": ["..."],
   "geography": [
@@ -290,14 +288,6 @@ def validate_enrichment(enrichment: dict) -> dict:
             else:
                 logger.warning("Invalid %s value removed: '%s'", dim, v)
         enrichment[dim] = cleaned
-
-    # Validate historic_subcategories
-    subcats = enrichment.get("historic_subcategories", [])
-    if isinstance(subcats, list):
-        valid_subcats = valid_sets.get("historic_subcategories", set())
-        enrichment["historic_subcategories"] = [
-            s for s in subcats if isinstance(s, str) and s in valid_subcats
-        ]
 
     # Validate source
     source = enrichment.get("source", {})
