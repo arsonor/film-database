@@ -8,6 +8,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -231,66 +238,110 @@ export function CollectionPage() {
               );
             })}
 
-            {/* Separator */}
-            {userLists.length > 0 && <span className="text-border">|</span>}
-
             {/* Custom lists */}
-            {userLists.map((list) => {
-              const isActive = activeView.type === "list" && activeView.listId === list.list_id;
-              return (
-                <div key={list.list_id} className="group relative flex items-center">
-                  <Button
-                    variant={isActive ? "default" : "outline"}
-                    size="sm"
-                    className="gap-1.5 pr-7"
-                    onClick={() => switchView({ type: "list", listId: list.list_id })}
-                  >
-                    <List className="h-4 w-4" />
-                    {list.list_name}
-                    <span className="rounded-full bg-background/20 px-1.5 text-xs">{list.film_count}</span>
-                  </Button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteList(list.list_id); }}
-                    className="absolute right-1 flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                    title="Delete list"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-
-            {/* New list */}
             {(() => {
-              const maxLists = TIER_MAX_LISTS[tier ?? "free"] ?? 0;
-              const canCreate = maxLists === null || userLists.length < maxLists;
+              const maxLists = TIER_MAX_LISTS[tier ?? "free"];
+              const canCreate = maxLists === null || maxLists === undefined || userLists.length < maxLists;
+              const activeList = activeView.type === "list"
+                ? userLists.find((l) => l.list_id === activeView.listId)
+                : null;
+
+              // Inline new-list input
               if (showNewList) return (
-                <div className="flex items-center gap-1">
-                  <Input
-                    value={newListName}
-                    onChange={(e) => setNewListName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateList(); if (e.key === "Escape") setShowNewList(false); }}
-                    placeholder="List name"
-                    className="h-8 w-32 text-xs"
-                    autoFocus
-                  />
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCreateList}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowNewList(false); setNewListName(""); }}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <>
+                  {userLists.length > 0 && <span className="text-border">|</span>}
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateList(); if (e.key === "Escape") setShowNewList(false); }}
+                      placeholder="List name"
+                      className="h-8 w-32 text-xs"
+                      autoFocus
+                    />
+                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={handleCreateList}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setShowNewList(false); setNewListName(""); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
               );
-              if (!canCreate) return (
+
+              // No lists yet — just show create button or limit message
+              if (userLists.length === 0) return canCreate ? (
+                <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => setShowNewList(true)}>
+                  <Plus className="h-4 w-4" /> New list
+                </Button>
+              ) : (
                 <span className="text-xs text-muted-foreground">
                   {maxLists}/{maxLists} lists — upgrade to Pro for more
                 </span>
               );
+
               return (
-                <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={() => setShowNewList(true)}>
-                  <Plus className="h-4 w-4" /> New list
-                </Button>
+                <>
+                  <span className="text-border">|</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant={activeList ? "default" : "outline"}
+                        size="sm"
+                        className="gap-1.5"
+                      >
+                        <List className="h-4 w-4" />
+                        {activeList ? activeList.list_name : "My Lists"}
+                        <span className="rounded-full bg-background/20 px-1.5 text-xs">
+                          {activeList ? activeList.film_count : userLists.length}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {userLists.map((list) => {
+                        const isActive = activeView.type === "list" && activeView.listId === list.list_id;
+                        return (
+                          <DropdownMenuItem
+                            key={list.list_id}
+                            className="flex items-center justify-between gap-2"
+                            onClick={() => switchView({ type: "list", listId: list.list_id })}
+                          >
+                            <span className={`flex items-center gap-2 truncate ${isActive ? "font-semibold" : ""}`}>
+                              <List className="h-3.5 w-3.5 shrink-0" />
+                              {list.list_name}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">{list.film_count}</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteList(list.list_id); }}
+                                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </span>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                      {canCreate && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setShowNewList(true)}>
+                            <Plus className="mr-2 h-3.5 w-3.5" />
+                            New list
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {!canCreate && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                            {maxLists}/{maxLists} lists — upgrade to Pro for more
+                          </div>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               );
             })()}
           </div>
