@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
   Plus,
   Search,
+  Shuffle,
   Tags,
   User,
   X,
@@ -45,6 +46,7 @@ interface HeaderProps {
     sortOrder: FilterState["sort_order"],
   ) => void;
   onOpenMobileFilters: () => void;
+  onShuffle?: () => void;
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -55,6 +57,7 @@ export function Header({
   onSearchChange,
   onSortChange,
   onOpenMobileFilters,
+  onShuffle,
   sidebarCollapsed,
   onToggleSidebar,
 }: HeaderProps) {
@@ -160,26 +163,38 @@ export function Header({
                 <SelectItem value="title">Title</SelectItem>
                 <SelectItem value="duration">Duration</SelectItem>
                 <SelectItem value="popularity">Popularity</SelectItem>
+                <SelectItem value="random">Random</SelectItem>
               </SelectContent>
             </Select>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                onSortChange(
-                  filters.sort_by,
-                  filters.sort_order === "asc" ? "desc" : "asc",
-                )
-              }
-              title={filters.sort_order === "asc" ? "Ascending" : "Descending"}
-            >
-              {filters.sort_order === "asc" ? (
-                <ArrowUpAZ className="h-4 w-4" />
-              ) : (
-                <ArrowDownAZ className="h-4 w-4" />
-              )}
-            </Button>
+            {filters.sort_by === "random" ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onShuffle?.()}
+                title="Shuffle"
+              >
+                <Shuffle className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  onSortChange(
+                    filters.sort_by,
+                    filters.sort_order === "asc" ? "desc" : "asc",
+                  )
+                }
+                title={filters.sort_order === "asc" ? "Ascending" : "Descending"}
+              >
+                {filters.sort_order === "asc" ? (
+                  <ArrowUpAZ className="h-4 w-4" />
+                ) : (
+                  <ArrowDownAZ className="h-4 w-4" />
+                )}
+              </Button>
+            )}
           </>
         )}
 

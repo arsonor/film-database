@@ -1,6 +1,6 @@
 **CATEGORIES**
 
-**historical** — films set in a real historical context. The three subcategories clarify the focus: **biopic** (centered on a real person's life), **human interest story** (real, fictional or semi-fictional characters within a real historical setting), **event** (centered on a specific historical event itself).
+**Historical** — 
 
 
 **THEMES**
@@ -42,26 +42,9 @@
 
 **TIME PERIODS**
 
-**future** — film set somewhere in the future, near (over 2030) or very far away. Think anticipation, dystopia, science-fiction
-
-**contemporary** — For films set in the present day, from year 2018 to 2029.
-
-**early 21st** — film set in the period covering 2000 to about 2020. If uncertain, help you determinating if film setting is the same as its released year.
-
-**end 20th** — film set in the period covering mainly 1980's and 1990's decades. If uncertain, help you determinating if film setting is the same as its released year.
-
-**20th post-war** — film set in the period covering mainly the 'Trente Glorieuses' era, from post-WW2 to end of seventies. If uncertain, help you determinating if film setting is the same as its released year.
-
-**interwar** — film set in the period covering mainly the 1920's and 1930's decades, from the end of WW1 in 1918 to the beginning of WW2 in 1939. If uncertain, help you determinating if film setting is the same as its released year.
-
-**early 20th** — film set in the period covering mainly 1900's to beginning of WW1 in 1914.
-
-**undetermined** — the time period is deliberately vague or impossible to place (often in fables, allegories, or abstract settings).
 
 
 **PLACE CONTEXTS**
-
-**country-style** — rural settings, countryside, villages, farmland. Not simply "outside the city" but a distinctly rural atmosphere and way of life.
 
 **building** — When the building is the central place of action and intrigue.
 

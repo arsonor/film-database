@@ -471,14 +471,14 @@ CREATE INDEX IF NOT EXISTS idx_film_message_message_id ON film_message(message_i
 CREATE TABLE IF NOT EXISTS film_sequel (
     film_id INTEGER NOT NULL,
     related_film_id INTEGER NOT NULL,
-    relation_type VARCHAR(20) NOT NULL CHECK (relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot')),
+    relation_type VARCHAR(20) NOT NULL CHECK (relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot', 'cycle')),
     PRIMARY KEY (film_id, related_film_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (related_film_id) REFERENCES film(film_id) ON DELETE CASCADE
 );
 
-COMMENT ON TABLE film_sequel IS 'Relationships between films (sequel, prequel, remake, spinoff, reboot)';
-COMMENT ON COLUMN film_sequel.relation_type IS 'Type of relationship: sequel, prequel, remake, spinoff, or reboot';
+COMMENT ON TABLE film_sequel IS 'Relationships between films (sequel, prequel, remake, spinoff, reboot, cycle)';
+COMMENT ON COLUMN film_sequel.relation_type IS 'Type of relationship: sequel, prequel, remake, spinoff, reboot, or cycle';
 
 CREATE INDEX IF NOT EXISTS idx_film_sequel_film_id ON film_sequel(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_sequel_related_film_id ON film_sequel(related_film_id);

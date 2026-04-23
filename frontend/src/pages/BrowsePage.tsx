@@ -51,6 +51,10 @@ export function BrowsePage() {
     queryClient.invalidateQueries({ queryKey: ["film"] });
   }, [queryClient]);
 
+  const handleShuffle = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["films"] });
+  }, [queryClient]);
+
   const anonExtra = !isAuthenticated && films ? films.total - Math.min(films.total, ANON_LIMIT) : 0;
 
   return (
@@ -60,6 +64,7 @@ export function BrowsePage() {
       taxonomies={taxonomies}
       onSearchChange={setSearch}
       onSortChange={setSort}
+      onShuffle={handleShuffle}
       onToggleFilter={toggleFilter}
       onExcludeFilter={excludeFilter}
       onSetFilterMode={setFilterMode}

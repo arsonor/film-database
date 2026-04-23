@@ -87,7 +87,7 @@ async def list_films(
     seen: bool | None = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    sort_by: str = Query("year", pattern="^(year|title|duration|budget|revenue|popularity)$"),
+    sort_by: str = Query("year", pattern="^(year|title|duration|budget|revenue|popularity|random)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     user: UserInfo | None = Depends(get_current_user),
@@ -498,8 +498,12 @@ async def list_films(
         "revenue": "f.revenue",
         "popularity": "f.weighted_score",
     }
-    sort_col = sort_col_map[sort_by]
-    order = sort_order.upper()
+    if sort_by == "random":
+        order_clause = "RANDOM()"
+    else:
+        sort_col = sort_col_map[sort_by]
+        order = sort_order.upper()
+        order_clause = f"{sort_col} {order} NULLS LAST, f.film_id ASC"
 
     # Count query
     count_sql = f"SELECT COUNT(*) FROM film f WHERE {where_sql}"
@@ -522,7 +526,7 @@ async def list_films(
         FROM film f
         {user_join}
         WHERE {where_sql}
-        ORDER BY {sort_col} {order} NULLS LAST, f.film_id ASC
+        ORDER BY {order_clause}
         LIMIT :limit OFFSET :offset
     """
     params["limit"] = per_page
@@ -1494,7 +1498,7 @@ async def add_film_relation(
 
     if not related_film_id or not relation_type:
         raise HTTPException(status_code=400, detail="related_film_id and relation_type required")
-    if relation_type not in ("sequel", "prequel", "remake", "spinoff", "reboot"):
+    if relation_type not in ("sequel", "prequel", "remake", "spinoff", "reboot", "cycle"):
         raise HTTPException(status_code=400, detail="Invalid relation_type")
     if related_film_id == film_id:
         raise HTTPException(status_code=400, detail="Cannot relate a film to itself")

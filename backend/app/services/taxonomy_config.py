@@ -30,7 +30,7 @@ VALID_CINEMA_TYPES = [
     "slow cinema", "non linear narrative", "dogma",
     "dialogs", "slang dialogs", "few/no dialogs", "voiceover",
     # Group 5: Cinema sub-genres/archetypes
-    "biopic", "historical event", "fait divers/true incident",
+    "biopic", "fait divers/true incident",
     "western", "peplum", "swashbuckler", "costume drama",
     "wu xia pian", "blaxploitation", "giallo", "slasher",
     "black comedy", "docufiction",
@@ -38,7 +38,7 @@ VALID_CINEMA_TYPES = [
 
 VALID_PLACE_ENVIRONMENTS = [
     # Group 1: Natural environments
-    "urban", "country-style", "forest", "mountains", "desert", "beach",
+    "urban", "country", "forest", "mountains", "desert", "beach",
     "maritime", "island", "underground", "space",
     # Group 2: Buildings & institutions
     "building", "household/house/apartment", "company/factory",
@@ -76,7 +76,7 @@ VALID_THEMES = [
     # Group 4: Sci-fi / Fantasy
     "dystopia", "tales and legends", "supernatural",
     "sorcery", "alien contact", "paranormal", "curse",
-    "time travel/loop", "virtual reality", "dream", "whimsical/zany",
+    "time travel/loop", "virtual/parallel universe", "dream", "whimsical/zany",
     # Group 5: Art, Sport & Entertainment
     "art", "art: music", "art: cinema", "art: literature", "art: fashion",
     "art: painting", "art: sculpture", "art: theatre", "art: radio",
@@ -96,8 +96,8 @@ VALID_CHARACTERS = [
     "childhood", "teenager", "elderly", "adult/child", "female", "LGBT",
     "interracial",
     # Group 3: Social status & traits
-    "ordinary", "poor/marginal", "wealthy", "genius", "idiot",
-    "charismatic", "loser", "star/celebrity", "disturbed/madness",
+    "ordinary", "poor/marginal", "wealthy", "genius", "simpleton/fool",
+    "loser", "star/celebrity", "disturbed/madness",
     "disabled", "outcast/misfit", "prostitute", "psychopath",
     # Group 4: Narrative devices
     "double", "cross-dressing", "unreliable narrator",
@@ -121,7 +121,7 @@ VALID_ATMOSPHERES = [
     # Group 4: Dark/Extreme
     "depressive/sad", "violent", "disturbing", "steamy", "gore", "sordid",
     # Group 5: Scale & Tone
-    "gritty/realistic", "epic",
+    "cityscape", "pastoral", "gritty/realistic", "epic",
 ]
 
 VALID_MOTIVATIONS = [

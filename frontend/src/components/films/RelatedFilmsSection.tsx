@@ -20,7 +20,7 @@ import {
 import { tmdbImageUrl } from "@/lib/utils";
 import type { FilmRelation } from "@/types/api";
 
-const RELATION_TYPES = ["sequel", "prequel", "remake", "spinoff", "reboot"] as const;
+const RELATION_TYPES = ["sequel", "prequel", "remake", "spinoff", "reboot", "cycle"] as const;
 
 interface RelatedFilmsSectionProps {
   filmId: number;

@@ -421,7 +421,7 @@ class FilmMessage(Base):
 class FilmSequel(Base):
     __tablename__ = "film_sequel"
     __table_args__ = (
-        CheckConstraint("relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot')"),
+        CheckConstraint("relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot', 'cycle')"),
     )
 
     film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)

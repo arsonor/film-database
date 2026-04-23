@@ -91,18 +91,17 @@ INSERT INTO cinema_type (technique_name, sort_order) VALUES
     ('voiceover', 409),
     -- Group 5: Cinema sub-genres/archetypes (500s)
     ('biopic', 500),
-    ('historical event', 501),
-    ('fait divers/true incident', 502),
-    ('western', 503),
-    ('peplum', 504),
-    ('swashbuckler', 505),
-    ('costume drama', 506),
-    ('wu xia pian', 507),
-    ('blaxploitation', 508),
-    ('giallo', 509),
-    ('slasher', 510),
-    ('black comedy', 511),
-    ('docufiction', 512)
+    ('fait divers/true incident', 501),
+    ('western', 502),
+    ('peplum', 503),
+    ('swashbuckler', 504),
+    ('costume drama', 505),
+    ('wu xia pian', 506),
+    ('blaxploitation', 507),
+    ('giallo', 508),
+    ('slasher', 509),
+    ('black comedy', 510),
+    ('docufiction', 511)
 ON CONFLICT (technique_name) DO NOTHING;
 
 -- =============================================================================
@@ -112,7 +111,7 @@ ON CONFLICT (technique_name) DO NOTHING;
 INSERT INTO place_context (environment, sort_order) VALUES
     -- Group 1: Natural environments (100s)
     ('urban', 100),
-    ('country-style', 101),
+    ('country', 101),
     ('forest', 102),
     ('mountains', 103),
     ('desert', 104),
@@ -228,7 +227,7 @@ INSERT INTO theme_context (theme_name, sort_order) VALUES
     ('paranormal', 405),
     ('curse', 406),
     ('time travel/loop', 407),
-    ('virtual reality', 408),
+    ('virtual/parallel universe', 408),
     ('dream', 409),
     ('whimsical/zany', 410),
     -- Group 5: Art, Sport & Entertainment (500-599)
@@ -285,15 +284,14 @@ INSERT INTO character_context (context_name, sort_order) VALUES
     ('poor/marginal', 301),
     ('wealthy', 302),
     ('genius', 303),
-    ('idiot', 304),
-    ('charismatic', 305),
-    ('loser', 306),
-    ('star/celebrity', 307),
-    ('disturbed/madness', 308),
-    ('disabled', 309),
-    ('outcast/misfit', 310),
-    ('prostitute', 311),
-    ('psychopath', 312),
+    ('simpleton/fool', 304),
+    ('loser', 305),
+    ('star/celebrity', 306),
+    ('disturbed/madness', 307),
+    ('disabled', 308),
+    ('outcast/misfit', 309),
+    ('prostitute', 310),
+    ('psychopath', 311),
     -- Group 4: Narrative devices (400s)
     ('double', 400),
     ('cross-dressing', 401),
@@ -353,8 +351,10 @@ INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES
     ('gore', 404),
     ('sordid', 405),
     -- Group 5: Scale & Tone (500s)
-    ('gritty/realistic', 500),
-    ('epic', 501)
+    ('cityscape', 500),
+    ('pastoral', 501),
+    ('gritty/realistic', 502),
+    ('epic', 503)
 ON CONFLICT (atmosphere_name) DO NOTHING;
 
 -- =============================================================================

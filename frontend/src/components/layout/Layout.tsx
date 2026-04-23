@@ -28,6 +28,7 @@ interface LayoutProps {
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
   onUpdateFilters: (updates: Partial<FilterState>) => void;
+  onShuffle?: () => void;
   isAdmin?: boolean;
   children: React.ReactNode;
 }
@@ -42,6 +43,7 @@ export function Layout({
   onExcludeFilter,
   onSetFilterMode,
   onUpdateFilters,
+  onShuffle,
   isAdmin,
   children,
 }: LayoutProps) {
@@ -73,6 +75,7 @@ export function Layout({
         onSearchChange={onSearchChange}
         onSortChange={onSortChange}
         onOpenMobileFilters={() => setMobileOpen(true)}
+        onShuffle={onShuffle}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
       />

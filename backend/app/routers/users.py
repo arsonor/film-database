@@ -199,26 +199,41 @@ async def update_film_status(
     if not r.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Film not found")
 
+    # Build SET clauses — use COALESCE for booleans/text, but allow
+    # explicit null for nullable fields like rating/notes
+    set_clauses = []
+    params: dict = {"uid": user.id, "fid": film_id}
+
+    if "seen" in body:
+        set_clauses.append("seen = COALESCE(:seen, user_film_status.seen)")
+        params["seen"] = body["seen"]
+    if "favorite" in body:
+        set_clauses.append("favorite = COALESCE(:fav, user_film_status.favorite)")
+        params["fav"] = body["favorite"]
+    if "watchlist" in body:
+        set_clauses.append("watchlist = COALESCE(:wl, user_film_status.watchlist)")
+        params["wl"] = body["watchlist"]
+    if "rating" in body:
+        set_clauses.append("rating = :rating")
+        params["rating"] = body["rating"]
+    if "notes" in body:
+        set_clauses.append("notes = :notes")
+        params["notes"] = body["notes"]
+
     # Upsert user_film_status
     await db.execute(
-        text("""
+        text(f"""
             INSERT INTO user_film_status (user_id, film_id, seen, favorite, watchlist, rating, notes)
-            VALUES (:uid, :fid, :seen, :fav, :wl, :rating, :notes)
+            VALUES (:uid, :fid,
+                    {':seen' if 'seen' in params else 'FALSE'},
+                    {':fav' if 'fav' in params else 'FALSE'},
+                    {':wl' if 'wl' in params else 'FALSE'},
+                    {':rating' if 'rating' in params else 'NULL'},
+                    {':notes' if 'notes' in params else 'NULL'})
             ON CONFLICT (user_id, film_id) DO UPDATE SET
-                seen = COALESCE(:seen, user_film_status.seen),
-                favorite = COALESCE(:fav, user_film_status.favorite),
-                watchlist = COALESCE(:wl, user_film_status.watchlist),
-                rating = COALESCE(:rating, user_film_status.rating),
-                notes = COALESCE(:notes, user_film_status.notes)
+                {', '.join(set_clauses) if set_clauses else 'user_id = user_film_status.user_id'}
         """),
-        {
-            "uid": user.id, "fid": film_id,
-            "seen": body.get("seen"),
-            "fav": body.get("favorite"),
-            "wl": body.get("watchlist"),
-            "rating": body.get("rating"),
-            "notes": body.get("notes"),
-        },
+        params,
     )
     await db.commit()
     return {"film_id": film_id, "updated": True}
