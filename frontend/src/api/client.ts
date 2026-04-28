@@ -91,6 +91,15 @@ export async function fetchTaxonomy(dimension: string): Promise<TaxonomyList> {
   return fetchJson<TaxonomyList>(`${BASE}/taxonomy/${dimension}`);
 }
 
+export interface TagFrequencies {
+  total_films: number;
+  dimensions: Record<string, Record<string, number>>;
+}
+
+export async function fetchTagFrequencies(): Promise<TagFrequencies> {
+  return fetchJson<TagFrequencies>(`${BASE}/taxonomy/tag-frequencies`);
+}
+
 export async function addTaxonomyValue(
   dimension: string,
   name: string,
@@ -206,6 +215,27 @@ export async function searchGeography(q: string): Promise<GeographySearchResult[
 
 export async function fetchFilmDetail(filmId: number): Promise<FilmDetail> {
   return fetchJson<FilmDetail>(`${BASE}/films/${filmId}`);
+}
+
+export interface SimilarFilm {
+  film_id: number;
+  original_title: string;
+  first_release_date: string | null;
+  duration: number | null;
+  poster_url: string | null;
+  director: string | null;
+  categories: string[];
+  score: number;
+  score_pct: number;
+  shared_tags: Record<string, string[]>;
+}
+
+export interface SimilarFilmsResponse {
+  items: SimilarFilm[];
+}
+
+export async function fetchSimilarFilms(filmId: number, limit = 12): Promise<SimilarFilmsResponse> {
+  return fetchJson<SimilarFilmsResponse>(`${BASE}/films/${filmId}/similar?limit=${limit}`);
 }
 
 export async function deleteFilm(filmId: number): Promise<void> {

@@ -201,3 +201,166 @@ No particular prompt
 *(see git history for original prompts)*
 
 ---
+
+## Step 16a Prompt — Recommender: "Refine in Browse" Button
+
+Step 16a Summary
+Backend: GET /api/taxonomy/tag-frequencies (24h cache, mutation-invalidated) — kept for use by future 16b/16c logic.
+Frontend: "Refine in Browse →" button in Similar Films section header. Pro/Admin only. Click loads all tags from the current film into /browse in OR mode (per-dimension), letting the user manually deselect/AND-toggle from a complete starting state. Smart-selection approach (selectDistinctiveTags) was prototyped and discarded — applying all tags in OR mode tested better in practice because the user is already the best judge of which tags matter for that specific film.
+
+---
+
+## Step 16b Prompt — Recommender: Similar Films Algorithm (In-DB)
+
+**Goal:** New endpoint `GET /api/films/{id}/similar?limit=N` returning the top-N most similar films using IDF-weighted Jaccard across 9 taxonomy dimensions plus structural bonuses.
+
+One thing worth flagging:
+cachetools is referenced in the 16b prompt — verify it's already in backend/requirements.txt. If not, that dependency add should be part of 16b. Standard library functools.lru_cache doesn't support TTL so we genuinely need it.
+
+### Read first
+
+- PLAN.md "Step 16: Recommender Engine" for the formula and weights
+- `backend/app/routers/films.py` for SQL patterns (especially the parallel-query approach in `get_film`)
+- `backend/app/database.py`
+- `backend/app/auth.py` for `get_current_user`
+- `backend/app/tier_config.py`
+- `backend/app/schemas/film.py`
+
+### Algorithm reference
+
+Per source film S and each candidate C:
+- For each dimension d in {atmospheres, themes, motivations, messages, cinema_types, characters, categories, place_contexts, time_periods}:
+  - per_dim_score(d) = sum of idf(t) over shared tags / sum of idf(t) over union of tags
+- total = Σ_d W_d × per_dim_score(d) + bonuses
+- Bonuses: +0.10 (any director match), +0.03 (any studio match AND same release decade), +0.05 × normalized `weighted_score`
+- Exclude: self, any film linked via `film_sequel` in either direction
+
+Dimension weights: atmospheres 1.4, themes 1.3, motivations 1.1, messages 1.0, cinema_types 1.0, characters 0.9, categories 0.7, place_contexts 0.6, time_periods 0.5.
+
+### Implementation
+
+1. **New module** `backend/app/services/recommender.py`:
+   - Constants block at the top of the file: `DIMENSION_WEIGHTS`, `BONUS_DIRECTOR`, `BONUS_STUDIO_DECADE`, `BONUS_QUALITY_MAX`, `IDF_CACHE_TTL_HOURS = 24`. Easy to tune in 16d.
+   - `compute_idf_map(db) → dict[dim, dict[tag, float]]`: one query per dimension grouping by tag with COUNT(DISTINCT film_id). Total film count from a single COUNT query. idf(t) = `log(total_films / count(t))`.
+   - `get_similar_films(db, film_id, limit) → list[SimilarFilm]`: orchestrates the SQL + post-processing for `shared_tags`.
+   - `invalidate_film(film_id)` and `invalidate_idf()` exposed for cache busting from routers.
+
+2. **Caching** (two layers):
+   - **IDF map**: module-level dict, lazy-loaded on first request, refreshed every 24h via background asyncio task on app startup. Manually invalidatable.
+   - **Per-film similarity results**: `cachetools.TTLCache(maxsize=2000, ttl=3600)` keyed by `(film_id, limit, tier)`. Tier in the key because result count varies by tier.
+
+3. **SQL approach** — a single CTE-based query:
+   - CTE 1: source film's tags per dimension (UNION ALL across the 9 junction tables → columns `dimension`, `tag_id`, `tag_name`).
+   - CTE 2: candidate films' tag arrays per dimension (one row per (film_id, dimension) with array_agg of tags). Filter out self and `film_sequel` matches early.
+   - Main SELECT: for each candidate, compute per-dimension scores using array intersection / union with the source's tags weighted by IDF. IDF can be passed in as a JSONB parameter (PostgreSQL handles JSONB fast) or joined from a temporary `tag_idf` table built from the cached IDF map.
+   - Apply bonuses via LEFT JOINs (crew on shared director, production on shared studio + decade match).
+   - ORDER BY score DESC LIMIT N.
+   - Return film_id, original_title, first_release_date, duration, poster_url, director (concat), score, plus enough info to derive `shared_tags`.
+
+   If the all-in-one CTE gets unwieldy: alternative is a 2-step approach — (1) get candidate IDs ranked by a coarser score in SQL, (2) re-fetch the top-N with full shared_tags in Python. Cleaner separation, only N=12 extra small queries.
+
+4. **Endpoint** in `backend/app/routers/films.py`:
+   ```
+   @router.get("/films/{film_id}/similar", response_model=SimilarFilmsResponse)
+   async def similar_films(
+       film_id: int,
+       limit: int = Query(12, ge=1, le=20),
+       db: AsyncSession = Depends(get_db),
+       user: UserInfo | None = Depends(get_current_user),
+   ):
+   ```
+   - Tier-cap the requested `limit`: anonymous → min(limit, 3), free → min(limit, 6), pro/admin → limit.
+   - 404 if film_id doesn't exist.
+
+5. **Schemas** in `backend/app/schemas/film.py`:
+   ```
+   class SimilarFilm(BaseModel):
+       film_id: int
+       original_title: str
+       first_release_date: date | None = None
+       duration: int | None = None
+       poster_url: str | None = None
+       director: str | None = None
+       categories: list[str] = []
+       score: float
+       score_pct: int  # 0–100, score normalized for UI display
+       shared_tags: dict[str, list[str]]  # dim → top 3 shared tags
+
+   class SimilarFilmsResponse(BaseModel):
+       items: list[SimilarFilm]
+   ```
+
+6. **Cache invalidation hooks** — wire into existing endpoints:
+   - `update_film` (PUT /films/{id}): call `recommender.invalidate_film(film_id)` after commit.
+   - `add_film_relation` and `delete_film_relation`: invalidate both `film_id` and `related_film_id`.
+   - `delete_film`: invalidate that film_id. Other entries naturally filter the deleted film via the JOIN.
+
+### Performance target
+
+First request for a film: ≤500ms uncached. Cached: ≤50ms. If the SQL is slow, profile with EXPLAIN ANALYZE — most likely missing or unused indexes on junction tables. The schema already has these per `schema.sql`; verify with the query plan.
+
+### Acceptance
+
+- `GET /api/films/{mulholland_drive_id}/similar` returns 12 films, all sharing some atmospheric/thematic DNA. Lynch films near top, neo-noir / dreamlike / mysterious titles present.
+- `GET /api/films/{la_haine_id}/similar` surfaces social/political dramas with similar oppressive atmosphere.
+- Sequel films excluded by construction (verify with a known franchise).
+- Source film never present in its own results.
+- Updating a film's tags via PUT → next call returns refreshed results (no stale cache).
+- Adding a `film_sequel` relation → that film disappears from each other's similar list on next call.
+
+---
+
+## Step 16c Prompt — Recommender: SimilarFilmsCarousel UI
+
+**Goal:** Replace the placeholder `SimilarFilmsCarousel` with the real recommendation UI driven by the 16b endpoint, with the "Refine in Browse →" button (16a) integrated into the section header.
+
+### Read first
+
+- `frontend/src/components/films/SimilarFilmsCarousel.tsx` (the placeholder being replaced)
+- `frontend/src/components/films/FilmCard.tsx`
+- `frontend/src/components/films/SectionHeading.tsx`
+- `frontend/src/api/client.ts`
+- `frontend/src/types/api.ts`
+- `frontend/src/pages/FilmDetailPage.tsx` (where the carousel is mounted)
+- `frontend/src/lib/recommender.ts` (from 16a)
+
+### Implementation
+
+1. **Types** in `frontend/src/types/api.ts`: add `SimilarFilm` and `SimilarFilmsResponse` mirroring the backend schemas from 16b.
+
+2. **API client** in `frontend/src/api/client.ts`: add `fetchSimilarFilms(filmId, limit)`.
+
+3. **New hook** `frontend/src/hooks/useSimilarFilms.ts`:
+   - React Query, staleTime 5min, only fetches when `filmId` is truthy.
+   - Pass `limit` derived from tier (anonymous 3, free 6, pro/admin 12).
+
+4. **Updated component** `SimilarFilmsCarousel.tsx`:
+   - Props: `filmId: number`, `tier: "anonymous" | "free" | "pro" | "admin"`, `currentFilm: FilmDetail` (needed for the Refine button to read tags).
+   - **Section header**: "Similar Films" on the left, **"Refine in Browse →"** button on the right (calls `selectDistinctiveTags(currentFilm, idfMap, tier)` from 16a, builds URLSearchParams, navigates).
+   - **Body**: horizontal scroll container, FilmCard for each film. Scroll-snap on mobile. Cards show poster + title + year + (Pro only) a thin "match: 78%" indicator from `score_pct`.
+   - **"Why?" tooltip** on each card (Pro/Admin only): hover shows top shared tags per dimension. Use shadcn/ui `Tooltip` if available; max width ~280px; dimensions as small headers, tags as inline chips.
+   - **Tier teasing**: at tier limit, show a blurred 5th-position card with overlay "Sign up free for more" (anonymous) or "Upgrade to Pro for full recommendations" (free). Click → `/auth` or pricing.
+   - **Loading**: skeleton cards (already partially in placeholder).
+   - **Error**: tasteful inline message, do not break the page.
+   - **Empty state**: if a film has too few tags to compute similarity (rare), fall back to the existing placeholder copy.
+
+5. **Wire-up** in `FilmDetailPage.tsx`:
+   - Pass `currentFilm={film}` and the user's `tier`.
+   - Remove the temporary Refine button placement from 16a (the section header is the canonical home).
+   - Keep the existing scroll-anchor `id="similar-films"` on the wrapping section.
+
+### Visual polish
+
+- No layout shift when the carousel resolves — reserve the height during loading.
+- Score percentage uses subdued color (muted-foreground), not amber — it's secondary information.
+- Tooltip dimension labels go through `dimensionLabel` from `lib/utils.ts` for consistency.
+
+### Acceptance
+
+- Mulholland Drive page: 12 films in carousel for Pro, 6 for free, 3 for anonymous.
+- Hovering "Why?" on Pro shows top shared tags per dimension; tooltip absent on free/anonymous.
+- Clicking "Refine in Browse →" navigates to /browse with 5–8 distinctive tags pre-selected (matches 16a acceptance).
+- Direct sequels (visible in Related Films) do **not** appear in Similar Films.
+- After admin adds a manual relation between two films, refreshing the page removes that film from each other's Similar Films section.
+
+---

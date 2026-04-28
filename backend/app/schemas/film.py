@@ -156,6 +156,23 @@ class PaginatedFilms(BaseModel):
 # =============================================================================
 
 
+class SimilarFilm(BaseModel):
+    film_id: int
+    original_title: str
+    first_release_date: date | None = None
+    duration: int | None = None
+    poster_url: str | None = None
+    director: str | None = None
+    categories: list[str] = []
+    score: float
+    score_pct: int
+    shared_tags: dict[str, list[str]]
+
+
+class SimilarFilmsResponse(BaseModel):
+    items: list[SimilarFilm]
+
+
 class FilmCreate(BaseModel):
     """Schema for creating a film. Matches the structure from db_inserter."""
     film: dict

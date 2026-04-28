@@ -3,6 +3,7 @@ Taxonomy API endpoints — list, add, rename, merge, delete taxonomy values.
 """
 
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.auth import require_admin
@@ -21,6 +22,19 @@ from backend.app.schemas.taxonomy import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["taxonomy"])
+
+# ---------------------------------------------------------------------------
+# In-memory cache for tag frequencies (used by recommender)
+# ---------------------------------------------------------------------------
+_freq_cache: dict | None = None
+_freq_cache_ts: float = 0.0
+_FREQ_CACHE_TTL = 86400  # 24 hours
+
+
+def invalidate_freq_cache():
+    global _freq_cache, _freq_cache_ts
+    _freq_cache = None
+    _freq_cache_ts = 0.0
 
 # Mapping: dimension name → (lookup_table, id_column, name_column, junction_table, junction_fk)
 DIMENSION_MAP = {
@@ -50,6 +64,45 @@ SORTED_DIMENSIONS = {
 # Special dimensions not in DIMENSION_MAP
 SPECIAL_DIMENSIONS = {"languages"}
 ALL_DIMENSIONS = set(DIMENSION_MAP.keys()) | SPECIAL_DIMENSIONS
+
+
+FREQ_DIMENSIONS = {
+    "categories": ("category", "category_name", "film_genre", "category_id"),
+    "cinema_types": ("cinema_type", "technique_name", "film_technique", "cinema_type_id"),
+    "themes": ("theme_context", "theme_name", "film_theme", "theme_context_id"),
+    "characters": ("character_context", "context_name", "film_character_context", "character_context_id"),
+    "atmospheres": ("atmosphere", "atmosphere_name", "film_atmosphere", "atmosphere_id"),
+    "messages": ("message_conveyed", "message_name", "film_message", "message_id"),
+    "motivations": ("motivation_relation", "motivation_name", "film_motivation", "motivation_id"),
+    "time_periods": ("time_context", "time_period", "film_period", "time_context_id"),
+    "place_contexts": ("place_context", "environment", "film_place", "place_context_id"),
+}
+
+
+@router.get("/taxonomy/tag-frequencies")
+async def get_tag_frequencies(db: AsyncSession = Depends(get_db)):
+    global _freq_cache, _freq_cache_ts
+
+    if _freq_cache and (time.time() - _freq_cache_ts) < _FREQ_CACHE_TTL:
+        return _freq_cache
+
+    r = await db.execute(text("SELECT COUNT(*) FROM film"))
+    total_films = r.scalar_one()
+
+    dimensions: dict[str, dict[str, int]] = {}
+    for dim, (table, name_col, junc, fk) in FREQ_DIMENSIONS.items():
+        result = await db.execute(text(f"""
+            SELECT lt.{name_col}, COUNT(jt.film_id)
+            FROM {table} lt
+            LEFT JOIN {junc} jt ON lt.{fk} = jt.{fk}
+            GROUP BY lt.{name_col}
+        """))
+        dimensions[dim] = {row[0]: row[1] for row in result.fetchall()}
+
+    payload = {"total_films": total_films, "dimensions": dimensions}
+    _freq_cache = payload
+    _freq_cache_ts = time.time()
+    return payload
 
 
 @router.get("/taxonomy/{dimension}", response_model=TaxonomyList)
@@ -225,6 +278,7 @@ async def add_taxonomy_value(
             )
             new_id = result.scalar_one()
             await db.commit()
+            invalidate_freq_cache()
             return TaxonomyItem(id=new_id, name=body.name, film_count=0)
         except Exception as e:
             await db.rollback()
@@ -250,6 +304,7 @@ async def add_taxonomy_value(
         result = await db.execute(text(sql), params)
         new_id = result.scalar_one()
         await db.commit()
+        invalidate_freq_cache()
         return TaxonomyItem(id=new_id, name=body.name, film_count=0, sort_order=sort_val if has_sort else None)
     except Exception as e:
         await db.rollback()
@@ -301,6 +356,7 @@ async def rename_taxonomy_value(
     if not result.scalar_one_or_none():
         raise HTTPException(status_code=404, detail="Value not found")
     await db.commit()
+    invalidate_freq_cache()
     return TaxonomyItem(id=item_id, name=body.name)
 
 
@@ -361,6 +417,7 @@ async def merge_taxonomy_values(
     )
 
     await db.commit()
+    invalidate_freq_cache()
     logger.info("Merged %s #%d into #%d (%d films affected)", dimension, body.source_id, body.target_id, films_affected)
     return {"merged": True, "films_affected": films_affected}
 
@@ -413,4 +470,5 @@ async def delete_taxonomy_value(
         {"id": item_id},
     )
     await db.commit()
+    invalidate_freq_cache()
     return {"deleted": True, "films_affected": film_count}

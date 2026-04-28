@@ -69,7 +69,7 @@
 
 **contemplative/meditative** — The film creates a feeling of calm, stillness, and peaceful observation. The viewer's mind is released and quieted. Key indicators: static or slow camera, silence or sparse sound, ASMR-like quality, a sense of emotional distance or serenity. The viewer feels like they are resting. This tag is rarely combined with tension, action, or narrative urgency. Think Kiarostami, Ozu, Terrence Malick's quiet passages, Nomadland. Distinct from **slow cinema** (Cinema Types), which is a formal filmmaking movement.
 
-**oppressive** — the viewer feels trapped under sustained psychological weight, heavy tension, or dread. Not simply "tense" (a thriller can be tense without being oppressive) — this is when the film doesn't let you breathe.
+**oppressive** — films where the atmosphere creates a sustained, suffocating weight the viewer physically feels throughout. Not tense scenes, not dark moments, but an unrelenting heaviness. Oppressive is not a moment, it's the entire viewing experience. Think Se7en, Come and See, Funny Games, Irreversible, Salò.
 
 **meticulous** — the film demonstrates exceptional precision and attention to detail in its storytelling, direction, or visual composition. Everything feels deliberate, ordered, controlled (e.g. Kubrick, Fincher, Wes Anderson).
 
@@ -142,7 +142,7 @@
 
 **MESSAGES**
 
-**humanist** — the film affirms human dignity, empathy, compassion, or the value of the individual. A warm belief in humanity's better nature.
+**humanist** — the film is explicitly making a statement about human compassion, dignity, or the value of every individual life. It's not enough for the film to be "warm" or "about people." The humanist/human dignity message must be what the viewer takes away as the film's core statement. Think Schindler's List, The Shawshank Redemption, To Kill a Mockingbird, Amélie, Life Is Beautiful.
 
 **anti establishment** — the film challenges or criticizes institutional power, authority, or the status quo.
 
@@ -154,13 +154,13 @@
 
 **revisionist/alternate history** — the film deliberately reinterprets, subverts, or reimagines historical events or genre conventions (e.g. Inglourious Basterds, Unforgiven).
 
-**philosophical** vs **metaphysical** — philosophical engages with ideas about how to live, ethics, meaning, or the human condition through intellectual inquiry. Metaphysical goes further: it questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world. All metaphysical films are philosophical, but not all philosophical films are metaphysical.
+**philosophical** vs **metaphysical** — a philosophical film explicitly engages with philosophical questions or ideas as part of its narrative or dialogue. Characters discuss meaning, the film poses ethical dilemmas as its subject, or the structure itself embodies a philosophical argument. Metaphysical goes further: it questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world.
 
 **surreal** vs **dreamlike** — surreal involves deliberate, often jarring juxtapositions of impossible or irrational elements (rooted in the Surrealist art movement). Dreamlike is softer: the film has a floating, oneiric quality without necessarily deploying surrealist techniques.
 
 **symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (which questions reality) and from **surreal** (which distorts it) — symbolic asks the viewer to decode the film's visual and narrative language (e.g. The Tree of Life, Stalker, Mother! by Aronofsky).
 
-**poetic** — film with poetic, lyrical, or metaphorical qualities in its storytelling, visuals, or themes.
+**poetic** — the film must have a distinctly lyrical quality in its pacing, imagery, or language that prioritizes beauty, rhythm, and emotional resonance over narrative efficiency. The storytelling feels closer to poetry than to prose — elliptical, image-driven, emotionally rather than logically structured. Think Terrence Malick, Wong Kar-wai, Tarkovsky, Wim Wenders, Claire Denis.
 
 **CINEMA TYPES**
 

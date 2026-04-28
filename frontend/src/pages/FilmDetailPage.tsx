@@ -427,7 +427,7 @@ export function FilmDetailPage() {
 
         {/* Similar Films */}
         <section id="similar-films" className="scroll-mt-20">
-          <SimilarFilmsCarousel filmId={film.film_id} locked={tier !== "pro" && tier !== "admin"} />
+          <SimilarFilmsCarousel filmId={film.film_id} film={film} />
         </section>
 
         <Separator />

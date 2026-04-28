@@ -28,6 +28,9 @@
 | 15a | Supabase Auth + user roles + vu migration | ✅ DONE | JWT auth, user_profile, user_film_status, migrate film.vu |
 | 15b | Personal tracking UI + Collection + Nav menu | ✅ DONE | Favorites/watchlist/rating/notes, /collection page, header dropdown |
 | 15c | Tier-gated taxonomy access | ✅ DONE | Dimension gating by tier, filter limits, OR/NOT gating, upgrade prompts |
+| 16a | Recommender: "Refine in Browse" button | 🔲 TODO | Smart tag preselection from a film's tags, IDF-ranked, tier-aware |
+| 16b | Recommender: Similar Films algorithm (in-DB) | 🔲 TODO | IDF-weighted Jaccard across 9 dims + structural bonuses, on-demand SQL |
+| 16c | Recommender: SimilarFilmsCarousel UI | 🔲 TODO | Replace placeholder, "Why?" tooltips, tier-gated 3/6/12 results |
 
 ---
 
@@ -74,4 +77,49 @@
 ## Step 15c: Tier-Gated Taxonomy Access
 
 Restrict taxonomy filter access based on user tier. Anonymous and free users see all dimensions but can only interact with a subset. Pro users get full access. This creates the core value proposition for upgrading.
+
+---
+
+## Step 16: Recommender Engine (in-DB)
+
+Two complementary surfaces driven by the same taxonomy-based similarity:
+
+- **Carousel** ("Similar Films" section on each film page) — passive, top-N algorithm-curated.
+- **Button** ("Refine in Browse →" inside the same section header) — active, drops the user on /browse with the most distinctive tags pre-selected so they can iterate manually.
+
+### Algorithm
+
+**IDF-weighted Jaccard per dimension, summed across 9 dimensions, plus structural bonuses.**
+
+For source film S and candidate C, per-dimension d:
+- per_dim_score(d) = Σ_{t ∈ T_S^d ∩ T_C^d} idf(t) / Σ_{t ∈ T_S^d ∪ T_C^d} idf(t)
+- total = Σ_d W_d × per_dim_score(d) + bonuses
+
+**Initial dimension weights** (tunable):
+atmospheres 1.4 · themes 1.3 · motivations 1.1 · messages 1.0 · cinema_types 1.0 · characters 0.9 · categories 0.7 · place_contexts 0.6 · time_periods 0.5
+
+**Bonuses**:
+- Same director (any overlap): +0.10
+- Same studio + same release decade: +0.03
+- Quality nudge: +0.05 × normalized weighted_score
+
+**Exclusions**: self; films linked via `film_sequel` (any direction, any relation_type — these belong in the Related Films section, which is admin-editable).
+
+### Performance
+
+On-demand SQL (Option A). Sufficient for ~4000 films at ~150–400ms uncached. Precomputed similarity table and pgvector embeddings deferred until DB scale demands it.
+
+### Adaptability to taxonomy changes
+
+Junction tables are re-read on every request → tag edits and taxonomy renames are reflected immediately. **IDF (tag rarity)** is cached in memory and refreshed daily; drift between refreshes is negligible at current DB size. Cache also invalidated on film tag updates and on relation add/remove.
+
+### Tier gating
+
+- Anonymous: 3 results, blurred 4th teasing upgrade
+- Free: 6 results
+- Pro / Admin: 12 results, "Why?" tooltips listing top shared tags per dimension, score-as-percentage indicator
+
+### Step 16d (later, no separate ticket) — Tuning loop
+
+Manual rating of top-12 results on 10 reference films, adjust weights and bonuses iteratively. Optional admin debug view exposing per-dimension contribution to score.
 

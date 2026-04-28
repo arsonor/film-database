@@ -30,9 +30,12 @@ from backend.app.schemas.film import (
     FilmTitle,
     FilmUpdate,
     PaginatedFilms,
+    SimilarFilm,
+    SimilarFilmsResponse,
     SourceOut,
     UserFilmStatus,
 )
+from backend.app.services import recommender
 
 logger = logging.getLogger(__name__)
 
@@ -915,6 +918,42 @@ async def get_film(
 
 
 # =============================================================================
+# GET /api/films/{film_id}/similar — Similar films
+# =============================================================================
+
+
+TIER_SIMILAR_LIMITS: dict[str, int] = {
+    "anonymous": 3,
+    "free": 6,
+    "pro": 12,
+    "admin": 12,
+}
+
+
+@router.get("/films/{film_id}/similar", response_model=SimilarFilmsResponse)
+async def similar_films(
+    film_id: int,
+    limit: int = Query(12, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+    user: UserInfo | None = Depends(get_current_user),
+):
+    result = await db.execute(
+        text("SELECT film_id FROM film WHERE film_id = :fid"),
+        {"fid": film_id},
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Film not found")
+
+    tier = user.tier if user else "anonymous"
+    max_limit = TIER_SIMILAR_LIMITS.get(tier, 3)
+    capped = min(limit, max_limit)
+
+    results = await recommender.get_similar_films(db, film_id, capped, tier)
+    items = [SimilarFilm(**r) for r in results]
+    return SimilarFilmsResponse(items=items)
+
+
+# =============================================================================
 # POST /api/films — Create a new film
 # =============================================================================
 
@@ -1237,6 +1276,7 @@ async def delete_film(film_id: int, db: AsyncSession = Depends(get_db), admin: N
 
     await db.execute(text("DELETE FROM film WHERE film_id = :fid"), {"fid": film_id})
     await db.commit()
+    recommender.invalidate_film(film_id)
     logger.info("Deleted film #%d: %s", film_id, film["original_title"])
     return {"message": f"Film '{film['original_title']}' deleted"}
 
@@ -1478,6 +1518,7 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
             )
 
     await db.commit()
+    recommender.invalidate_film(film_id)
     return {"film_id": film_id, "message": "Film updated successfully"}
 
 
@@ -1516,6 +1557,8 @@ async def add_film_relation(
         {"fid": fid, "rid": rid, "rtype": relation_type},
     )
     await db.commit()
+    recommender.invalidate_film(film_id)
+    recommender.invalidate_film(related_film_id)
     return {"message": "Relation added"}
 
 
@@ -1541,6 +1584,8 @@ async def delete_film_relation(
         {"a": film_id, "b": related_film_id},
     )
     await db.commit()
+    recommender.invalidate_film(film_id)
+    recommender.invalidate_film(related_film_id)
     return {"message": "Relation removed"}
 
 
