@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Filter, LogIn, Lock, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, LogIn, Lock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,8 @@ interface SimilarFilmsCarouselProps {
   film?: FilmDetail;
 }
 
+const CARD_WIDTH = "w-[130px]";
+
 function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: boolean }) {
   const year = film.first_release_date?.slice(0, 4);
 
@@ -30,7 +32,7 @@ function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: bo
   );
 
   const card = (
-    <Link to={`/films/${film.film_id}`} className="group relative shrink-0 w-[140px]">
+    <Link to={`/films/${film.film_id}`} className={`group shrink-0 ${CARD_WIDTH}`}>
       <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
         {film.poster_url ? (
           <img
@@ -91,11 +93,11 @@ function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: bo
 
 function TeaserCard({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
-    <Link to={href} className="shrink-0 w-[140px]">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
-        <div className="absolute inset-0 backdrop-blur-sm bg-background/60 flex flex-col items-center justify-center gap-2 p-3 text-center">
+    <Link to={href} className={`shrink-0 ${CARD_WIDTH}`}>
+      <div className="relative aspect-[2/3] overflow-hidden rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3 text-center">
           {icon}
-          <p className="text-[11px] font-medium leading-tight">{label}</p>
+          <p className="text-[11px] font-medium leading-tight text-foreground">{label}</p>
         </div>
       </div>
     </Link>
@@ -163,11 +165,10 @@ export function SimilarFilmsCarousel({ filmId, film }: SimilarFilmsCarouselProps
           </div>
         </div>
 
-        {/* Reserve height during loading to prevent layout shift */}
         {isLoading ? (
-          <div className="flex gap-3 overflow-hidden" style={{ minHeight: 260 }}>
+          <div className="flex gap-3 overflow-hidden">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="shrink-0 w-[140px]">
+              <div key={i} className={`shrink-0 ${CARD_WIDTH}`}>
                 <Skeleton className="aspect-[2/3] rounded-lg" />
                 <Skeleton className="mt-1.5 h-3 w-3/4" />
                 <Skeleton className="mt-1 h-2.5 w-1/2" />
@@ -185,27 +186,26 @@ export function SimilarFilmsCarousel({ filmId, film }: SimilarFilmsCarouselProps
         ) : (
           <div
             ref={scrollRef}
-            className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-thin pb-2 items-start"
-            style={{ minHeight: 260 }}
+            className="flex gap-3 overflow-x-auto snap-x scrollbar-thin pb-2 items-start"
           >
             {items.map((item) => (
-              <div key={item.film_id} className="snap-start">
+              <div key={item.film_id} className={`snap-start shrink-0 ${CARD_WIDTH}`}>
                 <SimilarFilmCard film={item} showScore={isPro} />
               </div>
             ))}
 
             {!isAuthenticated && (
-              <div className="snap-start">
+              <div className={`snap-start shrink-0 ${CARD_WIDTH}`}>
                 <TeaserCard
                   href="/auth"
-                  icon={<LogIn className="h-5 w-5 text-muted-foreground" />}
-                  label="Sign up free for more"
+                  icon={<LogIn className="h-5 w-5 text-amber-500/60" />}
+                  label="Sign in for more recommendations"
                 />
               </div>
             )}
 
             {isAuthenticated && !isPro && (
-              <div className="snap-start">
+              <div className={`snap-start shrink-0 ${CARD_WIDTH}`}>
                 <TeaserCard
                   href="/auth"
                   icon={<Lock className="h-5 w-5 text-amber-500/60" />}
