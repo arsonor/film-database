@@ -1,15 +1,14 @@
 import { useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Filter, LogIn, Lock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, LogIn, Lock, Info } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { SectionHeading } from "./SectionHeading";
 import { useSimilarFilms } from "@/hooks/useSimilarFilms";
 import type { SimilarFilm } from "@/api/client";
@@ -24,6 +23,30 @@ interface SimilarFilmsCarouselProps {
 
 const CARD_WIDTH = "w-[130px]";
 
+function SharedTagsContent({ entries }: { entries: [string, string[]][] }) {
+  return (
+    <div className="space-y-1.5">
+      {entries.map(([dim, tags]) => (
+        <div key={dim}>
+          <p className="text-[10px] font-semibold text-muted-foreground">
+            {dimensionLabel(dim)}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-block rounded bg-muted px-1.5 py-0.5 text-[10px]"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: boolean }) {
   const year = film.first_release_date?.slice(0, 4);
 
@@ -31,63 +54,58 @@ function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: bo
     ([, tags]) => tags.length > 0
   );
 
-  const card = (
-    <Link to={`/films/${film.film_id}`} className={`group shrink-0 ${CARD_WIDTH}`}>
-      <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
-        {film.poster_url ? (
-          <img
-            src={film.poster_url}
-            alt={film.original_title}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-muted-foreground p-2 text-center">
-            {film.original_title}
-          </div>
-        )}
-        {showScore && (
-          <div className="absolute top-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {film.score_pct}%
-          </div>
-        )}
-      </div>
-      <div className="mt-1.5 space-y-0.5">
-        <p className="text-xs font-medium leading-tight line-clamp-2">
-          {film.original_title}
-        </p>
-        <p className="text-[10px] text-muted-foreground">
-          {year}{film.director ? ` · ${film.director}` : ""}
-        </p>
-      </div>
-    </Link>
-  );
-
-  if (!showScore || sharedEntries.length === 0) return card;
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>{card}</TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[280px] space-y-1.5 p-3">
-        {sharedEntries.map(([dim, tags]) => (
-          <div key={dim}>
-            <p className="text-[10px] font-semibold text-background/60">
-              {dimensionLabel(dim)}
-            </p>
-            <div className="flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-block rounded bg-background/15 px-1.5 py-0.5 text-[10px]"
-                >
-                  {tag}
-                </span>
-              ))}
+    <div className={`shrink-0 ${CARD_WIDTH}`}>
+      <Link to={`/films/${film.film_id}`} className="group block">
+        <div className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted">
+          {film.poster_url ? (
+            <img
+              src={film.poster_url}
+              alt={film.original_title}
+              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground p-2 text-center">
+              {film.original_title}
             </div>
-          </div>
-        ))}
-      </TooltipContent>
-    </Tooltip>
+          )}
+          {showScore && (
+            <div className="absolute top-1.5 right-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {film.score_pct}%
+            </div>
+          )}
+        </div>
+      </Link>
+      <div className="mt-1.5 space-y-0.5">
+        <Link to={`/films/${film.film_id}`}>
+          <p className="text-xs font-medium leading-tight line-clamp-2 hover:underline">
+            {film.original_title}
+          </p>
+        </Link>
+        <div className="flex items-center gap-1">
+          <p className="text-[10px] text-muted-foreground truncate">
+            {year}{film.director ? ` · ${film.director}` : ""}
+          </p>
+          {showScore && sharedEntries.length > 0 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Info className="h-3 w-3" />
+                  Why?
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-64 p-3">
+                <SharedTagsContent entries={sharedEntries} />
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -136,7 +154,6 @@ export function SimilarFilmsCarousel({ filmId, film }: SimilarFilmsCarouselProps
   const items = data?.items ?? [];
 
   return (
-    <TooltipProvider>
       <div id="similar-films">
         <div className="flex items-center justify-between">
           <SectionHeading title="Similar Films" />
@@ -216,6 +233,5 @@ export function SimilarFilmsCarousel({ filmId, film }: SimilarFilmsCarouselProps
           </div>
         )}
       </div>
-    </TooltipProvider>
   );
 }
