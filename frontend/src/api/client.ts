@@ -449,3 +449,23 @@ export async function fetchAuthMe(): Promise<{ id: string; email: string; tier: 
     return null;
   }
 }
+
+// Tag review
+export { getAuthHeaders as getAuthHeadersRaw };
+
+export async function applyTagReview(
+  dimension: string,
+  tag: string,
+): Promise<{ added: number; removed: number }> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/tag-review/apply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify({ dimension, tag }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || "Apply failed");
+  }
+  return res.json();
+}

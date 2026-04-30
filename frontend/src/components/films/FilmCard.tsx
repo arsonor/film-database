@@ -150,11 +150,11 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
         <h3 className="line-clamp-2 text-sm font-medium leading-tight text-foreground">
           {film.original_title}
         </h3>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground line-clamp-2">
           <span>{formatYear(film.first_release_date)}</span>
           {film.director && (
             <>
-              <span className="text-border">|</span>
+              <span className="text-border"> | </span>
               <span>{film.director}</span>
             </>
           )}

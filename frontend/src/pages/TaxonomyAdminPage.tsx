@@ -30,6 +30,7 @@ import {
 import { TAXONOMY_DIMENSIONS } from "@/types/api";
 import type { TaxonomyItem } from "@/types/api";
 import { dimensionLabel } from "@/lib/utils";
+import { TagReviewPanel } from "@/components/TagReviewPanel";
 
 type Dimension = (typeof TAXONOMY_DIMENSIONS)[number];
 
@@ -386,6 +387,9 @@ export function TaxonomyAdminPage() {
               )}
             </div>
           )}
+
+          {/* Tag Review Panel */}
+          <TagReviewPanel />
         </div>
       </div>
     </div>

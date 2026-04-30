@@ -6,7 +6,7 @@ then reports which films should be added/removed.
 
 Usage:
   # Dry-run (default): show proposed changes
-  python scripts/review_tag.py --dimension atmospheres --tag steamy
+  python scripts/review_tag.py --dimension cinema_types --tag multi-sequence
 
   # Apply changes to the database
   python scripts/review_tag.py --dimension atmospheres --tag steamy --apply
@@ -19,6 +19,9 @@ Usage:
 
   # Resume from a previous run (skip already-reviewed films)
   python scripts/review_tag.py --dimension atmospheres --tag steamy --resume
+
+  # Apply changes from a previous dry-run (no API calls)
+  python scripts/review_tag.py --dimension atmospheres --tag steamy --apply-from
 """
 
 import argparse
@@ -52,7 +55,7 @@ DIMENSION_MAP = {
 
 # Tag descriptions for ambiguous tags — helps Claude understand the intent
 TAG_DESCRIPTIONS = {
-    "steamy": "films with strong sensuality, eroticism, or sexually explicit scenes",
+    "multi-sequence": "the narrative is structured in clearly distinct segments: multiple storylines, chapters, anthology-like episodes, or radically different points of view. The segmentation is a deliberate structural choice.",
 }
 
 
@@ -213,6 +216,67 @@ def load_progress(results_file: Path) -> dict[int, bool]:
     return {int(k): v for k, v in data.items()}
 
 
+def compute_changes(
+    all_films: list[dict],
+    all_results: dict[int, bool],
+    currently_tagged: set[int],
+) -> tuple[list[int], list[int]]:
+    to_add = []
+    to_remove = []
+    for film in all_films:
+        fid = film["film_id"]
+        should_have = all_results.get(fid)
+        if should_have is None:
+            continue
+        has_tag = fid in currently_tagged
+        if should_have and not has_tag:
+            to_add.append(fid)
+        elif not should_have and has_tag:
+            to_remove.append(fid)
+    return to_add, to_remove
+
+
+def print_report(
+    tag: str,
+    dimension: str,
+    all_results: dict[int, bool],
+    currently_tagged: set[int],
+    to_add: list[int],
+    to_remove: list[int],
+):
+    print(f"\n{'='*60}")
+    print(f"Review complete: '{tag}' in {dimension}")
+    print(f"{'='*60}")
+    print(f"Total films reviewed: {len(all_results)}")
+    print(f"Currently tagged:     {len(currently_tagged)}")
+    print(f"Should be tagged:     {sum(1 for v in all_results.values() if v)}")
+    print(f"To ADD:               {len(to_add)}")
+    print(f"To REMOVE:            {len(to_remove)}")
+
+
+def print_change_details(
+    tag: str,
+    to_add: list[int],
+    to_remove: list[int],
+    all_films: list[dict],
+):
+    films_by_id = {f["film_id"]: f for f in all_films}
+    if to_add:
+        print(f"\n--- Films to ADD '{tag}' ---")
+        for fid in to_add[:50]:
+            f = films_by_id[fid]
+            print(f"  + [{fid}] {f['original_title']} ({f.get('year', '?')})")
+        if len(to_add) > 50:
+            print(f"  ... and {len(to_add) - 50} more")
+    if to_remove:
+        print(f"\n--- Films to REMOVE '{tag}' ---")
+        for fid in to_remove[:50]:
+            f = films_by_id[fid]
+            print(f"  - [{fid}] {f['original_title']} ({f.get('year', '?')})")
+        if len(to_remove) > 50:
+            print(f"  ... and {len(to_remove) - 50} more")
+
+
 async def main():
     load_dotenv()
 
@@ -230,17 +294,13 @@ async def main():
                         help="Films per API call (default: 10)")
     parser.add_argument("--apply", action="store_true",
                         help="Apply changes to DB (default: dry-run)")
+    parser.add_argument("--apply-from", action="store_true",
+                        help="Apply changes from a previous dry-run JSON (no API calls)")
     parser.add_argument("--resume", action="store_true",
                         help="Resume from previous run")
     args = parser.parse_args()
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        logger.error("ANTHROPIC_API_KEY not set")
-        sys.exit(1)
-
     db_url = os.getenv("DATABASE_URL", "")
-    # Convert SQLAlchemy URL to asyncpg format
     dsn = db_url.replace("postgresql+asyncpg://", "postgresql://")
     if not dsn:
         logger.error("DATABASE_URL not set")
@@ -251,7 +311,13 @@ async def main():
     results_file.parent.mkdir(parents=True, exist_ok=True)
 
     pool = await asyncpg.create_pool(dsn)
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = None
+    if not args.apply_from:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            logger.error("ANTHROPIC_API_KEY not set")
+            sys.exit(1)
+        client = anthropic.AsyncAnthropic(api_key=api_key)
 
     try:
         # Verify tag exists
@@ -259,6 +325,27 @@ async def main():
         if tag_id is None:
             logger.error("Tag '%s' not found in dimension '%s'", args.tag, args.dimension)
             sys.exit(1)
+
+        # --apply-from: load previous results and apply without calling Claude
+        if args.apply_from:
+            if not results_file.exists():
+                logger.error("No results file found at %s", results_file)
+                sys.exit(1)
+            all_results = load_progress(results_file)
+            all_films = await fetch_all_films(pool)
+            currently_tagged = await fetch_tagged_film_ids(pool, args.dimension, args.tag)
+            to_add, to_remove = compute_changes(all_films, all_results, currently_tagged)
+            print_report(args.tag, args.dimension, all_results, currently_tagged, to_add, to_remove)
+            print_change_details(args.tag, to_add, to_remove, all_films)
+            if to_add or to_remove:
+                print(f"\nApplying changes from {results_file}...")
+                await apply_changes(pool, args.dimension, tag_id, to_add, to_remove)
+                results_file.unlink()
+                print(f"Done! Cleaned up {results_file}")
+            else:
+                print("\nNo changes to apply.")
+                results_file.unlink()
+            return
 
         # Fetch data
         all_films = await fetch_all_films(pool)
@@ -318,31 +405,13 @@ async def main():
             await asyncio.sleep(0.5)
 
         # Compute changes
-        to_add = []
-        to_remove = []
-        for film in all_films:
-            fid = film["film_id"]
-            should_have = all_results.get(fid)
-            if should_have is None:
-                continue
-            has_tag = fid in currently_tagged
-            if should_have and not has_tag:
-                to_add.append(fid)
-            elif not should_have and has_tag:
-                to_remove.append(fid)
+        to_add, to_remove = compute_changes(all_films, all_results, currently_tagged)
 
         # Report
-        print(f"\n{'='*60}")
-        print(f"Review complete: '{args.tag}' in {args.dimension}")
-        print(f"{'='*60}")
-        print(f"Total films reviewed: {len(all_results)}")
-        print(f"Currently tagged:     {len(currently_tagged)}")
-        print(f"Should be tagged:     {sum(1 for v in all_results.values() if v)}")
-        print(f"To ADD:               {len(to_add)}")
-        print(f"To REMOVE:            {len(to_remove)}")
+        print_report(args.tag, args.dimension, all_results, currently_tagged, to_add, to_remove)
         print(f"Tokens used:          {total_input:,} input + {total_output:,} output")
 
-        # Estimate cost (Haiku pricing)
+        # Estimate cost
         if "haiku" in args.model:
             cost = total_input * 0.80 / 1_000_000 + total_output * 4.0 / 1_000_000
         elif "sonnet" in args.model:
@@ -351,31 +420,16 @@ async def main():
             cost = total_input * 15.0 / 1_000_000 + total_output * 75.0 / 1_000_000
         print(f"Estimated cost:       ${cost:.2f}")
 
-        if to_add:
-            print(f"\n--- Films to ADD '{args.tag}' ---")
-            add_films = {f["film_id"]: f for f in all_films}
-            for fid in to_add[:50]:
-                f = add_films[fid]
-                print(f"  + [{fid}] {f['original_title']} ({f.get('year', '?')})")
-            if len(to_add) > 50:
-                print(f"  ... and {len(to_add) - 50} more")
-
-        if to_remove:
-            print(f"\n--- Films to REMOVE '{args.tag}' ---")
-            rem_films = {f["film_id"]: f for f in all_films}
-            for fid in to_remove[:50]:
-                f = rem_films[fid]
-                print(f"  - [{fid}] {f['original_title']} ({f.get('year', '?')})")
-            if len(to_remove) > 50:
-                print(f"  ... and {len(to_remove) - 50} more")
+        print_change_details(args.tag, to_add, to_remove, all_films)
 
         # Apply if requested
         if args.apply and (to_add or to_remove):
             print(f"\nApplying changes...")
             await apply_changes(pool, args.dimension, tag_id, to_add, to_remove)
-            print("Done!")
+            results_file.unlink()
+            print(f"Done! Cleaned up {results_file}")
         elif to_add or to_remove:
-            print(f"\nDry-run mode. Use --apply to execute changes.")
+            print(f"\nDry-run mode. Use --apply to execute, or --apply-from to apply later.")
             print(f"Results saved to: {results_file}")
 
     finally:
