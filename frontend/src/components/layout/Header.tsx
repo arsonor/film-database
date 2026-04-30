@@ -145,10 +145,11 @@ export function Header({
         )}
       </div>
 
-      {/* Right: Sort + User menu */}
-      <div className="hidden items-center gap-2 sm:flex">
+      {/* Right: Sort (desktop) + User menu (always visible) */}
+      <div className="flex items-center gap-2">
+        {/* Sort controls — desktop only */}
         {isAuthenticated && (
-          <>
+          <div className="hidden items-center gap-2 sm:flex">
             <Select
               value={filters.sort_by}
               onValueChange={(val) =>
@@ -195,9 +196,10 @@ export function Header({
                 )}
               </Button>
             )}
-          </>
+          </div>
         )}
 
+        {/* User menu — always visible */}
         {isAuthenticated ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -217,7 +219,7 @@ export function Header({
               <DropdownMenuItem disabled>
                 <Lock className="mr-2 h-4 w-4" />
                 Dashboard
-                <span className="ml-auto text-[10px] text-muted-foreground">Pro</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Soon</span>
               </DropdownMenuItem>
               {isAdmin && (
                 <>
@@ -231,6 +233,49 @@ export function Header({
                     Manage Tags
                   </DropdownMenuItem>
                 </>
+              )}
+              {/* Sort controls — mobile only, inside user menu */}
+              <DropdownMenuSeparator className="sm:hidden" />
+              <DropdownMenuItem
+                className="sm:hidden"
+                onClick={() => onSortChange("year", filters.sort_order)}
+              >
+                <ArrowDownAZ className="mr-2 h-4 w-4" />
+                Sort: Year
+                {filters.sort_by === "year" && <span className="ml-auto text-[10px] text-primary">●</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="sm:hidden"
+                onClick={() => onSortChange("title", filters.sort_order)}
+              >
+                <ArrowDownAZ className="mr-2 h-4 w-4" />
+                Sort: Title
+                {filters.sort_by === "title" && <span className="ml-auto text-[10px] text-primary">●</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="sm:hidden"
+                onClick={() => onSortChange("popularity", filters.sort_order)}
+              >
+                <ArrowDownAZ className="mr-2 h-4 w-4" />
+                Sort: Popularity
+                {filters.sort_by === "popularity" && <span className="ml-auto text-[10px] text-primary">●</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="sm:hidden"
+                onClick={() => onSortChange("random", filters.sort_order)}
+              >
+                <Shuffle className="mr-2 h-4 w-4" />
+                Sort: Random
+                {filters.sort_by === "random" && <span className="ml-auto text-[10px] text-primary">●</span>}
+              </DropdownMenuItem>
+              {filters.sort_by !== "random" && (
+                <DropdownMenuItem
+                  className="sm:hidden"
+                  onClick={() => onSortChange(filters.sort_by, filters.sort_order === "asc" ? "desc" : "asc")}
+                >
+                  {filters.sort_order === "asc" ? <ArrowUpAZ className="mr-2 h-4 w-4" /> : <ArrowDownAZ className="mr-2 h-4 w-4" />}
+                  {filters.sort_order === "asc" ? "Ascending" : "Descending"}
+                </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => signOut()}>

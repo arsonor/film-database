@@ -41,10 +41,10 @@ export function PersonCard({
           <User className="h-5 w-5 text-muted-foreground" />
         </div>
       )}
-      <span className="max-w-[90px] truncate text-xs font-medium text-foreground">
+      <span className="text-center text-xs font-medium leading-tight text-foreground">
         {fullName}
       </span>
-      <span className="max-w-[90px] truncate text-[10px] text-muted-foreground">
+      <span className="text-center text-[10px] leading-tight text-muted-foreground">
         {role}
       </span>
     </button>

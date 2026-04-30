@@ -13,7 +13,9 @@
 
 **apocalypse** — covers pre-apocalyptic, apocalyptic, and post-apocalyptic scenarios. The world is ending, about to end, or has already ended.
 
-**death** — only used if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
+**psychological** — the film's central subject is the inner mental life of a character: their psyche, mental processes, perceptions, or psychological deterioration. The psychological dimension must be what the film is fundamentally about, not simply present. A thriller with tense moments is not psychological. A drama where characters feel emotions is not psychological. Apply only when exploring the mind itself is the film's primary purpose.
+
+**death** — a central theme the film meditates on or builds around, not simply an event that occurs. A character dying in act three of an action film doesn't make death a theme. A film where mortality, grief, the meaning of death, or the process of dying is what the film is wrestling with qualifies.
 
 **transformation** — used when the film deliberately shows a significant and radical change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation (e.g. Black Swan, Raging Bull, The Fly).
 
@@ -35,7 +37,7 @@
 
 **whimsical/zany** — a playful, fanciful, logic-defying spirit. The film bends or ignores rules of reality in a lighthearted or imaginative way, without the intellectual/philosophical intent of **absurdist** (see Messages). Think Fellini's carnival worlds, Monty Python's tangents, Spike Jonze's imagination.
 
-**dream** vs **dreamlike** (Messages) — the Theme dream means dreams, dreaming, or dream states are literally part of the narrative (e.g. Inception, The Science of Sleep). The Message **dreamlike** describes a film whose overall artistic expression feels dream-like in texture, regardless of whether actual dreams appear in the plot.
+**dream** vs **dreamlike** (Messages) — the Theme dream is for a film that prominently feature dreams, dreaming, dream-like sequences or dream logic as a notable element, key theme or narrative device. The Message **dreamlike** describes a film whose overall artistic expression feels dream-like in texture, regardless of whether actual dreams appear in the plot.
 
 **game** vs **gambling** — game covers games as a narrative element (board games, video games, deadly games, competition games — e.g. Jumanji, Saw, Ready Player One). Gambling specifically involves wagering and betting stakes (poker, casino, horse racing).
 
@@ -98,6 +100,8 @@
 
 **female** — used when the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
 
+**simpleton/fool** — a character whose naivety, simplicity, or apparent stupidity is a defining trait, often used for comic effect or as an unexpected lens on the world. The character's foolishness can be genuine (Dumb and Dumber, The Jerk) or mask deeper wisdom (Being There, Forrest Gump).
+
 **disabled** — A character with a significant physical or cognitive disability that is explicitly depicted and relevant to the narrative. The disability must be a visible part of the character's identity or story arc, not a minor background detail. Includes blindness, deafness, paralysis, amputation, cognitive impairment, and severe disfigurement when treated with dramatic weight. Do not apply to characters who are injured temporarily during the plot.
 
 **outcast/misfit** — A character defined by social rejection or a profound inability to belong. The film explicitly makes this exclusion a central element of the story. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are. Think Edward Scissorhands, Donnie Darko, Amélie, Napoleon Dynamite.
@@ -126,6 +130,8 @@
 **communication** — the act of communicating (or failing to communicate) is itself the dramatic engine. Misunderstandings, language barriers, the struggle to connect or express oneself.
 
 **honor/duty** — a character acts out of obligation, moral code, or loyalty to a principle larger than self-interest. Central in war films, samurai films, westerns.
+
+**obsession** — a pathological, consuming fixation that distorts a character's behavior and judgment. Not dedication, not passion, not strong motivation — but a compulsion that takes over and damages the character or those around them.
 
 **sacrifice** — a character deliberately gives up something vital (safety, love, life) for another person or cause. Distinct from honor/duty (which is about obligation) — sacrifice is about the cost willingly paid.
 

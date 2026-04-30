@@ -155,7 +155,7 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
           {film.director && (
             <>
               <span className="text-border">|</span>
-              <span className="truncate">{film.director}</span>
+              <span>{film.director}</span>
             </>
           )}
         </div>

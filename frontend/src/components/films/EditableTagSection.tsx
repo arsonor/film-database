@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Pencil, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,13 +98,23 @@ export function EditableTagSection({
       {!editing ? (
         // View mode
         currentValues.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {currentValues.map((val) => (
               <Badge key={val} variant="secondary" className="text-xs">
                 {val}
               </Badge>
             ))}
+            {hideTitle && !readOnly && (
+              <button onClick={() => setEditing(true)} className="rounded p-0.5 text-muted-foreground hover:text-foreground">
+                <Pencil className="h-3 w-3" />
+              </button>
+            )}
           </div>
+        ) : hideTitle && !readOnly ? (
+          <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+            <Plus className="h-3 w-3" />
+            Add {dimensionLabel(dimension).toLowerCase()}
+          </button>
         ) : (
           <p className="text-xs italic text-muted-foreground">No tags yet</p>
         )

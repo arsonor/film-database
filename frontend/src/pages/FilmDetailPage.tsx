@@ -143,9 +143,10 @@ export function FilmDetailPage() {
       {/* ================================================================ */}
       {/* Backdrop + Back button */}
       {/* ================================================================ */}
-      <div className="relative">
+      <div className="relative hidden sm:block">
+        {/* Backdrop image — absolutely positioned, fills container */}
         {backdropUrl ? (
-          <div className="relative h-[200px] w-full overflow-hidden sm:h-[420px] lg:h-[480px]">
+          <div className="absolute inset-0 overflow-hidden">
             <img
               src={backdropUrl}
               alt=""
@@ -155,22 +156,22 @@ export function FilmDetailPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
           </div>
         ) : (
-          <div className="h-[120px] w-full bg-card sm:h-[300px]" />
+          <div className="absolute inset-0 bg-card" />
         )}
 
-        {/* Back button — always visible */}
+        {/* Back button */}
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-4 top-4 z-10 bg-background/50 backdrop-blur sm:left-6"
+          className="absolute left-6 top-4 z-10 bg-background/50 backdrop-blur"
           onClick={() => navigate(-1)}
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
 
-        {/* Desktop hero overlay (sm+) */}
-        <div className="absolute inset-x-0 bottom-0 hidden px-6 pb-6 sm:block lg:px-8">
-          <div className="mx-auto flex max-w-6xl gap-6">
+        {/* Desktop hero content — normal flow, pushes container height */}
+        <div className="relative min-h-[420px] lg:min-h-[480px] flex items-end px-6 pb-6 lg:px-8">
+          <div className="mx-auto flex max-w-6xl gap-6 pt-16">
             {/* Poster */}
             <div className="shrink-0">
               {posterUrl ? (
@@ -279,6 +280,31 @@ export function FilmDetailPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile backdrop (sm:hidden) */}
+      <div className="relative sm:hidden">
+        {backdropUrl ? (
+          <div className="relative h-[200px] w-full overflow-hidden">
+            <img
+              src={backdropUrl}
+              alt=""
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/40 to-transparent" />
+          </div>
+        ) : (
+          <div className="h-[120px] w-full bg-card" />
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-4 top-4 z-10 bg-background/50 backdrop-blur"
+          onClick={() => navigate(-1)}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* ================================================================ */}

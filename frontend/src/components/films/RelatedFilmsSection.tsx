@@ -93,7 +93,7 @@ export function RelatedFilmsSection({
       {sequels.length > 0 ? (
         <div className="flex gap-3 overflow-x-auto pb-2">
           {sequels.map((rel) => {
-            const poster = tmdbImageUrl(rel.poster_url, "w154");
+            const poster = tmdbImageUrl(rel.poster_url, "w342");
             return (
               <div
                 key={rel.related_film_id}
@@ -103,18 +103,20 @@ export function RelatedFilmsSection({
                   to={`/films/${rel.related_film_id}`}
                   className="flex flex-col items-center"
                 >
-                  {poster ? (
-                    <img
-                      src={poster}
-                      alt={rel.related_film_title}
-                      className="h-28 w-[76px] rounded-md object-cover shadow transition-shadow group-hover:shadow-lg"
-                    />
-                  ) : (
-                    <div className="flex h-28 w-[76px] items-center justify-center rounded-md bg-card shadow">
-                      <Film className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <span className="mt-1.5 max-w-[80px] truncate text-center text-[11px] text-foreground group-hover:text-primary">
+                  <div className="aspect-[2/3] w-[130px] overflow-hidden rounded-lg bg-muted">
+                    {poster ? (
+                      <img
+                        src={poster}
+                        alt={rel.related_film_title}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Film className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <span className="mt-1.5 max-w-[130px] truncate text-center text-xs text-foreground group-hover:text-primary">
                     {rel.related_film_title}
                   </span>
                   <Badge variant="outline" className="mt-0.5 text-[9px]">
