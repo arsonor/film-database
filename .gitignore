@@ -35,7 +35,7 @@ scripts/data/enriched_films.json
 scripts/data/enrichment_review.json
 scripts/data/unresolved_films.json
 scripts/data/batch_state.json
-scripts/data/review_atmospheres_steamy.json
+scripts/data/review_cinema_types_noir.json
 
 database/sync_to_supabase.ps1
 database/sync_from_supabase.ps1

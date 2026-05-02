@@ -9,6 +9,7 @@ import {
 import { Header } from "./Header";
 import { SidebarContent } from "./Sidebar";
 import { fetchTaxonomy } from "@/api/client";
+import { useTagDescriptions } from "@/hooks/useTaxonomy";
 import type {
   ArrayFilterKey,
   FilterState,
@@ -50,6 +51,7 @@ export function Layout({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [languages, setLanguages] = useState<TaxonomyItem[]>([]);
+  const tagDescriptions = useTagDescriptions();
 
   // Fetch languages once
   useEffect(() => {
@@ -60,6 +62,7 @@ export function Layout({
     filters,
     taxonomies,
     languages,
+    tagDescriptions,
     onToggleFilter,
     onExcludeFilter,
     onSetFilterMode,

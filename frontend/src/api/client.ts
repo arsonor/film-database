@@ -100,6 +100,12 @@ export async function fetchTagFrequencies(): Promise<TagFrequencies> {
   return fetchJson<TagFrequencies>(`${BASE}/taxonomy/tag-frequencies`);
 }
 
+export type TagDescriptions = Record<string, Record<string, string>>;
+
+export async function fetchTagDescriptions(): Promise<TagDescriptions> {
+  return fetchJson<TagDescriptions>(`${BASE}/taxonomy/tag-descriptions`);
+}
+
 export async function addTaxonomyValue(
   dimension: string,
   name: string,
@@ -452,6 +458,40 @@ export async function fetchAuthMe(): Promise<{ id: string; email: string; tier: 
 
 // Tag review
 export { getAuthHeaders as getAuthHeadersRaw };
+
+export async function fetchPendingReviews(): Promise<{
+  pending: { dimension: string; tag: string; file: string }[];
+}> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/tag-review/pending`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "Failed to fetch pending reviews");
+  return res.json();
+}
+
+export async function fetchReviewResults(
+  dimension: string,
+  tag: string,
+): Promise<{
+  total_reviewed: number;
+  currently_tagged: number;
+  should_be_tagged: number;
+  to_add: { film_id: number; title: string; year: number | null }[];
+  to_remove: { film_id: number; title: string; year: number | null }[];
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost: number;
+}> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(
+    `${BASE}/tag-review/results?dimension=${encodeURIComponent(dimension)}&tag=${encodeURIComponent(tag)}`,
+    { headers: auth },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || `Failed to load results (${res.status})`);
+  }
+  return res.json();
+}
 
 export async function applyTagReview(
   dimension: string,

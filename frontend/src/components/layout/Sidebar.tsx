@@ -26,6 +26,7 @@ interface SidebarProps {
   filters: FilterState;
   taxonomies: Record<string, TaxonomyItem[]>;
   languages: TaxonomyItem[];
+  tagDescriptions?: Record<string, Record<string, string>>;
   onToggleFilter: (dimension: ArrayFilterKey, value: string) => void;
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
   onSetFilterMode: (dimension: ArrayFilterKey, mode: "or" | "and") => void;
@@ -43,6 +44,7 @@ export function SidebarContent({
   filters,
   taxonomies,
   languages,
+  tagDescriptions,
   onToggleFilter,
   onExcludeFilter,
   onSetFilterMode,
@@ -250,6 +252,7 @@ export function SidebarContent({
               lockedTagNames={effectiveLockedTags}
               canAddFilter={tierAccess.canAddFilter}
               canUseOrNot={tierAccess.canUseOrNot}
+              descriptions={tagDescriptions?.[dim]}
               onLockedClick={handleLockedClick}
               onLimitReached={handleLimitReached}
             />

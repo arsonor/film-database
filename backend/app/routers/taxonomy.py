@@ -105,6 +105,26 @@ async def get_tag_frequencies(db: AsyncSession = Depends(get_db)):
     return payload
 
 
+_desc_cache: dict[str, dict[str, str]] | None = None
+
+
+@router.get("/taxonomy/tag-descriptions")
+async def get_tag_descriptions(db: AsyncSession = Depends(get_db)):
+    global _desc_cache
+    if _desc_cache is not None:
+        return _desc_cache
+
+    result = await db.execute(text(
+        "SELECT dimension, tag_name, description FROM tag_description ORDER BY dimension, tag_name"
+    ))
+    descriptions: dict[str, dict[str, str]] = {}
+    for dim, tag_name, desc in result.fetchall():
+        descriptions.setdefault(dim, {})[tag_name] = desc
+
+    _desc_cache = descriptions
+    return descriptions
+
+
 @router.get("/taxonomy/{dimension}", response_model=TaxonomyList)
 async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
     if dimension not in ALL_DIMENSIONS:

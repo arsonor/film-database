@@ -191,21 +191,30 @@ async def run_review(
     currently_tagged = await fetch_tagged_film_ids(db, dimension, tag)
 
     total_films = len(all_films)
-    total_batches = (total_films + batch_size - 1) // batch_size
     all_results: dict[int, bool] = {}
     total_input = 0
     total_output = 0
     results_path = results_file_path(dimension, tag)
 
+    # Resume from previous progress if exists
+    if results_path.exists():
+        all_results = load_progress(results_path)
+        logger.info("Resuming review with %d previously reviewed films", len(all_results))
+
+    films_to_review = [f for f in all_films if f["film_id"] not in all_results]
+    total_to_review = len(films_to_review)
+    total_batches = (total_to_review + batch_size - 1) // batch_size
+
     yield {
         "type": "started",
-        "total_films": total_films,
+        "total_films": total_to_review,
         "total_batches": total_batches,
         "currently_tagged": len(currently_tagged),
+        "resumed_from": len(all_results),
     }
 
-    for i in range(0, total_films, batch_size):
-        batch = all_films[i : i + batch_size]
+    for i in range(0, total_to_review, batch_size):
+        batch = films_to_review[i : i + batch_size]
         batch_num = i // batch_size + 1
         prompt = build_batch_prompt(batch, tag, description)
 
@@ -242,8 +251,8 @@ async def run_review(
             "type": "progress",
             "batch": batch_num,
             "total_batches": total_batches,
-            "films_reviewed": min(i + batch_size, total_films),
-            "total_films": total_films,
+            "films_reviewed": min(i + batch_size, total_to_review),
+            "total_films": total_to_review,
             "input_tokens": total_input,
             "output_tokens": total_output,
         }

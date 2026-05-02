@@ -1,7 +1,9 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ChevronDown,
   ChevronUp,
+  Download,
   FlaskConical,
   Loader2,
   Plus,
@@ -19,7 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { applyTagReview, getAuthHeadersRaw, fetchTaxonomy } from "@/api/client";
+import {
+  applyTagReview,
+  fetchPendingReviews,
+  fetchReviewResults,
+  getAuthHeadersRaw,
+  fetchTaxonomy,
+} from "@/api/client";
 import { TAXONOMY_DIMENSIONS } from "@/types/api";
 import type { TaxonomyItem } from "@/types/api";
 import { dimensionLabel } from "@/lib/utils";
@@ -70,6 +78,12 @@ export function TagReviewPanel() {
   const [applyResult, setApplyResult] = useState<{ added: number; removed: number } | null>(null);
   const [error, setError] = useState("");
 
+  // Pending reviews from server
+  const [pendingReviews, setPendingReviews] = useState<
+    { dimension: string; tag: string }[]
+  >([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
   const abortRef = useRef<AbortController | null>(null);
 
   const loadTagsForDimension = useCallback(async (dim: Dimension) => {
@@ -80,6 +94,35 @@ export function TagReviewPanel() {
       setTagItems([]);
     }
   }, []);
+
+  const checkPendingReviews = useCallback(async () => {
+    try {
+      const data = await fetchPendingReviews();
+      setPendingReviews(data.pending);
+    } catch {
+      setPendingReviews([]);
+    }
+  }, []);
+
+  const loadPendingResult = useCallback(
+    async (dim: string, t: string) => {
+      setLoadingPending(true);
+      setError("");
+      try {
+        const data = await fetchReviewResults(dim, t);
+        setDimension(dim as Dimension);
+        setTag(t);
+        setResult(data);
+        setPhase("done");
+        loadTagsForDimension(dim as Dimension);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to load results");
+      } finally {
+        setLoadingPending(false);
+      }
+    },
+    [loadTagsForDimension],
+  );
 
   const handleDimensionChange = useCallback(
     (dim: Dimension) => {
@@ -94,10 +137,16 @@ export function TagReviewPanel() {
   const handleOpenToggle = useCallback(() => {
     const next = !open;
     setOpen(next);
-    if (next && tagItems.length === 0) {
-      loadTagsForDimension(dimension);
+    if (next) {
+      if (tagItems.length === 0) loadTagsForDimension(dimension);
+      checkPendingReviews();
     }
-  }, [open, tagItems.length, loadTagsForDimension, dimension]);
+  }, [open, tagItems.length, loadTagsForDimension, dimension, checkPendingReviews]);
+
+  // Check for pending reviews on mount
+  useEffect(() => {
+    checkPendingReviews();
+  }, [checkPendingReviews]);
 
   const validateTag = useCallback(() => {
     if (!tag.trim()) {
@@ -185,8 +234,11 @@ export function TagReviewPanel() {
               `Batch ${data.batch}/${data.total_batches} — ${data.films_reviewed}/${data.total_films} films — ${Math.round(data.input_tokens / 1000)}K tokens`,
             );
           } else if (eventType === "started") {
+            const resumed = data.resumed_from
+              ? ` (resumed, ${data.resumed_from} already done)`
+              : "";
             setProgressLabel(
-              `Reviewing ${data.total_films} films (${data.total_batches} batches)...`,
+              `Reviewing ${data.total_films} films (${data.total_batches} batches)${resumed}...`,
             );
           } else if (eventType === "result") {
             setResult(data);
@@ -214,11 +266,12 @@ export function TagReviewPanel() {
       const res = await applyTagReview(dimension, tag.trim());
       setApplyResult(res);
       setPhase("applied");
+      checkPendingReviews();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Apply failed");
       setPhase("done");
     }
-  }, [dimension, tag]);
+  }, [dimension, tag, checkPendingReviews]);
 
   const handleReset = useCallback(() => {
     setPhase("idle");
@@ -242,6 +295,11 @@ export function TagReviewPanel() {
         <div className="flex items-center gap-2">
           <FlaskConical className="h-4 w-4 text-primary" />
           <span className="text-sm font-semibold">Tag Review (AI)</span>
+          {pendingReviews.length > 0 && !open && (
+            <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+              {pendingReviews.length} pending
+            </span>
+          )}
         </div>
         {open ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -252,6 +310,46 @@ export function TagReviewPanel() {
 
       {open && (
         <div className="border-t border-border px-4 py-4 space-y-4">
+          {/* Pending reviews banner */}
+          {pendingReviews.length > 0 && phase === "idle" && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-2">
+              <p className="text-xs font-medium flex items-center gap-1.5">
+                <Download className="h-3.5 w-3.5 text-amber-500" />
+                Pending review results found:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {pendingReviews.map((p) => (
+                  <div key={`${p.dimension}_${p.tag}`} className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      disabled={loadingPending}
+                      onClick={() => loadPendingResult(p.dimension, p.tag)}
+                    >
+                      <Download className="h-3 w-3" />
+                      {dimensionLabel(p.dimension)}: {p.tag}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      disabled={loadingPending}
+                      onClick={() => {
+                        setDimension(p.dimension as Dimension);
+                        setTag(p.tag);
+                        loadTagsForDimension(p.dimension as Dimension);
+                      }}
+                    >
+                      <FlaskConical className="h-3 w-3" />
+                      Resume
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Form */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* Dimension */}
@@ -357,6 +455,10 @@ export function TagReviewPanel() {
             <div className="space-y-2">
               <Progress value={progressPct} className="h-2" />
               <p className="text-xs text-muted-foreground">{progressLabel}</p>
+              <p className="text-xs text-amber-500 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Stay on this page until review completes. Progress is saved after each batch.
+              </p>
             </div>
           )}
 

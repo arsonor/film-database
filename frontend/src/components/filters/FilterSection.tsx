@@ -18,6 +18,7 @@ interface FilterSectionProps {
   lockedTagNames?: Set<string>;
   canAddFilter?: boolean;
   canUseOrNot?: boolean;
+  descriptions?: Record<string, string>;
   onLockedClick?: () => void;
   onLimitReached?: () => void;
 }
@@ -34,6 +35,7 @@ export function FilterSection({
   lockedTagNames,
   canAddFilter = true,
   canUseOrNot = true,
+  descriptions,
   onLockedClick,
   onLimitReached,
 }: FilterSectionProps) {
@@ -120,6 +122,7 @@ export function FilterSection({
                     name={item.name}
                     count={item.film_count}
                     state={effectiveState}
+                    tooltip={descriptions?.[item.name]}
                     onInclude={() => onToggle(item.name)}
                     onExclude={canUseOrNot ? () => onExclude(item.name) : () => {}}
                     onLockedClick={isTagLocked ? onLockedClick : onLimitReached}

@@ -56,6 +56,71 @@ async def run_tag_review(
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@router.get("/tag-review/pending")
+async def list_pending_reviews(
+    _admin=Depends(require_admin),
+):
+    """List all pending review result files."""
+    from backend.app.services.tag_reviewer import RESULTS_DIR
+
+    pending = []
+    if RESULTS_DIR.exists():
+        for f in RESULTS_DIR.glob("review_*.json"):
+            stem = f.stem.removeprefix("review_")
+            matched = False
+            for dim in sorted(DIMENSION_MAP.keys(), key=len, reverse=True):
+                prefix = f"{dim}_"
+                if stem.startswith(prefix):
+                    tag = stem[len(prefix):]
+                    if tag:
+                        pending.append({"dimension": dim, "tag": tag, "file": f.name})
+                    matched = True
+                    break
+            if not matched:
+                logger.warning("Could not parse review file: %s", f.name)
+    return {"pending": pending}
+
+
+@router.get("/tag-review/results")
+async def get_review_results(
+    dimension: str = Query(...),
+    tag: str = Query(...),
+    _admin=Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Load results from a previous review run (from saved JSON file)."""
+    if dimension not in DIMENSION_MAP:
+        raise HTTPException(400, f"Unknown dimension: {dimension}")
+
+    path = results_file_path(dimension, tag)
+    if not path.exists():
+        raise HTTPException(404, "No saved results found")
+
+    all_results = load_progress(path)
+    all_films = await fetch_all_films(db)
+    currently_tagged = await fetch_tagged_film_ids(db, dimension, tag)
+    to_add, to_remove = compute_changes(all_films, all_results, currently_tagged)
+
+    films_by_id = {f["film_id"]: f for f in all_films}
+
+    return {
+        "total_reviewed": len(all_results),
+        "currently_tagged": len(currently_tagged),
+        "should_be_tagged": sum(1 for v in all_results.values() if v),
+        "to_add": [
+            {"film_id": fid, "title": films_by_id[fid]["original_title"], "year": films_by_id[fid].get("year")}
+            for fid in to_add if fid in films_by_id
+        ],
+        "to_remove": [
+            {"film_id": fid, "title": films_by_id[fid]["original_title"], "year": films_by_id[fid].get("year")}
+            for fid in to_remove if fid in films_by_id
+        ],
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "estimated_cost": 0,
+    }
+
+
 class ApplyRequest(BaseModel):
     dimension: str
     tag: str

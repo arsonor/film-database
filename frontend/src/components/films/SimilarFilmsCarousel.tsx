@@ -84,7 +84,7 @@ function SimilarFilmCard({ film, showScore }: { film: SimilarFilm; showScore: bo
           </p>
         </Link>
         <div className="flex items-center gap-1">
-          <p className="text-[10px] text-muted-foreground leading-tight">
+          <p className="text-[10px] text-muted-foreground leading-tight line-clamp-2">
             {year}{film.director ? ` · ${film.director}` : ""}
           </p>
           {showScore && sharedEntries.length > 0 && (

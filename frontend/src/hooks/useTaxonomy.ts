@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchTaxonomy } from "@/api/client";
+import { fetchTaxonomy, fetchTagDescriptions, type TagDescriptions } from "@/api/client";
 import { TAXONOMY_DIMENSIONS, type TaxonomyItem } from "@/types/api";
 
 const EXTRA_DIMENSIONS = ["studios"] as const;
@@ -24,4 +24,13 @@ export function useTaxonomy() {
   });
 
   return { taxonomies, loading };
+}
+
+export function useTagDescriptions() {
+  const { data: descriptions = {} } = useQuery<TagDescriptions>({
+    queryKey: ["tag-descriptions"],
+    queryFn: fetchTagDescriptions,
+    staleTime: Infinity,
+  });
+  return descriptions;
 }
