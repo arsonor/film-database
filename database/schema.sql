@@ -471,7 +471,7 @@ CREATE INDEX IF NOT EXISTS idx_film_message_message_id ON film_message(message_i
 CREATE TABLE IF NOT EXISTS film_sequel (
     film_id INTEGER NOT NULL,
     related_film_id INTEGER NOT NULL,
-    relation_type VARCHAR(20) NOT NULL CHECK (relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot', 'cycle')),
+    relation_type VARCHAR(20) NOT NULL CHECK (relation_type IN ('sequel', 'prequel', 'remake', 'spinoff', 'reboot', 'cycle', 'homage')),
     PRIMARY KEY (film_id, related_film_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (related_film_id) REFERENCES film(film_id) ON DELETE CASCADE

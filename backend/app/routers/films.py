@@ -979,17 +979,34 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail=f"Film with tmdb_id={tmdb_id} already exists")
 
+    # Compute weighted_score using Bayesian formula (same as refresh_tmdb_scores.py)
+    weighted_score = None
+    v = film.get("tmdb_vote_count") or 0
+    R = film.get("tmdb_score") or 0
+    if v > 0 and R > 0:
+        stats = await db.execute(text("""
+            SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY tmdb_vote_count) AS median_votes,
+                   AVG(tmdb_score) AS mean_score
+            FROM film
+            WHERE tmdb_vote_count > 0 AND tmdb_score > 0
+        """))
+        row = stats.one_or_none()
+        if row and row.median_votes and row.mean_score:
+            m = float(row.median_votes)
+            C = float(row.mean_score)
+            weighted_score = round((v / (v + m)) * R + (m / (v + m)) * C, 2)
+
     # Insert film
     result = await db.execute(
         text("""
             INSERT INTO film (
                 original_title, duration, color, first_release_date, summary,
                 poster_url, backdrop_url, imdb_id, tmdb_id, budget, revenue,
-                tmdb_score, tmdb_vote_count, tmdb_collection_id
+                tmdb_score, tmdb_vote_count, weighted_score, tmdb_collection_id
             ) VALUES (
                 :original_title, :duration, :color, :first_release_date, :summary,
                 :poster_url, :backdrop_url, :imdb_id, :tmdb_id, :budget, :revenue,
-                :tmdb_score, :tmdb_vote_count, :tmdb_collection_id
+                :tmdb_score, :tmdb_vote_count, :weighted_score, :tmdb_collection_id
             ) RETURNING film_id
         """),
         {
@@ -1010,6 +1027,7 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
             "revenue": film.get("revenue"),
             "tmdb_score": film.get("tmdb_score"),
             "tmdb_vote_count": film.get("tmdb_vote_count"),
+            "weighted_score": weighted_score,
             "tmdb_collection_id": film.get("tmdb_collection_id"),
         },
     )
@@ -1539,7 +1557,7 @@ async def add_film_relation(
 
     if not related_film_id or not relation_type:
         raise HTTPException(status_code=400, detail="related_film_id and relation_type required")
-    if relation_type not in ("sequel", "prequel", "remake", "spinoff", "reboot", "cycle"):
+    if relation_type not in ("sequel", "prequel", "remake", "spinoff", "reboot", "cycle", "homage"):
         raise HTTPException(status_code=400, detail="Invalid relation_type")
     if related_film_id == film_id:
         raise HTTPException(status_code=400, detail="Cannot relate a film to itself")
