@@ -1397,6 +1397,16 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     {"fid": film_id, "lid": lid},
                 )
 
+    # Keep film.color in sync with the 'black and white' cinema_type tag.
+    # The hero badge reads film.color directly, so a manual tag edit must
+    # propagate to the canonical column.
+    if update.cinema_types is not None:
+        is_bw = any(v == "black and white" for v in update.cinema_types if v)
+        await db.execute(
+            text("UPDATE film SET color = :color WHERE film_id = :fid"),
+            {"color": not is_bw, "fid": film_id},
+        )
+
     # Studios (clear junction + re-insert, auto-create missing studios)
     if update.studios is not None:
         await db.execute(text("DELETE FROM production WHERE film_id = :fid"), {"fid": film_id})
