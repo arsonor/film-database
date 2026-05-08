@@ -3,10 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowDownAZ,
   ArrowUpAZ,
+  BarChart3,
   BookMarked,
   Film,
   Filter,
-  Lock,
   LogIn,
   LogOut,
   PanelLeftClose,
@@ -15,7 +15,6 @@ import {
   Search,
   Shuffle,
   Tags,
-  User,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -147,6 +146,15 @@ export function Header({
 
       {/* Right: Sort (desktop) + User menu (always visible) */}
       <div className="flex items-center gap-2">
+        {/* Stats — visible to everyone */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/stats")}
+          title="Stats dashboard"
+        >
+          <BarChart3 className="h-4 w-4" />
+        </Button>
         {/* Sort controls — desktop only */}
         {isAuthenticated && (
           <div className="hidden items-center gap-2 sm:flex">
@@ -216,10 +224,9 @@ export function Header({
                 <BookMarked className="mr-2 h-4 w-4" />
                 My Collection
               </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <Lock className="mr-2 h-4 w-4" />
+              <DropdownMenuItem onClick={() => navigate("/stats")}>
+                <BarChart3 className="mr-2 h-4 w-4" />
                 Dashboard
-                <span className="ml-auto text-[10px] text-muted-foreground">Soon</span>
               </DropdownMenuItem>
               {isAdmin && (
                 <>

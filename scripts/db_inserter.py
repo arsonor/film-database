@@ -97,6 +97,12 @@ class DBInserter:
                 logger.info("[DRY-RUN] %s — OK", title)
             return True
 
+        # Auto-derive color flag: if the enrichment tagged this film with the
+        # 'black and white' cinema_type, force film.color = FALSE so the
+        # canonical column matches the taxonomy tag.
+        if "black and white" in (enrichment.get("cinema_type") or []):
+            film["color"] = False
+
         async with self.session_factory() as session:
             async with session.begin():
                 try:

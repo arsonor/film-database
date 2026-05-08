@@ -214,99 +214,21 @@ Frontend: "Refine in Browse →" button in Similar Films section header. Pro/Adm
 
 **Goal:** New endpoint `GET /api/films/{id}/similar?limit=N` returning the top-N most similar films using IDF-weighted Jaccard across 9 taxonomy dimensions plus structural bonuses.
 
-One thing worth flagging:
-cachetools is referenced in the 16b prompt — verify it's already in backend/requirements.txt. If not, that dependency add should be part of 16b. Standard library functools.lru_cache doesn't support TTL so we genuinely need it.
+### Algorithm
 
-### Read first
+**IDF-weighted Jaccard per dimension, summed across 9 dimensions, plus structural bonuses.**
 
-- PLAN.md "Step 16: Recommender Engine" for the formula and weights
-- `backend/app/routers/films.py` for SQL patterns (especially the parallel-query approach in `get_film`)
-- `backend/app/database.py`
-- `backend/app/auth.py` for `get_current_user`
-- `backend/app/tier_config.py`
-- `backend/app/schemas/film.py`
-
-### Algorithm reference
-
-Per source film S and each candidate C:
-- For each dimension d in {atmospheres, themes, motivations, messages, cinema_types, characters, categories, place_contexts, time_periods}:
-  - per_dim_score(d) = sum of idf(t) over shared tags / sum of idf(t) over union of tags
+For source film S and candidate C, per-dimension d:
+- per_dim_score(d) = Σ_{t ∈ T_S^d ∩ T_C^d} idf(t) / Σ_{t ∈ T_S^d ∪ T_C^d} idf(t)
 - total = Σ_d W_d × per_dim_score(d) + bonuses
-- Bonuses: +0.10 (any director match), +0.03 (any studio match AND same release decade), +0.05 × normalized `weighted_score`
-- Exclude: self, any film linked via `film_sequel` in either direction
 
-Dimension weights: atmospheres 1.4, themes 1.3, motivations 1.1, messages 1.0, cinema_types 1.0, characters 0.9, categories 0.7, place_contexts 0.6, time_periods 0.5.
+**Initial dimension weights** (tunable):
+atmospheres 1.4 · themes 1.3 · motivations 1.1 · messages 1.0 · cinema_types 1.0 · characters 0.9 · categories 0.7 · place_contexts 0.6 · time_periods 0.5
 
-### Implementation
-
-1. **New module** `backend/app/services/recommender.py`:
-   - Constants block at the top of the file: `DIMENSION_WEIGHTS`, `BONUS_DIRECTOR`, `BONUS_STUDIO_DECADE`, `BONUS_QUALITY_MAX`, `IDF_CACHE_TTL_HOURS = 24`. Easy to tune in 16d.
-   - `compute_idf_map(db) → dict[dim, dict[tag, float]]`: one query per dimension grouping by tag with COUNT(DISTINCT film_id). Total film count from a single COUNT query. idf(t) = `log(total_films / count(t))`.
-   - `get_similar_films(db, film_id, limit) → list[SimilarFilm]`: orchestrates the SQL + post-processing for `shared_tags`.
-   - `invalidate_film(film_id)` and `invalidate_idf()` exposed for cache busting from routers.
-
-2. **Caching** (two layers):
-   - **IDF map**: module-level dict, lazy-loaded on first request, refreshed every 24h via background asyncio task on app startup. Manually invalidatable.
-   - **Per-film similarity results**: `cachetools.TTLCache(maxsize=2000, ttl=3600)` keyed by `(film_id, limit, tier)`. Tier in the key because result count varies by tier.
-
-3. **SQL approach** — a single CTE-based query:
-   - CTE 1: source film's tags per dimension (UNION ALL across the 9 junction tables → columns `dimension`, `tag_id`, `tag_name`).
-   - CTE 2: candidate films' tag arrays per dimension (one row per (film_id, dimension) with array_agg of tags). Filter out self and `film_sequel` matches early.
-   - Main SELECT: for each candidate, compute per-dimension scores using array intersection / union with the source's tags weighted by IDF. IDF can be passed in as a JSONB parameter (PostgreSQL handles JSONB fast) or joined from a temporary `tag_idf` table built from the cached IDF map.
-   - Apply bonuses via LEFT JOINs (crew on shared director, production on shared studio + decade match).
-   - ORDER BY score DESC LIMIT N.
-   - Return film_id, original_title, first_release_date, duration, poster_url, director (concat), score, plus enough info to derive `shared_tags`.
-
-   If the all-in-one CTE gets unwieldy: alternative is a 2-step approach — (1) get candidate IDs ranked by a coarser score in SQL, (2) re-fetch the top-N with full shared_tags in Python. Cleaner separation, only N=12 extra small queries.
-
-4. **Endpoint** in `backend/app/routers/films.py`:
-   ```
-   @router.get("/films/{film_id}/similar", response_model=SimilarFilmsResponse)
-   async def similar_films(
-       film_id: int,
-       limit: int = Query(12, ge=1, le=20),
-       db: AsyncSession = Depends(get_db),
-       user: UserInfo | None = Depends(get_current_user),
-   ):
-   ```
-   - Tier-cap the requested `limit`: anonymous → min(limit, 3), free → min(limit, 6), pro/admin → limit.
-   - 404 if film_id doesn't exist.
-
-5. **Schemas** in `backend/app/schemas/film.py`:
-   ```
-   class SimilarFilm(BaseModel):
-       film_id: int
-       original_title: str
-       first_release_date: date | None = None
-       duration: int | None = None
-       poster_url: str | None = None
-       director: str | None = None
-       categories: list[str] = []
-       score: float
-       score_pct: int  # 0–100, score normalized for UI display
-       shared_tags: dict[str, list[str]]  # dim → top 3 shared tags
-
-   class SimilarFilmsResponse(BaseModel):
-       items: list[SimilarFilm]
-   ```
-
-6. **Cache invalidation hooks** — wire into existing endpoints:
-   - `update_film` (PUT /films/{id}): call `recommender.invalidate_film(film_id)` after commit.
-   - `add_film_relation` and `delete_film_relation`: invalidate both `film_id` and `related_film_id`.
-   - `delete_film`: invalidate that film_id. Other entries naturally filter the deleted film via the JOIN.
-
-### Performance target
-
-First request for a film: ≤500ms uncached. Cached: ≤50ms. If the SQL is slow, profile with EXPLAIN ANALYZE — most likely missing or unused indexes on junction tables. The schema already has these per `schema.sql`; verify with the query plan.
-
-### Acceptance
-
-- `GET /api/films/{mulholland_drive_id}/similar` returns 12 films, all sharing some atmospheric/thematic DNA. Lynch films near top, neo-noir / dreamlike / mysterious titles present.
-- `GET /api/films/{la_haine_id}/similar` surfaces social/political dramas with similar oppressive atmosphere.
-- Sequel films excluded by construction (verify with a known franchise).
-- Source film never present in its own results.
-- Updating a film's tags via PUT → next call returns refreshed results (no stale cache).
-- Adding a `film_sequel` relation → that film disappears from each other's similar list on next call.
+**Bonuses**:
+- Same director (any overlap): +0.10
+- Same studio + same release decade: +0.03
+- Quality nudge: +0.05 × normalized weighted_score
 
 ---
 
@@ -314,53 +236,568 @@ First request for a film: ≤500ms uncached. Cached: ≤50ms. If the SQL is slow
 
 **Goal:** Replace the placeholder `SimilarFilmsCarousel` with the real recommendation UI driven by the 16b endpoint, with the "Refine in Browse →" button (16a) integrated into the section header.
 
-### Read first
+---
 
-- `frontend/src/components/films/SimilarFilmsCarousel.tsx` (the placeholder being replaced)
-- `frontend/src/components/films/FilmCard.tsx`
-- `frontend/src/components/films/SectionHeading.tsx`
-- `frontend/src/api/client.ts`
-- `frontend/src/types/api.ts`
-- `frontend/src/pages/FilmDetailPage.tsx` (where the carousel is mounted)
-- `frontend/src/lib/recommender.ts` (from 16a)
+## Step 17a-Backend Prompt — Stats Dashboard API
 
-### Implementation
+```
+Read CLAUDE.md, then PLAN.md (Step 17a section, paying special attention to the Tier visibility model and Response shape JSON), then this prompt.
 
-1. **Types** in `frontend/src/types/api.ts`: add `SimilarFilm` and `SimilarFilmsResponse` mirroring the backend schemas from 16b.
+Read these files for context before changing anything:
+- backend/app/routers/films.py (especially the existing get_stats() at the bottom and the parallel-query pattern used in get_film())
+- backend/app/auth.py (for get_current_user, UserInfo)
+- backend/app/tier_config.py
+- backend/app/main.py (router registration pattern)
+- database/schema.sql (skim person, crew, casting, award, source, film_origin, film_genre, category, theme_context, atmosphere, user_film_status)
 
-2. **API client** in `frontend/src/api/client.ts`: add `fetchSimilarFilms(filmId, limit)`.
+## Task: Build a single bulk dashboard stats endpoint with tier-aware payload
 
-3. **New hook** `frontend/src/hooks/useSimilarFilms.ts`:
-   - React Query, staleTime 5min, only fetches when `filmId` is truthy.
-   - Pass `limit` derived from tier (anonymous 3, free 6, pro/admin 12).
+### 1. Create `backend/app/routers/stats.py`
 
-4. **Updated component** `SimilarFilmsCarousel.tsx`:
-   - Props: `filmId: number`, `tier: "anonymous" | "free" | "pro" | "admin"`, `currentFilm: FilmDetail` (needed for the Refine button to read tags).
-   - **Section header**: "Similar Films" on the left, **"Refine in Browse →"** button on the right (calls `selectDistinctiveTags(currentFilm, idfMap, tier)` from 16a, builds URLSearchParams, navigates).
-   - **Body**: horizontal scroll container, FilmCard for each film. Scroll-snap on mobile. Cards show poster + title + year + (Pro only) a thin "match: 78%" indicator from `score_pct`.
-   - **"Why?" tooltip** on each card (Pro/Admin only): hover shows top shared tags per dimension. Use shadcn/ui `Tooltip` if available; max width ~280px; dimensions as small headers, tags as inline chips.
-   - **Tier teasing**: at tier limit, show a blurred 5th-position card with overlay "Sign up free for more" (anonymous) or "Upgrade to Pro for full recommendations" (free). Click → `/auth` or pricing.
-   - **Loading**: skeleton cards (already partially in placeholder).
-   - **Error**: tasteful inline message, do not break the page.
-   - **Empty state**: if a film has too few tags to compute similarity (rare), fall back to the existing placeholder copy.
+New router with one endpoint:
 
-5. **Wire-up** in `FilmDetailPage.tsx`:
-   - Pass `currentFilm={film}` and the user's `tier`.
-   - Remove the temporary Refine button placement from 16a (the section header is the canonical home).
-   - Keep the existing scroll-anchor `id="similar-films"` on the wrapping section.
+`GET /api/stats/dashboard` — returns the full dashboard payload, with locked sections returned as `null`.
 
-### Visual polish
+**Tier resolution:**
+- Use `Depends(get_current_user)` to get optional `UserInfo`
+- Resolve tier: `user.tier if user else "anonymous"`
+- Decide which sections to populate:
+  - `quick`: always (but `seen_count` = 0 for anonymous; pulled from user_film_status for logged-in users)
+  - `geography`: ALWAYS `null` in 17a (placeholder)
+  - `financials`: `null` for anonymous, populated for free/pro/admin
+  - `people`: `null` for anonymous and free, populated for pro/admin
+  - `taxonomy`: `null` for anonymous and free, populated for pro/admin
+  - `personal_stats`: populated only for logged-in pro/admin
 
-- No layout shift when the carousel resolves — reserve the height during loading.
-- Score percentage uses subdued color (muted-foreground), not amber — it's secondary information.
-- Tooltip dimension labels go through `dimensionLabel` from `lib/utils.ts` for consistency.
+### 2. Implementation pattern
 
-### Acceptance
+Follow the parallel-query pattern from `get_film()` in films.py. Define an internal `_parallel_query(sql, params)` helper that uses `engine.connect()` and a semaphore. Build a list of coroutines, gather only the ones needed for the resolved tier, then assemble the response dict.
 
-- Mulholland Drive page: 12 films in carousel for Pro, 6 for free, 3 for anonymous.
-- Hovering "Why?" on Pro shows top shared tags per dimension; tooltip absent on free/anonymous.
-- Clicking "Refine in Browse →" navigates to /browse with 5–8 distinctive tags pre-selected (matches 16a acceptance).
-- Direct sequels (visible in Related Films) do **not** appear in Similar Films.
-- After admin adds a manual relation between two films, refreshing the page removes that film from each other's Similar Films section.
+Do NOT run queries for sections the user can't access — saves significant DB load.
+
+### 3. Exact SQL for each block
+
+**quick.total_films:**
+```sql
+SELECT COUNT(*) FROM film
+```
+
+**quick.total_directors / total_actors / total_composers:**
+```sql
+-- Directors and Composers via crew
+SELECT pj.role_name, COUNT(DISTINCT c.person_id) AS cnt
+FROM crew c JOIN person_job pj ON c.job_id = pj.job_id
+WHERE pj.role_name IN ('Director', 'Composer')
+GROUP BY pj.role_name
+
+-- Actors via casting
+SELECT COUNT(DISTINCT person_id) FROM casting
+```
+
+**quick.by_decade:**
+```sql
+SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+       COUNT(*) AS count
+FROM film WHERE first_release_date IS NOT NULL
+GROUP BY decade ORDER BY decade
+```
+
+**quick.duration_distribution:**
+```sql
+SELECT bucket, COUNT(*) AS count FROM (
+  SELECT CASE
+    WHEN duration < 60 THEN '<60'
+    WHEN duration < 90 THEN '60-89'
+    WHEN duration < 120 THEN '90-119'
+    WHEN duration < 150 THEN '120-149'
+    WHEN duration < 180 THEN '150-179'
+    ELSE '180+'
+  END AS bucket
+  FROM film WHERE duration IS NOT NULL
+) sub GROUP BY bucket
+```
+Return buckets in fixed order client-side; backend can return any order, frontend will reshape.
+
+**quick.color_by_decade:**
+```sql
+SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+       COUNT(*) FILTER (WHERE color = TRUE) AS color,
+       COUNT(*) FILTER (WHERE color = FALSE) AS bw
+FROM film WHERE first_release_date IS NOT NULL
+GROUP BY decade ORDER BY decade
+```
+
+**quick.top_studios** (top 20):
+```sql
+SELECT s.studio_name AS name, COUNT(*) AS count
+FROM production p JOIN studio s ON p.studio_id = s.studio_id
+GROUP BY s.studio_name ORDER BY count DESC LIMIT 20
+```
+
+**quick.most_awarded_films** (top 20):
+```sql
+SELECT f.film_id, f.original_title AS title, f.poster_url,
+       EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+       COUNT(*) FILTER (WHERE a.result='won') AS wins,
+       COUNT(*) FILTER (WHERE a.result='nominated') AS nominations
+FROM award a JOIN film f ON a.film_id = f.film_id
+GROUP BY f.film_id, f.original_title, f.poster_url, f.first_release_date
+ORDER BY wins DESC, nominations DESC LIMIT 20
+```
+
+**quick.by_source_type:**
+```sql
+SELECT s.source_type, COUNT(DISTINCT fo.film_id) AS count
+FROM film_origin fo JOIN source s ON fo.source_id = s.source_id
+GROUP BY s.source_type ORDER BY count DESC
+```
+
+**financials.top_grossing** (top 20):
+```sql
+SELECT film_id, original_title AS title, poster_url,
+       EXTRACT(YEAR FROM first_release_date)::int AS year, revenue
+FROM film WHERE revenue IS NOT NULL AND revenue > 0
+ORDER BY revenue DESC LIMIT 20
+```
+
+**financials.top_budgets** (same pattern, ORDER BY budget DESC, WHERE budget IS NOT NULL AND budget > 0).
+
+**financials.most_profitable** (top 20):
+```sql
+SELECT film_id, original_title AS title, poster_url,
+       EXTRACT(YEAR FROM first_release_date)::int AS year,
+       budget, revenue,
+       (revenue::float / budget) AS ratio
+FROM film
+WHERE budget IS NOT NULL AND budget > 1000000
+  AND revenue IS NOT NULL AND revenue > 0
+ORDER BY ratio DESC LIMIT 20
+```
+
+**financials.avg_budget_by_decade:**
+```sql
+SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+       AVG(budget)::bigint AS avg_budget,
+       COUNT(*) AS film_count
+FROM film
+WHERE budget IS NOT NULL AND budget > 0 AND first_release_date IS NOT NULL
+GROUP BY decade HAVING COUNT(*) >= 3
+ORDER BY decade
+```
+
+**financials.budget_revenue_scatter** (capped at 500):
+```sql
+SELECT f.film_id, f.original_title AS title, f.budget, f.revenue,
+       (SELECT MIN(c.category_name) FROM film_genre fg
+        JOIN category c ON fg.category_id = c.category_id
+        WHERE fg.film_id = f.film_id
+          AND c.historic_subcategory_name IS NULL) AS category
+FROM film f
+WHERE f.budget IS NOT NULL AND f.budget > 0
+  AND f.revenue IS NOT NULL AND f.revenue > 0
+ORDER BY f.revenue DESC LIMIT 500
+```
+
+**people.top_directors** (top 15):
+```sql
+SELECT p.person_id,
+       TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
+       p.photo_url, p.nationality,
+       COUNT(*) AS film_count,
+       MIN(EXTRACT(YEAR FROM f.first_release_date)::int) AS first_year,
+       MAX(EXTRACT(YEAR FROM f.first_release_date)::int) AS last_year
+FROM crew c
+JOIN person p ON c.person_id = p.person_id
+JOIN person_job pj ON c.job_id = pj.job_id
+JOIN film f ON c.film_id = f.film_id
+WHERE pj.role_name = 'Director' AND f.first_release_date IS NOT NULL
+GROUP BY p.person_id, p.firstname, p.lastname, p.photo_url, p.nationality
+ORDER BY film_count DESC, last_year DESC LIMIT 15
+```
+
+**people.top_actors** (top 15) — same pattern via casting:
+```sql
+SELECT p.person_id,
+       TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
+       p.photo_url, p.nationality,
+       COUNT(*) AS film_count,
+       MIN(EXTRACT(YEAR FROM f.first_release_date)::int) AS first_year,
+       MAX(EXTRACT(YEAR FROM f.first_release_date)::int) AS last_year
+FROM casting ca
+JOIN person p ON ca.person_id = p.person_id
+JOIN film f ON ca.film_id = f.film_id
+WHERE f.first_release_date IS NOT NULL
+GROUP BY p.person_id, p.firstname, p.lastname, p.photo_url, p.nationality
+ORDER BY film_count DESC LIMIT 15
+```
+
+**people.top_composers** (top 15) — same as top_directors with `role_name = 'Composer'`.
+
+**people.top_director_nationalities** (top 15):
+```sql
+SELECT p.nationality, COUNT(DISTINCT p.person_id) AS count
+FROM crew c
+JOIN person p ON c.person_id = p.person_id
+JOIN person_job pj ON c.job_id = pj.job_id
+WHERE pj.role_name = 'Director' AND p.nationality IS NOT NULL
+GROUP BY p.nationality ORDER BY count DESC LIMIT 15
+```
+
+**people.top_actor_nationalities** — same via casting.
+
+**people.gender_split** — three queries grouped (all persons / directors / actors):
+```sql
+-- All persons
+SELECT COALESCE(gender, 'unknown') AS g, COUNT(*) AS c
+FROM person GROUP BY COALESCE(gender, 'unknown')
+```
+For directors: filter via crew + 'Director' role. For actors: via casting.
+
+Reshape into `{"M": int, "F": int, "unknown": int}` in Python before returning.
+
+**people.directors_gender_by_decade:**
+```sql
+SELECT (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+       COUNT(*) FILTER (WHERE p.gender = 'M') AS male,
+       COUNT(*) FILTER (WHERE p.gender = 'F') AS female
+FROM crew c
+JOIN person p ON c.person_id = p.person_id
+JOIN person_job pj ON c.job_id = pj.job_id
+JOIN film f ON c.film_id = f.film_id
+WHERE pj.role_name = 'Director' AND f.first_release_date IS NOT NULL
+GROUP BY decade ORDER BY decade
+```
+Return keys as `{"decade": ..., "M": ..., "F": ...}`.
+
+**people.living_status** (directors / actors): for each person involved as director (or actor), count `living` (date_of_death IS NULL AND date_of_birth IS NOT NULL), `deceased` (date_of_death IS NOT NULL), `unknown` (date_of_birth IS NULL).
+
+**people.directors_by_birth_decade:**
+```sql
+SELECT (EXTRACT(YEAR FROM p.date_of_birth)::int / 10) * 10 AS birth_decade,
+       COUNT(DISTINCT p.person_id) AS count
+FROM crew c
+JOIN person p ON c.person_id = p.person_id
+JOIN person_job pj ON c.job_id = pj.job_id
+WHERE pj.role_name = 'Director' AND p.date_of_birth IS NOT NULL
+GROUP BY birth_decade ORDER BY birth_decade
+```
+
+**taxonomy.top_themes** (top 20, exclude subtypes):
+```sql
+SELECT tc.theme_name AS name, COUNT(*) AS count
+FROM film_theme ft JOIN theme_context tc ON ft.theme_context_id = tc.theme_context_id
+WHERE tc.theme_name NOT LIKE '%: %'  -- exclude "parent: sub" subtypes
+GROUP BY tc.theme_name ORDER BY count DESC LIMIT 20
+```
+
+**taxonomy.category_distribution:**
+```sql
+SELECT c.category_name AS name, COUNT(*) AS count
+FROM film_genre fg JOIN category c ON fg.category_id = c.category_id
+WHERE c.historic_subcategory_name IS NULL
+GROUP BY c.category_name ORDER BY count DESC
+```
+
+**taxonomy.top_atmospheres** (top 30 for word cloud):
+```sql
+SELECT a.atmosphere_name AS name, COUNT(*) AS count
+FROM film_atmosphere fa JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
+GROUP BY a.atmosphere_name ORDER BY count DESC LIMIT 30
+```
+
+**taxonomy.category_by_decade_heatmap:**
+```sql
+SELECT c.category_name AS category,
+       (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+       COUNT(*) AS count
+FROM film_genre fg
+JOIN category c ON fg.category_id = c.category_id
+JOIN film f ON fg.film_id = f.film_id
+WHERE c.historic_subcategory_name IS NULL
+  AND f.first_release_date IS NOT NULL
+GROUP BY c.category_name, decade
+ORDER BY c.category_name, decade
+```
+
+**personal_stats** (logged-in pro/admin only):
+- `seen_count` = `SELECT COUNT(*) FROM user_film_status WHERE user_id=:uid AND seen=TRUE`
+- `unseen_count` = `total_films - seen_count`
+- `seen_pct` = `round(seen_count / total_films * 100, 1)`
+- `favorite_count`, `watchlist_count`, `rated_count` = similar counts with the matching flags
+- `avg_rating` = `SELECT AVG(rating) FROM user_film_status WHERE user_id=:uid AND rating IS NOT NULL`
+- `seen_by_decade`:
+  ```sql
+  SELECT (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+         COUNT(*) AS count
+  FROM user_film_status u JOIN film f ON u.film_id = f.film_id
+  WHERE u.user_id = :uid AND u.seen = TRUE AND f.first_release_date IS NOT NULL
+  GROUP BY decade ORDER BY decade
+  ```
+- `top_seen_categories`: same join, GROUP BY category, top 10
+
+### 4. Pydantic schemas
+
+Define response models in the same file (or a new `backend/app/schemas/stats.py` if you prefer). Use Optional types for the section fields so they can be `null`.
+
+### 5. Register router
+
+In `backend/app/main.py`, add:
+```python
+from backend.app.routers import stats
+app.include_router(stats.router, prefix="/api")
+```
+
+### 6. Decision on existing /api/stats
+
+The existing minimal `/api/stats` endpoint in `films.py` (returns total_films, seen, unseen, by_decade, top_categories, top_countries) is now redundant. **Keep it for backward compatibility for now** — don't delete. The new `/api/stats/dashboard` is the dashboard endpoint; the old one stays as-is.
+
+### 7. Verification
+
+Test manually with curl:
+```bash
+# Anonymous
+curl http://localhost:8000/api/stats/dashboard | jq '.tier, .quick.total_films, .financials, .people, .taxonomy'
+# Expect: "anonymous", <number>, null, null, null
+
+# Logged in (use a test JWT with tier=pro)
+curl -H "Authorization: Bearer <jwt>" http://localhost:8000/api/stats/dashboard | jq '.tier, .people.top_directors[0]'
+```
+
+Response for anonymous should be reasonably fast (<500ms locally). For pro, all sections populated, target <1.5s. Use parallel queries.
+```
 
 ---
+
+## Step 17a-Frontend Prompt — Stats Dashboard UI
+
+```
+Read CLAUDE.md, then PLAN.md (Step 17a section, especially the Tier visibility model), then this prompt.
+
+Read these files for context before changing anything:
+- frontend/src/App.tsx (route registration)
+- frontend/src/components/layout/Header.tsx (nav links)
+- frontend/src/api/client.ts (API call patterns, getAuthHeaders, BASE)
+- frontend/src/types/api.ts
+- frontend/src/context/AuthContext.tsx (useAuth hook, isAuthenticated, tier)
+- frontend/src/lib/tierAccess.ts (existing tier patterns to mirror)
+- frontend/src/pages/CollectionPage.tsx (existing page example with same dark theme)
+- frontend/src/components/films/FilmCard.tsx (poster card pattern for top-grossing/awarded film cards)
+
+## Task: Build the /stats dashboard page with 5 tabs (Quick / Geography / Financials / People / Taxonomy)
+
+### 0. Install dependency
+
+```bash
+cd frontend
+npm install recharts
+```
+
+### 1. Add types in `frontend/src/types/api.ts`
+
+Add at the bottom of the file:
+
+```typescript
+export type Tier = "anonymous" | "free" | "pro" | "admin";
+
+export interface QuickStatsPayload {
+  total_films: number;
+  total_directors: number;
+  total_actors: number;
+  total_composers: number;
+  by_decade: { decade: number; count: number }[];
+  duration_distribution: { bucket: string; count: number }[];
+  color_by_decade: { decade: number; color: number; bw: number }[];
+  top_studios: { name: string; count: number }[];
+  most_awarded_films: { film_id: number; title: string; poster_url: string | null; year: number | null; wins: number; nominations: number }[];
+  by_source_type: { source_type: string; count: number }[];
+}
+
+export interface FinancialsPayload {
+  top_grossing: { film_id: number; title: string; poster_url: string | null; year: number | null; revenue: number }[];
+  top_budgets: { film_id: number; title: string; poster_url: string | null; year: number | null; budget: number }[];
+  most_profitable: { film_id: number; title: string; poster_url: string | null; year: number | null; budget: number; revenue: number; ratio: number }[];
+  avg_budget_by_decade: { decade: number; avg_budget: number; film_count: number }[];
+  budget_revenue_scatter: { film_id: number; title: string; budget: number; revenue: number; category: string | null }[];
+}
+
+export interface PeoplePayload {
+  top_directors: PersonRank[];
+  top_actors: PersonRank[];
+  top_composers: PersonRank[];
+  top_director_nationalities: { nationality: string; count: number }[];
+  top_actor_nationalities: { nationality: string; count: number }[];
+  gender_split: { all: GenderCounts; directors: GenderCounts; actors: GenderCounts };
+  directors_gender_by_decade: { decade: number; M: number; F: number }[];
+  living_status: { directors: LivingCounts; actors: LivingCounts };
+  directors_by_birth_decade: { birth_decade: number; count: number }[];
+}
+
+export interface PersonRank {
+  person_id: number;
+  name: string;
+  photo_url: string | null;
+  nationality: string | null;
+  film_count: number;
+  first_year: number | null;
+  last_year: number | null;
+}
+export interface GenderCounts { M: number; F: number; unknown: number }
+export interface LivingCounts { living: number; deceased: number; unknown: number }
+
+export interface TaxonomyPayload {
+  top_themes: { name: string; count: number }[];
+  category_distribution: { name: string; count: number }[];
+  top_atmospheres: { name: string; count: number }[];
+  category_by_decade_heatmap: { category: string; decade: number; count: number }[];
+}
+
+export interface PersonalStatsPayload {
+  seen_count: number;
+  unseen_count: number;
+  seen_pct: number;
+  favorite_count: number;
+  watchlist_count: number;
+  rated_count: number;
+  avg_rating: number | null;
+  seen_by_decade: { decade: number; count: number }[];
+  top_seen_categories: { name: string; count: number }[];
+}
+
+export interface DashboardStats {
+  tier: Tier;
+  quick: QuickStatsPayload;
+  geography: null;  // always null in 17a
+  financials: FinancialsPayload | null;
+  people: PeoplePayload | null;
+  taxonomy: TaxonomyPayload | null;
+  personal_stats: PersonalStatsPayload | null;
+}
+```
+
+### 2. Add API call in `frontend/src/api/client.ts`
+
+```typescript
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const res = await fetch(`${BASE}/stats/dashboard`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to load dashboard");
+  return res.json();
+}
+```
+
+### 3. Create `frontend/src/hooks/useDashboardStats.ts`
+
+React Query wrapper with `staleTime: 5 * 60 * 1000` (5 minutes). Pattern: same as existing `useFilms.ts`.
+
+### 4. Create `frontend/src/lib/nationalityFlags.ts`
+
+Export a function `getNationalityFlag(nationality: string | null): string`. Static map of ~50 most common nationalities (English/American/French/German/Italian/Spanish/Japanese/Korean/Chinese/Indian/Russian/Brazilian/Mexican/Canadian/Australian/Swedish/Danish/Norwegian/Finnish/Dutch/Belgian/Polish/Czech/Hungarian/Greek/Turkish/Iranian/Israeli/Egyptian/South African/Argentine/Chilean/Cuban/Vietnamese/Thai/Indonesian/Filipino/Hong Kong/Taiwanese/Pakistani/Bangladeshi/Irish/Scottish/Welsh/Portuguese/Austrian/Swiss/Romanian/Bulgarian/Ukrainian/etc.) → emoji flag. Return empty string if not found. Be careful: nationality strings come from TMDB and are typically the demonym ("French") not the country ("France").
+
+### 5. Create reusable components in `frontend/src/components/stats/`
+
+**StatCard.tsx**: simple card with big number + label + optional sublabel. Props: `value: number | string`, `label: string`, `sublabel?: string`. Format large numbers with commas (use `toLocaleString()`).
+
+**LockedTabPlaceholder.tsx**: shown for locked tabs. Props:
+  - `reason: "signup" | "upgrade" | "coming_soon"`
+  - `tabName: string` (e.g. "People")
+  - For "signup": message "Sign up free to unlock {tabName}" + button to `/auth?mode=signup`
+  - For "upgrade": message "Upgrade to Pro to unlock {tabName}" + button (no real upgrade flow yet, just disable or link to a placeholder)
+  - For "coming_soon": message "Geography stats coming soon" + Lock icon, no CTA button
+  - Use Lock icon from lucide-react, amber accent
+
+**PersonRankCard.tsx**: compact card for People tab.
+  - Props: `person: PersonRank, role: "Director" | "Actor" | "Composer"`
+  - Photo (square, 80x80), name, flag emoji + nationality, film count, active years ("1943–1993")
+  - Whole card is clickable → navigate to `/browse?q=<encoded name>` (using react-router's `Link` or `useNavigate`)
+  - Fallback for missing photo: initials in a circle (firstname[0] + lastname[0])
+
+**CategoryDecadeHeatmap.tsx**: custom SVG heatmap.
+  - Props: `data: { category: string; decade: number; count: number }[]`
+  - Compute: unique sorted categories (rows), unique sorted decades (columns), max count for color scaling
+  - Render `<svg>` with one `<rect>` per cell. Color: amber with opacity = `count / maxCount` (clamped to 0.05–1.0 for visibility)
+  - Cell size: 40×40 px. Show count as text inside cell when count > 0
+  - Row labels (categories) on the left, column labels (decades) at the bottom rotated -45deg
+  - On cell hover: tooltip with "{category} · {decade}s · {count} films"
+
+**AtmosphereWordCloud.tsx**: simple sized-text cloud, NO library.
+  - Props: `data: { name: string; count: number }[]`
+  - Compute min/max counts. Map count → font size between 0.75rem and 2.5rem (linear)
+  - Render as flex-wrap div, gap between words. Random soft color rotation between amber/slate/zinc shades
+  - No clicks needed
+
+### 6. Create the 5 tab components
+
+**QuickStatsTab.tsx** (`data: QuickStatsPayload, personalStats: PersonalStatsPayload | null`):
+Sections in this order:
+  1. Top row: 4 StatCards (total films, directors, actors, composers)
+  2. (If personalStats present:) personal-stats row — 4 StatCards (seen %, favorites, watchlist, rated)
+  3. "Films by decade" — Recharts BarChart. If `personalStats.seen_by_decade` present, render a stacked bar (seen + remaining). Otherwise plain bar.
+  4. "Duration distribution" — Recharts BarChart. Order buckets manually: `["<60", "60-89", "90-119", "120-149", "150-179", "180+"]`
+  5. "Color vs B&W over time" — Recharts BarChart with stacked bars (color amber, bw slate)
+  6. "Most awarded films" — horizontal scrollable row of poster cards (similar to SimilarFilmsCarousel pattern). Each card shows poster + title + year + "{wins}× won, {nominations}× nominated". Click → navigate to film detail.
+  7. "Top studios" — Recharts BarChart (horizontal, top 20)
+  8. "By source type" — Recharts PieChart
+
+**GeographyTab.tsx**: just renders `<LockedTabPlaceholder reason="coming_soon" tabName="Geography" />`.
+
+**FinancialsTab.tsx** (`data: FinancialsPayload`):
+  1. Disclaimer at top: italic "Based on N films with available financial data — not adjusted for inflation"
+  2. Two side-by-side horizontal scroll rows: "Top 20 highest-grossing" / "Top 20 biggest budgets" (poster cards)
+  3. "Most profitable (revenue/budget ratio)" — horizontal poster row, show ratio under title ("×{ratio.toFixed(1)}")
+  4. "Average budget by decade" — Recharts LineChart. Y-axis in millions ($M). Tooltip shows film_count.
+  5. "Budget vs Revenue scatter" — Recharts ScatterChart. X = budget (log scale), Y = revenue (log scale). Each dot a film. Add reference line `y = 2x` (rough break-even). Tooltip: title + figures.
+
+**PeopleTab.tsx** (`data: PeoplePayload`):
+  1. Three sections side-by-side or stacked: "Most prolific directors" / "Most prolific actors" / "Most prolific composers". Each = grid of 5 PersonRankCard × 3 rows = 15 cards.
+  2. "Director nationalities" / "Actor nationalities" — two horizontal BarCharts side-by-side
+  3. "Gender split" — three small PieCharts side-by-side (all / directors / actors). Use blue for M, pink for F, gray for unknown.
+  4. "Female directors over time" — BarChart of `directors_gender_by_decade`, stacked M+F. The visual story = how the F bar grows over recent decades.
+  5. "Living vs deceased" — two PieCharts side-by-side (directors / actors)
+  6. "Directors by birth decade" — BarChart
+
+**TaxonomyTab.tsx** (`data: TaxonomyPayload`):
+  1. "Top 20 themes" — horizontal BarChart
+  2. "Categories distribution" — PieChart
+  3. "Atmospheres" — AtmosphereWordCloud
+  4. "Category evolution over time" — CategoryDecadeHeatmap (with subtitle explaining the pattern)
+
+### 7. Create `frontend/src/pages/StatsPage.tsx`
+
+- Use `useDashboardStats()` hook
+- Use `useSearchParams` from react-router-dom to read/write `?tab=`
+- Use shadcn/ui `Tabs` component (`Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`)
+- Tabs: "Quick Stats" / "Geography" / "Financials" / "People" / "Taxonomy"
+- Tier-based rendering inside each tab:
+  - For each tab, check if `data.<section>` is `null` and the tier requires unlock → render `LockedTabPlaceholder` instead of the actual tab component
+  - Quick: always render (always populated)
+  - Geography: always render `<GeographyTab />` (which is itself the locked placeholder)
+  - Financials: if anonymous → LockedTabPlaceholder reason="signup"; else render <FinancialsTab data={data.financials!} />
+  - People: if anonymous or free → LockedTabPlaceholder (signup or upgrade); else render <PeopleTab>
+  - Taxonomy: same logic as People
+
+Page layout: Layout wrapper, page title "Database Stats", subtitle showing total film count, then the Tabs.
+
+Loading state: skeleton loaders or simple "Loading…" text matching existing pages.
+Error state: error message in existing page style.
+
+### 8. Add route in `frontend/src/App.tsx`
+
+Add `<Route path="/stats" element={<StatsPage />} />` next to the other routes.
+
+### 9. Add nav link in `frontend/src/components/layout/Header.tsx`
+
+Add a "Stats" link in the main nav bar, visible to everyone. Use `BarChart3` icon from lucide-react. Active styling when current path = `/stats`.
+
+### Important notes
+
+- All charts should match dark theme: tooltip background `#1f1f1f`, chart text muted, primary color amber (`#f59e0b`), secondary slate (`#64748b`).
+- Recharts components need explicit `width` and `height` or wrap in `<ResponsiveContainer width="100%" height={300}>`.
+- Format large numbers consistently: `1840000` → `"$1.84M"`, `12000` → `"12,000"`. Use a helper in `lib/utils.ts` if not already present.
+- Don't break any existing page or feature.
+- Mobile responsiveness: charts inside ResponsiveContainer; stat card grids use Tailwind `grid grid-cols-2 md:grid-cols-4`.
+- Performance: the dashboard query is cached 5 minutes by React Query, so navigating between tabs is instant.
+```
+
+---
+

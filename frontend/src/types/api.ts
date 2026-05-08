@@ -253,6 +253,121 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   per_page: 24,
 };
 
+// =============================================================================
+// Stats Dashboard
+// =============================================================================
+
+export type Tier = "anonymous" | "free" | "pro" | "admin";
+
+export interface QuickStatsPayload {
+  total_films: number;
+  total_directors: number;
+  total_actors: number;
+  total_composers: number;
+  by_decade: { decade: number; count: number }[];
+  duration_distribution: { bucket: string; count: number }[];
+  color_by_decade: { decade: number; color: number; bw: number }[];
+  top_studios: { name: string; count: number }[];
+  most_awarded_films: {
+    film_id: number;
+    title: string;
+    poster_url: string | null;
+    year: number | null;
+    wins: number;
+    nominations: number;
+  }[];
+  by_source_type: { source_type: string; count: number }[];
+}
+
+export interface FinancialsPayload {
+  top_grossing: {
+    film_id: number;
+    title: string;
+    poster_url: string | null;
+    year: number | null;
+    revenue: number;
+  }[];
+  top_budgets: {
+    film_id: number;
+    title: string;
+    poster_url: string | null;
+    year: number | null;
+    budget: number;
+  }[];
+  most_profitable: {
+    film_id: number;
+    title: string;
+    poster_url: string | null;
+    year: number | null;
+    budget: number;
+    revenue: number;
+    ratio: number;
+  }[];
+  avg_budget_by_decade: { decade: number; avg_budget: number; film_count: number }[];
+  budget_revenue_scatter: {
+    film_id: number;
+    title: string;
+    budget: number;
+    revenue: number;
+    category: string | null;
+  }[];
+}
+
+export interface PersonRank {
+  person_id: number;
+  name: string;
+  photo_url: string | null;
+  nationality: string | null;
+  gender: "M" | "F" | null;
+  film_count: number;
+  first_year: number | null;
+  last_year: number | null;
+}
+export interface GenderCounts { M: number; F: number; unknown: number }
+export interface LivingCounts { living: number; deceased: number; unknown: number }
+
+export type PeopleRoleKey = "directors" | "actors" | "composers";
+export type PeopleGenderKey = "all" | "male" | "female";
+
+export interface PeoplePayload {
+  top_people: Record<PeopleRoleKey, Record<PeopleGenderKey, PersonRank[]>>;
+  top_director_nationalities: { nationality: string; count: number }[];
+  top_actor_nationalities: { nationality: string; count: number }[];
+  gender_split: { all: GenderCounts; directors: GenderCounts; actors: GenderCounts };
+  directors_gender_by_decade: { decade: number; M: number; F: number }[];
+  living_status: { directors: LivingCounts; actors: LivingCounts };
+  directors_by_birth_decade: { birth_decade: number; count: number }[];
+}
+
+export interface TaxonomyPayload {
+  top_themes: { name: string; count: number }[];
+  category_distribution: { name: string; count: number }[];
+  top_atmospheres: { name: string; count: number }[];
+  category_by_decade_heatmap: { category: string; decade: number; count: number }[];
+}
+
+export interface PersonalStatsPayload {
+  seen_count: number;
+  unseen_count: number;
+  seen_pct: number;
+  favorite_count: number;
+  watchlist_count: number;
+  rated_count: number;
+  avg_rating: number | null;
+  seen_by_decade: { decade: number; count: number }[];
+  top_seen_categories: { name: string; count: number }[];
+}
+
+export interface DashboardStats {
+  tier: Tier;
+  quick: QuickStatsPayload;
+  geography: null;
+  financials: FinancialsPayload | null;
+  people: PeoplePayload | null;
+  taxonomy: TaxonomyPayload | null;
+  personal_stats: PersonalStatsPayload | null;
+}
+
 export const ARRAY_FILTER_KEYS = [
   "categories",
   "themes",

@@ -1,4 +1,5 @@
 import type {
+  DashboardStats,
   EnrichmentPreview,
   FilmDetail,
   FilterState,
@@ -210,6 +211,13 @@ export async function fetchUserFilms(opts: CollectionFilters): Promise<Paginated
 
 export async function fetchStats(): Promise<StatsResponse> {
   return fetchJson<StatsResponse>(`${BASE}/films/stats`);
+}
+
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${BASE}/stats/dashboard`, { headers });
+  if (!res.ok) throw new ApiError(res.status, "Failed to load dashboard");
+  return res.json();
 }
 
 export async function searchGeography(q: string): Promise<GeographySearchResult[]> {
