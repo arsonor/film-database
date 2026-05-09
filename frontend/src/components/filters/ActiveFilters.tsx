@@ -49,21 +49,37 @@ export function ActiveFilters({
     });
   }
 
-  // Location
+  // Film Set Location
   if (filters.location) {
     chips.push({
       key: "location",
-      label: `Location: ${filters.location}`,
+      label: `Set: ${filters.location}`,
       onRemove: () => onUpdateFilters({ location: "" }),
     });
   }
 
-  // Language
-  if (filters.language) {
+  // Production country
+  if (filters.production_country) {
     chips.push({
-      key: "language",
-      label: `Language: ${filters.language}`,
-      onRemove: () => onUpdateFilters({ language: "" }),
+      key: "production_country",
+      label: `Country: ${filters.production_country}`,
+      onRemove: () => onUpdateFilters({ production_country: "" }),
+    });
+  }
+
+  // Franchise / TMDB collection
+  if (filters.tmdb_collection_id != null) {
+    const label = filters.tmdb_collection_name
+      ? `Franchise: ${filters.tmdb_collection_name}`
+      : `Franchise #${filters.tmdb_collection_id}`;
+    chips.push({
+      key: "tmdb_collection_id",
+      label,
+      onRemove: () =>
+        onUpdateFilters({
+          tmdb_collection_id: null,
+          tmdb_collection_name: "",
+        }),
     });
   }
 

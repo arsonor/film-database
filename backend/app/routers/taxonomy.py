@@ -62,7 +62,7 @@ SORTED_DIMENSIONS = {
 }
 
 # Special dimensions not in DIMENSION_MAP
-SPECIAL_DIMENSIONS = {"languages"}
+SPECIAL_DIMENSIONS = {"languages", "production_countries"}
 ALL_DIMENSIONS = set(DIMENSION_MAP.keys()) | SPECIAL_DIMENSIONS
 
 
@@ -132,6 +132,23 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
             status_code=400,
             detail=f"Unknown dimension: '{dimension}'. Valid: {', '.join(sorted(ALL_DIMENSIONS))}",
         )
+
+    # Special handling for production_countries: count films per production country
+    if dimension == "production_countries":
+        result = await db.execute(text("""
+            SELECT pc.country_id, pc.country_name,
+                   COUNT(DISTINCT fpc.film_id) AS film_count
+            FROM production_country pc
+            LEFT JOIN film_production_country fpc ON pc.country_id = fpc.country_id
+            GROUP BY pc.country_id, pc.country_name
+            HAVING COUNT(DISTINCT fpc.film_id) > 0
+            ORDER BY film_count DESC, pc.country_name
+        """))
+        items = [
+            TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+            for row in result.fetchall()
+        ]
+        return TaxonomyList(dimension=dimension, items=items)
 
     # Special handling for languages: count films where this is the original language
     if dimension == "languages":

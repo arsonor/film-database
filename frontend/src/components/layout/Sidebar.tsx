@@ -25,7 +25,7 @@ import { dimensionLabel } from "@/lib/utils";
 interface SidebarProps {
   filters: FilterState;
   taxonomies: Record<string, TaxonomyItem[]>;
-  languages: TaxonomyItem[];
+  productionCountries: TaxonomyItem[];
   tagDescriptions?: Record<string, Record<string, string>>;
   onToggleFilter: (dimension: ArrayFilterKey, value: string) => void;
   onExcludeFilter: (dimension: ArrayFilterKey, value: string) => void;
@@ -43,7 +43,7 @@ const YEAR_MAX = 2030;
 export function SidebarContent({
   filters,
   taxonomies,
-  languages,
+  productionCountries,
   tagDescriptions,
   onToggleFilter,
   onExcludeFilter,
@@ -259,10 +259,10 @@ export function SidebarContent({
           );
         })}
 
-        {/* Location autocomplete */}
+        {/* Film Set Location autocomplete */}
         <div className={`border-b border-border pb-3 pt-2 ${locationLocked ? "opacity-40 pointer-events-none" : ""}`}>
           <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            Location
+            Film Set Location
             {locationLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
           </label>
           <div className="relative">
@@ -292,70 +292,39 @@ export function SidebarContent({
           </div>
         </div>
 
-        {/* Language dropdown */}
+        {/* Production Country dropdown */}
         <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Language</label>
+          <label className="mb-2 block text-sm font-medium text-foreground">
+            Production Country
+          </label>
           <Select
-            value={filters.language || "__all__"}
+            value={filters.production_country || "__all__"}
             onValueChange={(val) => {
               const newVal = val === "__all__" ? "" : val;
-              if (newVal && !filters.language && checkFilterLimit()) return;
-              onUpdateFilters({ language: newVal });
+              if (newVal && !filters.production_country && checkFilterLimit()) return;
+              onUpdateFilters({ production_country: newVal });
             }}
           >
             <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="All languages" />
+              <SelectValue placeholder="All countries" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__all__">All languages</SelectItem>
-              {languages
-                .filter((l) => (l.film_count ?? 0) > 0)
-                .map((lang) => (
-                  <SelectItem key={lang.id} value={lang.name}>
-                    {lang.name} ({lang.film_count})
+              <SelectItem value="__all__">All countries</SelectItem>
+              {productionCountries
+                .filter((c) => (c.film_count ?? 0) > 0)
+                .map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name} ({c.film_count})
                   </SelectItem>
                 ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Source dropdown */}
-        <div className={`border-b border-border pb-3 pt-2 ${sourceLocked ? "opacity-40 pointer-events-none" : ""}`}>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            Origin/Adaptation
-            {sourceLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
-          </label>
-          <Select
-            value={filters.source || "__all__"}
-            onValueChange={(val) => {
-              const newVal = val === "__all__" ? "" : val;
-              if (newVal && !filters.source && checkFilterLimit()) return;
-              onUpdateFilters({ source: newVal });
-            }}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="All sources" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">All sources</SelectItem>
-              <SelectItem value="original screenplay">Original screenplay</SelectItem>
-              <SelectItem value="novel">Novel</SelectItem>
-              <SelectItem value="comic">Comic</SelectItem>
-              <SelectItem value="TV series">TV series</SelectItem>
-              <SelectItem value="true story">True story</SelectItem>
-              <SelectItem value="play">Play</SelectItem>
-              <SelectItem value="video game">Video game</SelectItem>
-              <SelectItem value="poem">Poem</SelectItem>
-              <SelectItem value="short story">Short story</SelectItem>
-              <SelectItem value="remake">Remake</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Studios search */}
+        {/* Production Studio search */}
         <div className={`border-b border-border pb-3 pt-2 ${studiosLocked ? "opacity-40 pointer-events-none" : ""}`}>
           <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-            Studio
+            Production Studio
             {studiosLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
           </label>
           <div className="relative">
@@ -408,6 +377,38 @@ export function SidebarContent({
           </div>
         </div>
 
+        {/* Source dropdown (Origin / Adaptation) */}
+        <div className={`border-b border-border pb-3 pt-2 ${sourceLocked ? "opacity-40 pointer-events-none" : ""}`}>
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+            Origin/Adaptation
+            {sourceLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+          </label>
+          <Select
+            value={filters.source || "__all__"}
+            onValueChange={(val) => {
+              const newVal = val === "__all__" ? "" : val;
+              if (newVal && !filters.source && checkFilterLimit()) return;
+              onUpdateFilters({ source: newVal });
+            }}
+          >
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="All sources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All sources</SelectItem>
+              <SelectItem value="original screenplay">Original screenplay</SelectItem>
+              <SelectItem value="novel">Novel</SelectItem>
+              <SelectItem value="comic">Comic</SelectItem>
+              <SelectItem value="TV series">TV series</SelectItem>
+              <SelectItem value="true story">True story</SelectItem>
+              <SelectItem value="play">Play</SelectItem>
+              <SelectItem value="video game">Video game</SelectItem>
+              <SelectItem value="poem">Poem</SelectItem>
+              <SelectItem value="short story">Short story</SelectItem>
+              <SelectItem value="remake">Remake</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
       </div>
     </ScrollArea>

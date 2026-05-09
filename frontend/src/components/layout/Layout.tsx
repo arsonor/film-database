@@ -50,18 +50,20 @@ export function Layout({
 }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [languages, setLanguages] = useState<TaxonomyItem[]>([]);
+  const [productionCountries, setProductionCountries] = useState<TaxonomyItem[]>([]);
   const tagDescriptions = useTagDescriptions();
 
-  // Fetch languages once
+  // Fetch production countries once
   useEffect(() => {
-    fetchTaxonomy("languages").then((data) => setLanguages(data.items)).catch(() => {});
+    fetchTaxonomy("production_countries")
+      .then((data) => setProductionCountries(data.items))
+      .catch(() => {});
   }, []);
 
   const sidebarProps = {
     filters,
     taxonomies,
-    languages,
+    productionCountries,
     tagDescriptions,
     onToggleFilter,
     onExcludeFilter,

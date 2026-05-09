@@ -205,6 +205,9 @@ export interface FilterState {
   studios: TagFilter;
   location: string;
   language: string;
+  production_country: string;
+  tmdb_collection_id: number | null;
+  tmdb_collection_name: string;
   source: string;
   year_min: number | null;
   year_max: number | null;
@@ -243,6 +246,9 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   studios: { ...EMPTY_TAG_FILTER },
   location: "",
   language: "",
+  production_country: "",
+  tmdb_collection_id: null,
+  tmdb_collection_name: "",
   source: "",
   year_min: null,
   year_max: null,
@@ -268,6 +274,13 @@ export interface QuickStatsPayload {
   duration_distribution: { bucket: string; count: number }[];
   color_by_decade: { decade: number; color: number; bw: number }[];
   top_studios: { name: string; count: number }[];
+  top_franchises: {
+    collection_id: number;
+    name: string;
+    count: number;
+    poster_path: string | null;
+    backdrop_path: string | null;
+  }[];
   most_awarded_films: {
     film_id: number;
     title: string;

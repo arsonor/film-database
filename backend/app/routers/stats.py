@@ -43,6 +43,7 @@ class QuickStats(BaseModel):
     duration_distribution: list[dict[str, Any]]
     color_by_decade: list[dict[str, Any]]
     top_studios: list[dict[str, Any]]
+    top_franchises: list[dict[str, Any]]
     most_awarded_films: list[dict[str, Any]]
     by_source_type: list[dict[str, Any]]
 
@@ -127,6 +128,7 @@ async def _build_quick() -> QuickStats:
         duration_rows,
         color_rows,
         studios_rows,
+        franchises_rows,
         awarded_rows,
         source_rows,
     ) = await asyncio.gather(
@@ -170,6 +172,15 @@ async def _build_quick() -> QuickStats:
             "GROUP BY s.studio_name ORDER BY count DESC LIMIT 20"
         ),
         _q(
+            "SELECT tc.collection_id, tc.collection_name AS name, "
+            "       COUNT(*) AS count, tc.poster_path, tc.backdrop_path "
+            "FROM film f "
+            "JOIN tmdb_collection tc ON f.tmdb_collection_id = tc.collection_id "
+            "GROUP BY tc.collection_id, tc.collection_name, tc.poster_path, tc.backdrop_path "
+            "HAVING COUNT(*) >= 2 "
+            "ORDER BY count DESC, tc.collection_name LIMIT 20"
+        ),
+        _q(
             "SELECT f.film_id, f.original_title AS title, f.poster_url, "
             "       EXTRACT(YEAR FROM f.first_release_date)::int AS year, "
             "       COUNT(*) FILTER (WHERE a.result='won') AS wins, "
@@ -201,6 +212,16 @@ async def _build_quick() -> QuickStats:
             for r in color_rows
         ],
         top_studios=[{"name": r[0], "count": int(r[1])} for r in studios_rows],
+        top_franchises=[
+            {
+                "collection_id": r[0],
+                "name": r[1],
+                "count": int(r[2]),
+                "poster_path": r[3],
+                "backdrop_path": r[4],
+            }
+            for r in franchises_rows
+        ],
         most_awarded_films=[
             {
                 "film_id": r[0],

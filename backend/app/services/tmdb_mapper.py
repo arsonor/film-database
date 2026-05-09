@@ -99,8 +99,14 @@ class TMDBMapper:
         collection = tmdb_data.get("belongs_to_collection")
         if collection and isinstance(collection, dict):
             film["tmdb_collection_id"] = collection.get("id")
+            film["tmdb_collection_name"] = collection.get("name")
+            film["tmdb_collection_poster"] = collection.get("poster_path")
+            film["tmdb_collection_backdrop"] = collection.get("backdrop_path")
         else:
             film["tmdb_collection_id"] = None
+            film["tmdb_collection_name"] = None
+            film["tmdb_collection_poster"] = None
+            film["tmdb_collection_backdrop"] = None
 
         # --- Titles ---
         titles = self._build_titles(tmdb_data, fr_data)
@@ -139,6 +145,12 @@ class TMDBMapper:
         production_countries = [
             pc["iso_3166_1"] for pc in tmdb_data.get("production_countries", [])
         ]
+        # Full {code, name} pairs for DB persistence (lazy-populates production_country lookup)
+        production_countries_full = [
+            {"code": pc.get("iso_3166_1"), "name": pc.get("name") or pc.get("iso_3166_1")}
+            for pc in tmdb_data.get("production_countries", [])
+            if pc.get("iso_3166_1")
+        ]
 
         return {
             "film": film,
@@ -151,6 +163,7 @@ class TMDBMapper:
             "languages": languages,
             "keywords": keywords,
             "production_countries": production_countries,
+            "production_countries_full": production_countries_full,
             # This field is populated separately via get_watch_providers()
             # It's included in the structure for completeness but defaults to empty
             "streaming_platforms": [],

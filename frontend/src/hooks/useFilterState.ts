@@ -29,6 +29,15 @@ function parseSearchParams(sp: URLSearchParams): FilterState {
   if (location) state.location = location;
   const language = sp.get("language");
   if (language) state.language = language;
+  const productionCountry = sp.get("production_country");
+  if (productionCountry) state.production_country = productionCountry;
+  const collectionId = sp.get("tmdb_collection_id");
+  if (collectionId) {
+    const parsed = parseInt(collectionId, 10);
+    if (!Number.isNaN(parsed)) state.tmdb_collection_id = parsed;
+  }
+  const collectionName = sp.get("tmdb_collection_name");
+  if (collectionName) state.tmdb_collection_name = collectionName;
   const source = sp.get("source");
   if (source) state.source = source;
 
@@ -81,6 +90,12 @@ function stateToSearchParams(state: FilterState): URLSearchParams {
   if (state.q) sp.set("q", state.q);
   if (state.location) sp.set("location", state.location);
   if (state.language) sp.set("language", state.language);
+  if (state.production_country)
+    sp.set("production_country", state.production_country);
+  if (state.tmdb_collection_id != null)
+    sp.set("tmdb_collection_id", String(state.tmdb_collection_id));
+  if (state.tmdb_collection_name)
+    sp.set("tmdb_collection_name", state.tmdb_collection_name);
   if (state.source) sp.set("source", state.source);
   if (state.year_min !== null) sp.set("year_min", String(state.year_min));
   if (state.year_max !== null) sp.set("year_max", String(state.year_max));

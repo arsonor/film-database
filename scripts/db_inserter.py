@@ -201,7 +201,15 @@ class DBInserter:
                     # 20. Insert streaming platforms
                     await self._insert_streaming(session, film_id, film_data.get("streaming_platforms", []))
 
-                    # 21. Auto-link franchise sequels via tmdb_collection_id
+                    # 21. Upsert tmdb_collection (franchise name lookup)
+                    await self._upsert_collection(session, film)
+
+                    # 22. Insert film_production_country (junction)
+                    await self._insert_production_countries(
+                        session, film_id, film_data.get("production_countries_full", [])
+                    )
+
+                    # 23. Auto-link franchise sequels via tmdb_collection_id
                     await self._link_collection_siblings(session, film_id, film)
 
                     self.stats["inserted"] += 1
@@ -309,6 +317,7 @@ class DBInserter:
             "film_place", "film_period", "film_theme",
             "film_character_context", "film_atmosphere", "film_motivation",
             "film_message", "film_origin", "film_exploitation", "award",
+            "film_production_country",
         ]
         for table in junction_tables:
             await session.execute(
@@ -762,6 +771,71 @@ class DBInserter:
                     ON CONFLICT DO NOTHING
                 """),
                 {"film_id": film_id, "platform_id": platform_id},
+            )
+
+    # -------------------------------------------------------------------------
+    # tmdb_collection lookup (franchise name)
+    # -------------------------------------------------------------------------
+
+    async def _upsert_collection(self, session: AsyncSession, film: dict):
+        """Upsert into tmdb_collection if the film belongs to one."""
+        cid = film.get("tmdb_collection_id")
+        cname = film.get("tmdb_collection_name")
+        if not cid or not cname:
+            return
+        await session.execute(
+            text("""
+                INSERT INTO tmdb_collection (collection_id, collection_name, poster_path, backdrop_path)
+                VALUES (:cid, :cname, :poster, :backdrop)
+                ON CONFLICT (collection_id) DO UPDATE SET
+                    collection_name = EXCLUDED.collection_name,
+                    poster_path = EXCLUDED.poster_path,
+                    backdrop_path = EXCLUDED.backdrop_path,
+                    updated_at = NOW()
+            """),
+            {
+                "cid": cid,
+                "cname": cname,
+                "poster": film.get("tmdb_collection_poster"),
+                "backdrop": film.get("tmdb_collection_backdrop"),
+            },
+        )
+
+    # -------------------------------------------------------------------------
+    # Production country junction
+    # -------------------------------------------------------------------------
+
+    async def _insert_production_countries(
+        self, session: AsyncSession, film_id: int, countries: list[dict]
+    ):
+        """Lazy-populate production_country lookup and link films via film_production_country."""
+        for c in countries:
+            code = c.get("code")
+            name = c.get("name")
+            if not code or not name:
+                continue
+            # Upsert into lookup
+            r = await session.execute(
+                text("SELECT country_id FROM production_country WHERE country_code = :code"),
+                {"code": code},
+            )
+            country_id = r.scalar_one_or_none()
+            if not country_id:
+                r = await session.execute(
+                    text("""
+                        INSERT INTO production_country (country_code, country_name)
+                        VALUES (:code, :name) RETURNING country_id
+                    """),
+                    {"code": code, "name": name},
+                )
+                country_id = r.scalar_one()
+            # Junction
+            await session.execute(
+                text("""
+                    INSERT INTO film_production_country (film_id, country_id)
+                    VALUES (:fid, :cid) ON CONFLICT DO NOTHING
+                """),
+                {"fid": film_id, "cid": country_id},
             )
 
     # -------------------------------------------------------------------------

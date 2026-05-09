@@ -86,6 +86,8 @@ async def list_films(
     location: str | None = None,
     country: str | None = None,
     language: str | None = None,
+    production_country: str | None = None,
+    tmdb_collection_id: int | None = None,
     source: str | None = None,
     seen: bool | None = None,
     page: int = Query(1, ge=1),
@@ -186,6 +188,7 @@ async def list_films(
                 filter_count += len(vals)
         if location: filter_count += 1
         if language: filter_count += 1
+        if production_country: filter_count += 1
         if source: filter_count += 1
         if filter_count > max_filters:
             raise HTTPException(
@@ -435,6 +438,22 @@ async def list_films(
             )"""
         )
         params["language"] = f"%{language}%"
+
+    # Production country filter
+    if production_country:
+        where_clauses.append(
+            """f.film_id IN (
+                SELECT fpc.film_id FROM film_production_country fpc
+                JOIN production_country pc ON fpc.country_id = pc.country_id
+                WHERE pc.country_name = :production_country
+            )"""
+        )
+        params["production_country"] = production_country
+
+    # Franchise / TMDB collection filter (exact)
+    if tmdb_collection_id is not None:
+        where_clauses.append("f.tmdb_collection_id = :tmdb_collection_id")
+        params["tmdb_collection_id"] = tmdb_collection_id
 
     # Source filter
     if source:

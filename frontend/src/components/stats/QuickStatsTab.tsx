@@ -15,6 +15,7 @@ import type { PersonalStatsPayload, QuickStatsPayload } from "@/types/api";
 import { StatCard } from "./StatCard";
 import { Section } from "./Section";
 import { PosterRow } from "./PosterRow";
+import { tmdbImageUrl } from "@/lib/utils";
 import {
   CHART_AXIS,
   CHART_PRIMARY,
@@ -180,6 +181,55 @@ export function QuickStatsTab({ data, personalStats }: Props) {
             caption: `${f.wins}× won · ${f.nominations}× nom.`,
           }))}
         />
+      </Section>
+
+      <Section
+        title="Top 20 franchises"
+        subtitle="Most-represented TMDB collections in the database"
+      >
+        {data.top_franchises.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No franchise data yet.</p>
+        ) : (
+          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
+            {data.top_franchises.map((fr, idx) => {
+              const poster = tmdbImageUrl(fr.poster_path, "w500");
+              const cleanName = fr.name.replace(/\s*Collection\s*$/i, "");
+              const href =
+                `/browse?tmdb_collection_id=${fr.collection_id}` +
+                `&tmdb_collection_name=${encodeURIComponent(cleanName)}` +
+                `&sort_by=year&sort_order=asc`;
+              return (
+                <a
+                  key={fr.collection_id}
+                  href={href}
+                  className="group relative flex w-[130px] shrink-0 flex-col"
+                  title={fr.name}
+                >
+                  <span className="absolute left-1 top-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                    #{idx + 1}
+                  </span>
+                  {poster ? (
+                    <img
+                      src={poster}
+                      alt={fr.name}
+                      className="h-[195px] w-[130px] rounded-md object-cover transition group-hover:ring-2 group-hover:ring-primary/60"
+                    />
+                  ) : (
+                    <div className="flex h-[195px] w-[130px] items-center justify-center rounded-md bg-muted px-2 text-center text-[10px] text-muted-foreground">
+                      {cleanName}
+                    </div>
+                  )}
+                  <div className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight">
+                    {cleanName}
+                  </div>
+                  <div className="text-[10px] text-amber-400">
+                    {fr.count} films
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
       </Section>
 
       <Section title="Top studios">

@@ -65,6 +65,10 @@ export function buildFilmParams(filters: FilterState): string {
   if (filters.q) params.set("q", filters.q);
   if (filters.location) params.set("location", filters.location);
   if (filters.language) params.set("language", filters.language);
+  if (filters.production_country)
+    params.set("production_country", filters.production_country);
+  if (filters.tmdb_collection_id != null)
+    params.set("tmdb_collection_id", String(filters.tmdb_collection_id));
   if (filters.source) params.set("source", filters.source);
 
   // Number filters
