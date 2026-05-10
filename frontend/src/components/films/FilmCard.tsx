@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Eye, EyeOff, Heart, Bookmark } from "lucide-react";
+import { Eye, EyeOff, Heart, Bookmark, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { updateUserFilmStatus } from "@/api/client";
 import type { FilmListItem } from "@/types/api";
 import { formatYear } from "@/lib/utils";
@@ -11,9 +12,10 @@ interface FilmCardProps {
   film: FilmListItem;
   canToggleStatus?: boolean;
   onStatusChanged?: () => void;
+  compact?: boolean;
 }
 
-export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardProps) {
+export function FilmCard({ film, canToggleStatus, onStatusChanged, compact }: FilmCardProps) {
   const [seen, setSeen] = useState(film.user_status?.seen ?? false);
   const [favorite, setFavorite] = useState(film.user_status?.favorite ?? false);
   const [watchlist, setWatchlist] = useState(film.user_status?.watchlist ?? false);
@@ -86,7 +88,7 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
     [film.film_id, rating, onStatusChanged],
   );
 
-  return (
+  const cardLink = (
     <Link
       to={`/films/${film.film_id}`}
       className="group relative flex flex-col overflow-hidden rounded-lg bg-card transition-all hover:scale-105 hover:shadow-xl hover:shadow-black/40"
@@ -146,6 +148,7 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
       </div>
 
       {/* Info */}
+      {!compact && (
       <div className="flex flex-1 flex-col gap-1 p-2.5">
         <h3 className="line-clamp-2 text-sm font-medium leading-tight text-foreground">
           {film.original_title}
@@ -174,6 +177,47 @@ export function FilmCard({ film, canToggleStatus, onStatusChanged }: FilmCardPro
           </div>
         )}
       </div>
+      )}
     </Link>
+  );
+
+  if (!compact) return cardLink;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{cardLink}</TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        className="max-w-xs bg-popover text-popover-foreground shadow-lg ring-1 ring-border"
+      >
+        <div className="flex flex-col gap-1.5 p-1">
+          <div className="text-sm font-semibold leading-tight">{film.original_title}</div>
+          <div className="text-xs text-muted-foreground">
+            <span>{formatYear(film.first_release_date)}</span>
+            {film.director && (
+              <>
+                <span className="text-border"> | </span>
+                <span>{film.director}</span>
+              </>
+            )}
+          </div>
+          {film.categories.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {film.categories.slice(0, 5).map((cat) => (
+                <Badge key={cat} variant="outline" className="px-1.5 py-0 text-[10px] text-muted-foreground">
+                  {cat}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {rating !== null && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+              <span>{rating}/10</span>
+            </div>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }

@@ -167,9 +167,11 @@ async def _build_quick() -> QuickStats:
             "GROUP BY decade ORDER BY decade"
         ),
         _q(
-            "SELECT s.studio_name AS name, COUNT(*) AS count "
+            "SELECT COALESCE(s.studio_group, s.studio_name) AS name, "
+            "       COUNT(DISTINCT p.film_id) AS count "
             "FROM production p JOIN studio s ON p.studio_id = s.studio_id "
-            "GROUP BY s.studio_name ORDER BY count DESC LIMIT 20"
+            "GROUP BY COALESCE(s.studio_group, s.studio_name) "
+            "ORDER BY count DESC LIMIT 20"
         ),
         _q(
             "SELECT tc.collection_id, tc.collection_name AS name, "

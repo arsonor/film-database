@@ -208,6 +208,27 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
 
         return TaxonomyList(dimension=dimension, items=items)
 
+    # Special handling for studios: collapse sub-labels into their canonical
+    # parent group (studio_group). Sub-labels without a group fall back to
+    # studio_name. Film counts are DISTINCT so a film credited to multiple
+    # sub-labels of the same family isn't counted twice.
+    if dimension == "studios":
+        result = await db.execute(text("""
+            SELECT MIN(s.studio_id) AS id,
+                   COALESCE(s.studio_group, s.studio_name) AS name,
+                   COUNT(DISTINCT p.film_id) AS film_count
+            FROM studio s
+            LEFT JOIN production p ON s.studio_id = p.studio_id
+            GROUP BY COALESCE(s.studio_group, s.studio_name)
+            HAVING COUNT(DISTINCT p.film_id) > 0
+            ORDER BY film_count DESC, name
+        """))
+        items = [
+            TaxonomyItem(id=row[0], name=row[1], film_count=row[2])
+            for row in result.fetchall()
+        ]
+        return TaxonomyList(dimension=dimension, items=items)
+
     lookup_table, id_col, name_col, junc_table, junc_fk = DIMENSION_MAP[dimension]
 
     # Build ORDER BY based on whether dimension has sort_order

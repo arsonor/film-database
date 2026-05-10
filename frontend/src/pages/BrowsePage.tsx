@@ -78,7 +78,7 @@ export function BrowsePage() {
         onUpdateFilters={updateFilters}
       />
 
-      <FilmGrid films={films} loading={loading} error={error} canToggleStatus={isAuthenticated} onStatusChanged={handleStatusChanged} />
+      <FilmGrid films={films} loading={loading} error={error} canToggleStatus={isAuthenticated} onStatusChanged={handleStatusChanged} compact />
 
       {!isAuthenticated && anonExtra > 0 && (
         <div className="mt-6 text-center">

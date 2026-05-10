@@ -104,7 +104,7 @@ function stateToSearchParams(state: FilterState): URLSearchParams {
   if (state.sort_by !== "year") sp.set("sort_by", state.sort_by);
   if (state.sort_order !== "desc") sp.set("sort_order", state.sort_order);
   if (state.page > 1) sp.set("page", String(state.page));
-  if (state.per_page !== 24) sp.set("per_page", String(state.per_page));
+  if (state.per_page !== 60) sp.set("per_page", String(state.per_page));
 
   return sp;
 }

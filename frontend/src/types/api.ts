@@ -256,7 +256,7 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   sort_by: "year",
   sort_order: "desc",
   page: 1,
-  per_page: 24,
+  per_page: 60,
 };
 
 // =============================================================================

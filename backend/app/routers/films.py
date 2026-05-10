@@ -313,6 +313,14 @@ async def list_films(
         dim_name = _taxonomy_dim_names[i]
         mode = mode_param or "or"
 
+        # For studios, the user filters on the canonical group name
+        # (studio_group). Sub-labels without a group still match by their
+        # raw studio_name via COALESCE.
+        if dim_name == "studios":
+            match_expr = f"COALESCE(lt.studio_group, lt.{lookup_name})"
+        else:
+            match_expr = f"lt.{lookup_name}"
+
         # Include filter
         if values:
             param_key = f"tax_{i}"
@@ -354,9 +362,9 @@ async def list_films(
                         f"""f.film_id IN (
                             SELECT jt.film_id FROM {junc_table} jt
                             JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                            WHERE {match_expr} = ANY(:{param_key})
                             GROUP BY jt.film_id
-                            HAVING COUNT(DISTINCT lt.{lookup_name}) = :{count_key}
+                            HAVING COUNT(DISTINCT {match_expr}) = :{count_key}
                         )"""
                     )
                 params[count_key] = len(values)
@@ -382,7 +390,7 @@ async def list_films(
                         f"""f.film_id IN (
                             SELECT jt.film_id FROM {junc_table} jt
                             JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                            WHERE lt.{lookup_name} = ANY(:{param_key})
+                            WHERE {match_expr} = ANY(:{param_key})
                         )"""
                     )
 
@@ -395,7 +403,7 @@ async def list_films(
                 f"""f.film_id NOT IN (
                     SELECT jt.film_id FROM {junc_table} jt
                     JOIN {lookup_table} lt ON jt.{junc_fk} = lt.{lookup_pk}
-                    WHERE lt.{lookup_name} = ANY(:{not_key})
+                    WHERE {match_expr} = ANY(:{not_key})
                 )"""
             )
             params[not_key] = not_values

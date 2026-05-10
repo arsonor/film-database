@@ -1,5 +1,6 @@
 import type { PaginatedFilms } from "@/types/api";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { FilmCard } from "./FilmCard";
 
 interface FilmGridProps {
@@ -8,21 +9,27 @@ interface FilmGridProps {
   error: string | null;
   canToggleStatus?: boolean;
   onStatusChanged?: () => void;
+  compact?: boolean;
 }
 
-function SkeletonCard() {
+function SkeletonCard({ compact }: { compact?: boolean }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-lg bg-card">
       <Skeleton className="aspect-[2/3] w-full" />
-      <div className="space-y-2 p-2.5">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-1/2" />
-      </div>
+      {!compact && (
+        <div className="space-y-2 p-2.5">
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      )}
     </div>
   );
 }
 
-export function FilmGrid({ films, loading, error, canToggleStatus, onStatusChanged }: FilmGridProps) {
+export function FilmGrid({ films, loading, error, canToggleStatus, onStatusChanged, compact }: FilmGridProps) {
+  const gridClass = compact
+    ? "grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10"
+    : "grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
@@ -34,9 +41,9 @@ export function FilmGrid({ films, loading, error, canToggleStatus, onStatusChang
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {Array.from({ length: 24 }).map((_, i) => (
-          <SkeletonCard key={i} />
+      <div className={gridClass}>
+        {Array.from({ length: compact ? 60 : 24 }).map((_, i) => (
+          <SkeletonCard key={i} compact={compact} />
         ))}
       </div>
     );
@@ -53,16 +60,21 @@ export function FilmGrid({ films, loading, error, canToggleStatus, onStatusChang
     );
   }
 
-  return (
+  const content = (
     <div>
       <p className="mb-4 text-sm text-muted-foreground">
         Showing {films.items.length} of {films.total} films
       </p>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+      <div className={gridClass}>
         {films.items.map((film) => (
-          <FilmCard key={film.film_id} film={film} canToggleStatus={canToggleStatus} onStatusChanged={onStatusChanged} />
+          <FilmCard key={film.film_id} film={film} canToggleStatus={canToggleStatus} onStatusChanged={onStatusChanged} compact={compact} />
         ))}
       </div>
     </div>
   );
+
+  if (compact) {
+    return <TooltipProvider delayDuration={150}>{content}</TooltipProvider>;
+  }
+  return content;
 }
