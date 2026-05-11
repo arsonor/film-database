@@ -18,7 +18,7 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -27,6 +27,52 @@ from backend.app.database import engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# Curated subset of cinema_type values with strong temporal patterns.
+# Ordered here for reference only — actual ordering in the heatmap comes
+# from each row's sort_order column in the cinema_type table.
+CINEMA_MOVEMENT_NAMES = [
+    # Aesthetics / visual
+    "CGI",
+    "3D",
+    "black and white",
+    # Movements / eras
+    "silent",
+    "expressionism",
+    "realism",
+    "neo-realism",
+    "noir",
+    "hollywood golden age",
+    "new hollywood",
+    "new wave",
+    "neo-noir",
+    # Industry / culture
+    "blockbuster",
+    "art house",
+    "franchise",
+    # Narrative / pacing
+    "slow cinema",
+    # Sub-genres / archetypes
+    "biopic",
+    "western",
+    "peplum",
+    "costume drama",
+    "black comedy",
+    "slasher",
+    "docufiction",
+]
+
+# Pro/Admin only — share with both new endpoints.
+_PRO_ADMIN_TIERS = {"pro", "admin"}
+
+
+def _require_pro(user: UserInfo | None) -> UserInfo:
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if user.tier not in _PRO_ADMIN_TIERS:
+        raise HTTPException(status_code=403, detail="Pro tier required")
+    return user
 
 
 # =============================================================================
@@ -73,7 +119,37 @@ class TaxonomyStats(BaseModel):
     top_themes: list[dict[str, Any]]
     category_distribution: list[dict[str, Any]]
     top_atmospheres: list[dict[str, Any]]
+    # Shape changed in Step 17c: now {category, decade, film_count, decade_total, pct}
     category_by_decade_heatmap: list[dict[str, Any]]
+    cinema_movements_by_decade: list[dict[str, Any]]
+    message_by_decade_heatmap: list[dict[str, Any]]
+    atmosphere_by_category: list[dict[str, Any]]
+    message_by_movement: list[dict[str, Any]]
+
+
+class PersonRef(BaseModel):
+    person_id: int
+    name: str
+    film_count: int
+
+
+class TagCount(BaseModel):
+    name: str
+    count: int
+
+
+class PersonTagsResponse(BaseModel):
+    person: PersonRef
+    top_themes: list[TagCount]
+    top_atmospheres: list[TagCount]
+    top_characters: list[TagCount]
+    top_messages: list[TagCount]
+
+
+class PersonSearchResult(BaseModel):
+    person_id: int
+    name: str
+    film_count: int
 
 
 class PersonalStats(BaseModel):
@@ -591,7 +667,11 @@ async def _build_taxonomy() -> TaxonomyStats:
         themes_rows,
         cat_dist_rows,
         atmos_rows,
-        heatmap_rows,
+        cat_heatmap_rows,
+        cinema_rows,
+        msg_heatmap_rows,
+        atmos_cat_rows,
+        msg_movement_rows,
     ) = await asyncio.gather(
         _q(
             "SELECT tc.theme_name AS name, COUNT(*) AS count "
@@ -612,17 +692,162 @@ async def _build_taxonomy() -> TaxonomyStats:
             "JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id "
             "GROUP BY a.atmosphere_name ORDER BY count DESC LIMIT 30"
         ),
+        # 1a. Category × decade — % of decade's films (distinct film_id),
+        # so a film tagged with 3 genres no longer triple-counts.
         _q(
-            "SELECT c.category_name AS category, "
-            "       (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade, "
-            "       COUNT(*) AS count "
-            "FROM film_genre fg "
-            "JOIN category c ON fg.category_id = c.category_id "
-            "JOIN film f ON fg.film_id = f.film_id "
-            "WHERE c.historic_subcategory_name IS NULL "
-            "  AND f.first_release_date IS NOT NULL "
-            "GROUP BY c.category_name, decade "
-            "ORDER BY c.category_name, decade"
+            """
+            WITH decade_totals AS (
+              SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(*) AS total
+              FROM film
+              WHERE first_release_date IS NOT NULL
+              GROUP BY decade
+            ),
+            category_decade AS (
+              SELECT c.category_name AS category,
+                     (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(DISTINCT f.film_id) AS film_count
+              FROM film_genre fg
+              JOIN category c ON fg.category_id = c.category_id
+              JOIN film f ON fg.film_id = f.film_id
+              WHERE c.historic_subcategory_name IS NULL
+                AND f.first_release_date IS NOT NULL
+              GROUP BY c.category_name, decade
+            )
+            SELECT cd.category, cd.decade, cd.film_count,
+                   dt.total AS decade_total,
+                   ROUND((cd.film_count::numeric / dt.total) * 100, 2) AS pct
+            FROM category_decade cd
+            JOIN decade_totals dt ON cd.decade = dt.decade
+            WHERE dt.total >= 5
+            ORDER BY cd.category, cd.decade
+            """
+        ),
+        # 1b. Cinema movements × decade — count-based, curated subset.
+        _q(
+            """
+            SELECT ct.technique_name AS movement,
+                   (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+                   COUNT(DISTINCT f.film_id) AS count,
+                   ct.sort_order
+            FROM film_technique fte
+            JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
+            JOIN film f ON fte.film_id = f.film_id
+            WHERE ct.technique_name = ANY(:movement_names)
+              AND f.first_release_date IS NOT NULL
+            GROUP BY ct.technique_name, decade, ct.sort_order
+            ORDER BY ct.sort_order, decade
+            """,
+            {"movement_names": CINEMA_MOVEMENT_NAMES},
+        ),
+        # 1c. Messages × decade — % within decade.
+        _q(
+            """
+            WITH decade_totals AS (
+              SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(*) AS total
+              FROM film
+              WHERE first_release_date IS NOT NULL
+              GROUP BY decade
+              HAVING COUNT(*) >= 20
+            ),
+            message_totals AS (
+              SELECT mc.message_id, mc.message_name, mc.sort_order,
+                     COUNT(DISTINCT fm.film_id) AS total_count
+              FROM message_conveyed mc
+              LEFT JOIN film_message fm ON mc.message_id = fm.message_id
+              GROUP BY mc.message_id, mc.message_name, mc.sort_order
+              HAVING COUNT(DISTINCT fm.film_id) >= 5
+            ),
+            message_decade AS (
+              SELECT mc.message_name AS message,
+                     mc.sort_order,
+                     (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(DISTINCT f.film_id) AS film_count
+              FROM film_message fm
+              JOIN message_conveyed mc ON fm.message_id = mc.message_id
+              JOIN film f ON fm.film_id = f.film_id
+              WHERE f.first_release_date IS NOT NULL
+                AND mc.message_id IN (SELECT message_id FROM message_totals)
+              GROUP BY mc.message_name, mc.sort_order, decade
+            )
+            SELECT md.message, md.decade, md.film_count,
+                   dt.total AS decade_total,
+                   ROUND((md.film_count::numeric / dt.total) * 100, 2) AS pct,
+                   md.sort_order
+            FROM message_decade md
+            JOIN decade_totals dt ON md.decade = dt.decade
+            ORDER BY md.sort_order, md.decade
+            """
+        ),
+        # 1d. Atmosphere × category — % within category.
+        _q(
+            """
+            WITH category_totals AS (
+              SELECT c.category_name AS category, COUNT(DISTINCT fg.film_id) AS total
+              FROM film_genre fg
+              JOIN category c ON fg.category_id = c.category_id
+              WHERE c.historic_subcategory_name IS NULL
+              GROUP BY c.category_name
+            ),
+            ca AS (
+              SELECT c.category_name AS category,
+                     a.atmosphere_name AS atmosphere,
+                     a.sort_order AS atmosphere_sort_order,
+                     COUNT(DISTINCT fg.film_id) AS film_count
+              FROM film_genre fg
+              JOIN category c ON fg.category_id = c.category_id
+              JOIN film_atmosphere fa ON fg.film_id = fa.film_id
+              JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
+              WHERE c.historic_subcategory_name IS NULL
+              GROUP BY c.category_name, a.atmosphere_name, a.sort_order
+            )
+            SELECT ca.category, ca.atmosphere, ca.atmosphere_sort_order,
+                   ca.film_count, ct.total AS category_total,
+                   ROUND((ca.film_count::numeric / ct.total) * 100, 2) AS pct
+            FROM ca
+            JOIN category_totals ct ON ca.category = ct.category
+            ORDER BY ca.category, ca.atmosphere_sort_order
+            """
+        ),
+        # 1e. Message × cinema movement — % within movement.
+        # Rows = curated movement list, cols = all messages with ≥ 1 film
+        # in any of those movements. Movements without any tagged films are
+        # filtered out by the JOIN.
+        _q(
+            """
+            WITH movement_totals AS (
+              SELECT ct.technique_name AS movement,
+                     ct.sort_order AS movement_sort_order,
+                     COUNT(DISTINCT fte.film_id) AS total
+              FROM film_technique fte
+              JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
+              WHERE ct.technique_name = ANY(:movement_names)
+              GROUP BY ct.technique_name, ct.sort_order
+              HAVING COUNT(DISTINCT fte.film_id) > 0
+            ),
+            mm AS (
+              SELECT ct.technique_name AS movement,
+                     ct.sort_order AS movement_sort_order,
+                     mc.message_name AS message,
+                     mc.sort_order AS message_sort_order,
+                     COUNT(DISTINCT fte.film_id) AS film_count
+              FROM film_technique fte
+              JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
+              JOIN film_message fm ON fte.film_id = fm.film_id
+              JOIN message_conveyed mc ON fm.message_id = mc.message_id
+              WHERE ct.technique_name = ANY(:movement_names)
+              GROUP BY ct.technique_name, ct.sort_order, mc.message_name, mc.sort_order
+            )
+            SELECT mm.movement, mm.movement_sort_order,
+                   mm.message, mm.message_sort_order,
+                   mm.film_count, mt.total AS movement_total,
+                   ROUND((mm.film_count::numeric / mt.total) * 100, 2) AS pct
+            FROM mm
+            JOIN movement_totals mt ON mm.movement = mt.movement
+            ORDER BY mm.movement_sort_order, mm.message_sort_order
+            """,
+            {"movement_names": CINEMA_MOVEMENT_NAMES},
         ),
     )
 
@@ -633,8 +858,57 @@ async def _build_taxonomy() -> TaxonomyStats:
         ],
         top_atmospheres=[{"name": r[0], "count": int(r[1])} for r in atmos_rows],
         category_by_decade_heatmap=[
-            {"category": r[0], "decade": int(r[1]), "count": int(r[2])}
-            for r in heatmap_rows
+            {
+                "category": r[0],
+                "decade": int(r[1]),
+                "film_count": int(r[2]),
+                "decade_total": int(r[3]),
+                "pct": float(r[4]),
+            }
+            for r in cat_heatmap_rows
+        ],
+        cinema_movements_by_decade=[
+            {
+                "movement": r[0],
+                "decade": int(r[1]),
+                "count": int(r[2]),
+                "sort_order": int(r[3]) if r[3] is not None else 0,
+            }
+            for r in cinema_rows
+        ],
+        message_by_decade_heatmap=[
+            {
+                "message": r[0],
+                "decade": int(r[1]),
+                "film_count": int(r[2]),
+                "decade_total": int(r[3]),
+                "pct": float(r[4]),
+                "sort_order": int(r[5]) if r[5] is not None else 0,
+            }
+            for r in msg_heatmap_rows
+        ],
+        atmosphere_by_category=[
+            {
+                "category": r[0],
+                "atmosphere": r[1],
+                "atmosphere_sort_order": int(r[2]) if r[2] is not None else 0,
+                "film_count": int(r[3]),
+                "category_total": int(r[4]),
+                "pct": float(r[5]),
+            }
+            for r in atmos_cat_rows
+        ],
+        message_by_movement=[
+            {
+                "movement": r[0],
+                "movement_sort_order": int(r[1]) if r[1] is not None else 0,
+                "message": r[2],
+                "message_sort_order": int(r[3]) if r[3] is not None else 0,
+                "film_count": int(r[4]),
+                "movement_total": int(r[5]),
+                "pct": float(r[6]),
+            }
+            for r in msg_movement_rows
         ],
     )
 
@@ -766,4 +1040,202 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
         people=people,
         taxonomy=taxonomy,
         personal_stats=personal,
+    )
+
+
+# =============================================================================
+# Person filmography tag breakdown (Step 17c)
+# =============================================================================
+
+
+_PERSON_ROLES = ("director", "composer", "actor")
+
+
+def _validate_role(role: str) -> str:
+    if role not in _PERSON_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role '{role}'. Must be one of: {', '.join(_PERSON_ROLES)}",
+        )
+    return role
+
+
+@router.get("/stats/people-with-films", response_model=list[PersonSearchResult])
+async def people_with_films(
+    role: str = Query("director"),
+    q: str | None = Query(None),
+    user: UserInfo | None = Depends(get_current_user),
+):
+    """Autocomplete-friendly list of people in a given role with ≥ 3 films."""
+    _require_pro(user)
+    _validate_role(role)
+
+    # Pre-format the LIKE pattern in Python — avoids an asyncpg type-inference
+    # quirk where `'%' || :q || '%'` raises ambiguous-type errors and the
+    # endpoint silently 500s.
+    pattern = f"%{q.strip()}%" if q and q.strip() else "%"
+
+    if role == "actor":
+        # casting is implicitly the actor table — no role_name filter needed.
+        sql = """
+            SELECT p.person_id,
+                   TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
+                   COUNT(DISTINCT ca.film_id) AS film_count
+            FROM casting ca
+            JOIN person p ON ca.person_id = p.person_id
+            WHERE (COALESCE(p.firstname, '') || ' ' || p.lastname) ILIKE :pattern
+            GROUP BY p.person_id, p.firstname, p.lastname
+            HAVING COUNT(DISTINCT ca.film_id) >= 3
+            ORDER BY film_count DESC, name
+            LIMIT 30
+        """
+        params: dict = {"pattern": pattern}
+    else:
+        role_name = "Director" if role == "director" else "Composer"
+        sql = """
+            SELECT p.person_id,
+                   TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
+                   COUNT(DISTINCT c.film_id) AS film_count
+            FROM crew c
+            JOIN person p ON c.person_id = p.person_id
+            JOIN person_job pj ON c.job_id = pj.job_id
+            WHERE pj.role_name = :role_name
+              AND (COALESCE(p.firstname, '') || ' ' || p.lastname) ILIKE :pattern
+            GROUP BY p.person_id, p.firstname, p.lastname
+            HAVING COUNT(DISTINCT c.film_id) >= 3
+            ORDER BY film_count DESC, name
+            LIMIT 30
+        """
+        params = {"role_name": role_name, "pattern": pattern}
+
+    rows = await _q(sql, params)
+    return [
+        PersonSearchResult(person_id=r[0], name=r[1], film_count=int(r[2]))
+        for r in rows
+    ]
+
+
+# WITH-CTE clause shared by all 4 per-person tag queries.
+# Resolves the set of film_ids this person is credited on for the given role.
+_PERSON_FILMS_CTE_CREW = """
+WITH person_films AS (
+  SELECT DISTINCT c.film_id
+  FROM crew c
+  JOIN person_job pj ON c.job_id = pj.job_id
+  WHERE c.person_id = :pid AND pj.role_name = :role_name
+)
+"""
+
+_PERSON_FILMS_CTE_CASTING = """
+WITH person_films AS (
+  SELECT DISTINCT film_id
+  FROM casting
+  WHERE person_id = :pid
+)
+"""
+
+
+@router.get("/stats/person-tags", response_model=PersonTagsResponse)
+async def person_tags(
+    person_id: int = Query(..., alias="person_id"),
+    role: str = Query("director"),
+    user: UserInfo | None = Depends(get_current_user),
+):
+    """Top tags across one person's filmography in a given role."""
+    _require_pro(user)
+    _validate_role(role)
+
+    # 1. Validate person exists and get name.
+    person_rows = await _q(
+        "SELECT person_id, "
+        "       TRIM(COALESCE(firstname, '') || ' ' || lastname) AS name "
+        "FROM person WHERE person_id = :pid",
+        {"pid": person_id},
+    )
+    if not person_rows:
+        raise HTTPException(status_code=404, detail="Person not found")
+    pname = person_rows[0][1]
+
+    # 2. Resolve film count (also tells us whether to skip the tag queries).
+    if role == "actor":
+        cte = _PERSON_FILMS_CTE_CASTING
+        cte_params: dict = {"pid": person_id}
+    else:
+        cte = _PERSON_FILMS_CTE_CREW
+        cte_params = {
+            "pid": person_id,
+            "role_name": "Director" if role == "director" else "Composer",
+        }
+
+    count_rows = await _q(
+        f"{cte} SELECT COUNT(*) FROM person_films",
+        cte_params,
+    )
+    film_count = int(count_rows[0][0]) if count_rows else 0
+
+    if film_count == 0:
+        return PersonTagsResponse(
+            person=PersonRef(person_id=person_id, name=pname, film_count=0),
+            top_themes=[],
+            top_atmospheres=[],
+            top_characters=[],
+            top_messages=[],
+        )
+
+    # 3. Four parallel tag queries scoped to person_films.
+    themes_q = f"""
+        {cte}
+        SELECT tc.theme_name AS name, COUNT(DISTINCT ft.film_id) AS count
+        FROM film_theme ft
+        JOIN theme_context tc ON ft.theme_context_id = tc.theme_context_id
+        WHERE ft.film_id IN (SELECT film_id FROM person_films)
+          AND tc.theme_name NOT LIKE '%: %'
+        GROUP BY tc.theme_name
+        ORDER BY count DESC, tc.theme_name
+        LIMIT 8
+    """
+    atmos_q = f"""
+        {cte}
+        SELECT a.atmosphere_name AS name, COUNT(DISTINCT fa.film_id) AS count
+        FROM film_atmosphere fa
+        JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
+        WHERE fa.film_id IN (SELECT film_id FROM person_films)
+        GROUP BY a.atmosphere_name
+        ORDER BY count DESC, a.atmosphere_name
+        LIMIT 5
+    """
+    chars_q = f"""
+        {cte}
+        SELECT cc.context_name AS name, COUNT(DISTINCT fcc.film_id) AS count
+        FROM film_character_context fcc
+        JOIN character_context cc ON fcc.character_context_id = cc.character_context_id
+        WHERE fcc.film_id IN (SELECT film_id FROM person_films)
+        GROUP BY cc.context_name
+        ORDER BY count DESC, cc.context_name
+        LIMIT 5
+    """
+    msgs_q = f"""
+        {cte}
+        SELECT mc.message_name AS name, COUNT(DISTINCT fm.film_id) AS count
+        FROM film_message fm
+        JOIN message_conveyed mc ON fm.message_id = mc.message_id
+        WHERE fm.film_id IN (SELECT film_id FROM person_films)
+        GROUP BY mc.message_name
+        ORDER BY count DESC, mc.message_name
+        LIMIT 3
+    """
+
+    themes_rows, atmos_rows, chars_rows, msgs_rows = await asyncio.gather(
+        _q(themes_q, cte_params),
+        _q(atmos_q, cte_params),
+        _q(chars_q, cte_params),
+        _q(msgs_q, cte_params),
+    )
+
+    return PersonTagsResponse(
+        person=PersonRef(person_id=person_id, name=pname, film_count=film_count),
+        top_themes=[TagCount(name=r[0], count=int(r[1])) for r in themes_rows],
+        top_atmospheres=[TagCount(name=r[0], count=int(r[1])) for r in atmos_rows],
+        top_characters=[TagCount(name=r[0], count=int(r[1])) for r in chars_rows],
+        top_messages=[TagCount(name=r[0], count=int(r[1])) for r in msgs_rows],
     )

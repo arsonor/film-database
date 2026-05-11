@@ -352,11 +352,79 @@ export interface PeoplePayload {
   directors_by_birth_decade: { birth_decade: number; count: number }[];
 }
 
+export interface CategoryDecadeCell {
+  category: string;
+  decade: number;
+  film_count: number;
+  decade_total: number;
+  pct: number;
+}
+
+export interface CinemaMovementCell {
+  movement: string;
+  decade: number;
+  count: number;
+  sort_order: number;
+}
+
+export interface MessageDecadeCell {
+  message: string;
+  decade: number;
+  film_count: number;
+  decade_total: number;
+  pct: number;
+  sort_order: number;
+}
+
+export interface AtmosphereByCategoryCell {
+  category: string;
+  atmosphere: string;
+  atmosphere_sort_order: number;
+  film_count: number;
+  category_total: number;
+  pct: number;
+}
+
+export interface MessageByMovementCell {
+  movement: string;
+  movement_sort_order: number;
+  message: string;
+  message_sort_order: number;
+  film_count: number;
+  movement_total: number;
+  pct: number;
+}
+
 export interface TaxonomyPayload {
   top_themes: { name: string; count: number }[];
   category_distribution: { name: string; count: number }[];
   top_atmospheres: { name: string; count: number }[];
-  category_by_decade_heatmap: { category: string; decade: number; count: number }[];
+  category_by_decade_heatmap: CategoryDecadeCell[];
+  cinema_movements_by_decade: CinemaMovementCell[];
+  message_by_decade_heatmap: MessageDecadeCell[];
+  atmosphere_by_category: AtmosphereByCategoryCell[];
+  message_by_movement: MessageByMovementCell[];
+}
+
+export interface PersonSearchResult {
+  person_id: number;
+  name: string;
+  film_count: number;
+}
+
+export interface TagCount {
+  name: string;
+  count: number;
+}
+
+export type PersonRole = "director" | "composer" | "actor";
+
+export interface PersonTagsResponse {
+  person: { person_id: number; name: string; film_count: number };
+  top_themes: TagCount[];
+  top_atmospheres: TagCount[];
+  top_characters: TagCount[];
+  top_messages: TagCount[];
 }
 
 export interface PersonalStatsPayload {

@@ -5,6 +5,9 @@ import type {
   FilterState,
   GeographySearchResult,
   PaginatedFilms,
+  PersonRole,
+  PersonSearchResult,
+  PersonTagsResponse,
   StatsResponse,
   TMDBSearchResult,
   TaxonomyItem,
@@ -221,6 +224,31 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${BASE}/stats/dashboard`, { headers });
   if (!res.ok) throw new ApiError(res.status, "Failed to load dashboard");
+  return res.json();
+}
+
+export async function searchPeopleWithFilms(
+  role: PersonRole,
+  q: string,
+): Promise<PersonSearchResult[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ role });
+  if (q) params.set("q", q);
+  const res = await fetch(`${BASE}/stats/people-with-films?${params}`, { headers });
+  if (!res.ok) throw new ApiError(res.status, "Failed to search people");
+  return res.json();
+}
+
+export async function getPersonTags(
+  personId: number,
+  role: PersonRole,
+): Promise<PersonTagsResponse> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(
+    `${BASE}/stats/person-tags?person_id=${personId}&role=${role}`,
+    { headers },
+  );
+  if (!res.ok) throw new ApiError(res.status, "Failed to load person tags");
   return res.json();
 }
 

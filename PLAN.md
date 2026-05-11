@@ -33,6 +33,7 @@
 | 16c | Recommender: SimilarFilmsCarousel UI | ✅ DONE | Replace placeholder, "Why?" tooltips, tier-gated 3/6/12 results |
 | 17a | Stats Dashboard — Quick / Financials / People / Taxonomy (MVP) | ✅ DONE | New /stats page, 4 tabs, tier-gated, single bulk endpoint |
 | 17b | Production-country + franchise data prep, sidebar overhaul, Top 20 franchises | ✅ DONE | tmdb_collection + film_production_country tables, backfill scripts, sidebar reorg, exact franchise filter |
+| 17c | Stats Dashboard — Taxonomy enhancements (% heatmap fix + 2 new heatmaps + per-person tags + cross-tab) | ✅ DONE | 5 sections: Categories % heatmap, cinema-movements heatmap, messages % heatmap, person filmography tag breakdown, atmosphere×category cross-tab |
 
 ---
 
@@ -102,42 +103,166 @@ Manual rating of top-12 results on 10 reference films, adjust weights and bonuse
 
 ## Step 17b: Production-country + franchise data prep, sidebar overhaul, Top 20 franchises ✅
 
-Prep work originally scheduled before the Geography tab (still "Coming soon"), repurposed once it landed. Three loosely related streams:
+*(see git history for details)*
 
-### 1. New data layers
+---
 
-- **Migration `020_collection_and_production_country.sql`** — three new tables:
-  - `tmdb_collection (collection_id PK, collection_name, poster_path, backdrop_path)` — franchise lookup keyed by TMDB collection id (joins from existing `film.tmdb_collection_id`).
-  - `production_country (country_id, country_code UNIQUE, country_name)` — ISO 3166-1 alpha-2 lookup, lazy-populated.
-  - `film_production_country (film_id, country_id)` — junction.
-- **`tmdb_mapper.py`** — now exposes `tmdb_collection_name/poster/backdrop` and a new `production_countries_full: [{code, name}]` field alongside the existing ISO-code list (the latter kept for back-compat with EnrichmentPreview).
-- **`db_inserter.py`** — new `_upsert_collection` and `_insert_production_countries` helpers wired into the ingestion pipeline (steps 21 & 22). `film_production_country` added to the junction-clear list so re-imports stay consistent.
-- **Backfill scripts**:
-  - `scripts/backfill_tmdb_collections.py` — `/collection/{id}` for every distinct id, upsert into `tmdb_collection`.
-  - `scripts/backfill_production_countries.py` — `/movie/{id}` for each film, lazy-populate `production_country`, insert junction rows. `--force` re-fetches everything; default skips films already linked.
+## Step 17c: Stats Dashboard — Taxonomy enhancements
 
-### 2. Sidebar filter overhaul
+### Goal
+Extend the Taxonomy tab with deeper analytics. Five additions, all Pro/Admin-only (mirrors the existing Taxonomy tab tier gating).
 
-- "Location" → **Film Set Location** (rename only).
-- **Language** dropdown removed from the browse sidebar; replaced with a new **Production Country** dropdown showing full country names (e.g. "France (212)") sourced from the new junction. Sits directly under Film Set Location.
-- "Studio" → **Production Studio**, moved above Origin/Adaptation.
-- Origin/Adaptation now sits at the bottom of that block.
-- Backend: new `production_country` query param on `/api/films` joining through `film_production_country`/`production_country`. Counted toward the per-tier filter quota.
-- Backend: new `/api/taxonomy/production_countries` special dimension returning `[{id, name, film_count}]` ordered by film count, `HAVING > 0` so empty entries don't appear.
-- Frontend: `FilterState.production_country` plus URL ser/deser in `useFilterState.ts`, chip in `ActiveFilters.tsx`.
+#### 1. Fix existing Category × decade heatmap → use percentages
 
-### 3. Top 20 franchises section
+The current heatmap shows raw film counts which inflates totals (a film tagged with 3 categories counts 3 times in a decade) and makes decades incomparable (the 1970s have more total films than the 1920s, so absolute counts always look heavier on the right side).
 
-- Backend: new `top_franchises` block in `/api/stats/dashboard` (Quick Stats), `HAVING COUNT(*) >= 2` so single-film "collections" don't appear, ordered by count desc. Returns `{collection_id, name, count, poster_path, backdrop_path}`.
-- Frontend (`QuickStatsTab.tsx`): horizontal poster row with rank badges and TMDB collection posters (via `tmdbImageUrl`), using cleaned-up names (trailing word *"Collection"* stripped).
-- Cards link to `/browse?tmdb_collection_id=<id>&tmdb_collection_name=<name>&sort_by=year&sort_order=asc` — exact filter, no fuzzy text match.
-- Backend: `/api/films` accepts a new `tmdb_collection_id: int | None` param matching `f.tmdb_collection_id` exactly.
-- Frontend: `FilterState.tmdb_collection_id` (id) and `tmdb_collection_name` (cosmetic, used only for the chip label). Both serialized to URL. Active-filter chip displays `Franchise: <name>` and clears both fields when removed.
+**New formula**: `count of films in (category C, decade D) / total films released in decade D × 100`.
 
-### 4. Stale-data fixes shipped along the way
+This answers "what % of 1980s films were Drama?" instead of "how many genre tags were applied to 1980s Dramas?". The denominator is `COUNT(DISTINCT film_id) WHERE first_release_date IS IN decade`, **not** `SUM(category counts)` — we want the share of films that have this genre, not the share of genre-tags.
 
-- `films.py` `PUT /api/films/{id}` now keeps `film.color` in sync with the `cinema_types` taxonomy: removing the `black and white` tag flips `color` back to `TRUE` and the hero-section B&W badge disappears, and vice versa. Caught after manually correcting Claude tag mistakes (e.g. *Burn After Reading*) didn't propagate.
+Frontend cell label changes from `45` to `12%`. Tooltip: "Drama · 1980s · 12% of decade (45 films out of 380)".
 
-### Notes on data shape limitations
+#### 2. New: Cinema movements × decade heatmap (count-based)
 
-- TMDB has no overarching "Marvel Cinematic Universe" or "DCEU" collection — they're split into many smaller sub-franchises (*Avengers*, *Iron Man*, *Captain America*, *Justice League*, etc.). Cumulative MCU/DC counts therefore don't appear in the top 20.
+A second heatmap directly below the categories one, scoped to a curated subset of `cinema_type` values that have strong temporal patterns:
+
+```
+['silent', 'expressionism', 'hollywood golden age', 'neo-realism', 'noir',
+ 'new wave', 'new hollywood', 'neo-noir', 'black and white',
+ 'blockbuster', 'art house', 'franchise']
+```
+
+This is the only heatmap that **stays count-based** — because few films get a movement tag at all (most films aren't part of any movement), percentages would be misleading ("5% of 1960s films are New Wave" sounds small but is actually historically dominant). Counts make the eras visible.
+
+Rows must be ordered by `sort_order` (chronological by movement era), not alphabetically, so the diagonal pattern of cinema history is visible.
+
+Subtitle: "Number of films tagged with each movement, per decade. Use this to see when each movement dominated."
+
+#### 3. New: Messages × decade heatmap (% within decade)
+
+Third heatmap, all 18 message values, percentage-based (same formula as #1), with `HAVING decade_total >= 20` so we don't show empty cells for decades with too few films (1900s, 1910s).
+
+Filter out any message value with `total_count < 5` across the whole DB (avoids showing rows that are nearly empty everywhere).
+
+Subtitle: "% of films per decade conveying each message. Notice when feminist films emerge, when ecological themes appear..."
+
+#### 4. New: Most common tags for a director / composer
+
+An interactive widget that lets the user search-select a person (director, composer, or actor) and shows their characteristic tags as compact ranked lists.
+
+**UX**:
+- A role toggle (Director / Composer / Actor), default Director
+- An autocomplete-search input listing only people with `≥ 3 films` in that role (avoids bloating the dropdown with people who appeared in one film)
+- After selection: 4 ranked lists side-by-side or stacked
+  - **Top 8 themes** (excluding "parent: sub" subtypes for cleanliness)
+  - **Top 5 atmospheres**
+  - **Top 5 character types**
+  - **Top 3 messages**
+- Each entry shows tag name + film count (e.g., "war (12)")
+- A small subtitle: "Based on N films by {name}"
+- A reset button to clear selection
+
+**Ranking**: raw count for v1. We can add IDF-weighting later if it proves needed, but for popular themes like "social" and "war" raw count is already meaningful at the per-person level.
+
+#### 5. Atmosphere × Category cross-tab heatmap
+
+A compact heatmap (12 categories × ~23 atmospheres) showing the share of films in each genre that have each atmosphere. Reveals patterns like "Comedy → feel good", "Horror → disturbing/violent", "Drama → depressive/sad".
+
+Formula: `films(category=C, atmosphere=A) / films(category=C) × 100`. So each row sums to roughly the average number of atmospheres per film in that genre (typically 1–3).
+
+Subtitle: "% of films in each genre matching each atmosphere. A genre's signature mood profile."
+
+Atmospheres ordered by `sort_order`. Categories sorted alphabetically.
+
+### Tier visibility
+
+All five additions live inside the existing **Taxonomy tab**, which is already gated to Pro/Admin. No new tier logic needed.
+
+### Backend changes
+
+Extend `/api/stats/dashboard` payload, **`taxonomy` block**, with new fields:
+
+```python
+{
+  # existing fields kept (top_themes, category_distribution, top_atmospheres):
+  "top_themes": [...],
+  "category_distribution": [...],
+  "top_atmospheres": [...],
+
+  # CHANGED: shape kept, semantics swapped to %.
+  "category_by_decade_heatmap": [
+    {"category": "Drama", "decade": 1980, "film_count": 45,
+     "decade_total": 380, "pct": 11.84}
+  ],
+
+  # NEW: cinema-types heatmap (count-based, curated subset)
+  "cinema_movements_by_decade": [
+    {"movement": "new wave", "decade": 1960, "count": 24, "sort_order": 207}
+  ],
+
+  # NEW: messages heatmap (% within decade)
+  "message_by_decade_heatmap": [
+    {"message": "feminist", "decade": 2010, "film_count": 18,
+     "decade_total": 410, "pct": 4.39, "sort_order": 101}
+  ],
+
+  # NEW: atmosphere × category cross-tab
+  "atmosphere_by_category": [
+    {"category": "Comedy", "atmosphere": "feel good", "film_count": 120,
+     "category_total": 480, "pct": 25.0, "atmosphere_sort_order": 101}
+  ]
+}
+```
+
+For the per-person tag breakdown, **new endpoint** (not in the dashboard payload, since user picks person interactively):
+
+```
+GET /api/stats/person-tags?person_id=<id>&role=<director|composer|actor>
+→ {
+  "person": {"person_id": 42, "name": "Akira Kurosawa", "film_count": 27},
+  "top_themes": [{"name": "war", "count": 8}, ...],   # top 8
+  "top_atmospheres": [{"name": "epic", "count": 6}, ...],   # top 5
+  "top_characters": [{"name": "samurai", "count": 5}, ...],   # top 5
+  "top_messages": [{"name": "humanist", "count": 4}, ...]   # top 3
+}
+```
+
+Protected by Pro/Admin tier (return 403 otherwise). Use existing `tier_config` pattern.
+
+Also a small **person search endpoint** for the autocomplete:
+
+```
+GET /api/stats/people-with-films?role=<director|composer|actor>&q=<search>
+→ [{"person_id": 1, "name": "...", "film_count": 27}]
+```
+
+Returns top 30 matches by name ILIKE %q% with `HAVING film_count >= 3`. Pro/Admin only.
+
+### Frontend changes
+
+**Modified files:**
+- `frontend/src/components/stats/CategoryDecadeHeatmap.tsx` — generalized to handle either count or percentage display, accept new prop `valueType: "count" | "percent"` and `getCellValue`/`getTooltip` callbacks. Rename to `DecadeHeatmap.tsx` (since it's now reused for 3 different dimensions). Existing import in `TaxonomyTab.tsx` updated.
+- `frontend/src/components/stats/TaxonomyTab.tsx` — add the 5 new sections.
+- `frontend/src/types/api.ts` — extend `TaxonomyPayload`, add `PersonTagsResponse`, `PersonSearchResult`.
+- `frontend/src/api/client.ts` — add `getPersonTags()`, `searchPeopleWithFilms()`.
+
+**New files:**
+- `frontend/src/components/stats/PersonTagsWidget.tsx` — the interactive person→tags widget (role toggle + autocomplete + 4 ranked lists).
+- `frontend/src/components/stats/AtmosphereCategoryHeatmap.tsx` — separate component (different axis structure: rows = categories, cols = atmospheres, both labels are short text).
+
+### Files summary
+
+**Modified backend (1):**
+- `backend/app/routers/stats.py` — extend `/api/stats/dashboard` taxonomy block, add 2 new endpoints (`/api/stats/person-tags`, `/api/stats/people-with-films`).
+
+**Modified frontend (4):** see above.
+
+**New frontend (2):** see above.
+
+### Out of scope (deferred)
+
+- IDF-weighted ranking for per-person tags (raw counts ship in 17c).
+- Tag co-occurrence force-directed graph (deferred, separate ticket if ever).
+- Heatmaps for themes / atmospheres / characters as standalone (too many rows; the cross-tab and per-person widget cover this need indirectly).
+- "Rare films/tag combinations" — redundant with the browse page's AND mode, which lets users build their own rare combinations interactively.
+

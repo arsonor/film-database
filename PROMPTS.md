@@ -243,3 +243,448 @@ atmospheres 1.4 · themes 1.3 · motivations 1.1 · messages 1.0 · cinema_types
 *(see git history for original prompts)*
 ---
 
+## Step 17c-Backend Prompt — Taxonomy stats enhancements
+
+```
+Read CLAUDE.md, then PLAN.md (Step 17c section, paying attention to the Backend changes payload shape), then this prompt.
+
+Read these files for context before changing anything:
+- backend/app/routers/stats.py (existing dashboard endpoint, parallel-query pattern, tier resolution)
+- backend/app/tier_config.py
+- backend/app/auth.py (UserInfo, get_current_user, tier check pattern)
+- database/seed_taxonomy.sql (CINEMA_TYPE values + sort_orders, MESSAGE values + sort_orders)
+
+## Task: Extend the Taxonomy section of the dashboard payload + add 2 new endpoints
+
+### 1. Extend `taxonomy` block of `/api/stats/dashboard`
+
+All new SQL queries follow the existing parallel-query pattern in `stats.py`. Add them only when tier is pro or admin (existing gating already handles this).
+
+#### 1a. CHANGE `category_by_decade_heatmap` semantics from count to percentage
+
+Replace the existing query. New SQL:
+
+```sql
+WITH decade_totals AS (
+  SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+         COUNT(*) AS total
+  FROM film
+  WHERE first_release_date IS NOT NULL
+  GROUP BY decade
+),
+category_decade AS (
+  SELECT c.category_name AS category,
+         (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+         COUNT(DISTINCT f.film_id) AS film_count
+  FROM film_genre fg
+  JOIN category c ON fg.category_id = c.category_id
+  JOIN film f ON fg.film_id = f.film_id
+  WHERE c.historic_subcategory_name IS NULL
+    AND f.first_release_date IS NOT NULL
+  GROUP BY c.category_name, decade
+)
+SELECT cd.category, cd.decade, cd.film_count,
+       dt.total AS decade_total,
+       ROUND((cd.film_count::numeric / dt.total) * 100, 2) AS pct
+FROM category_decade cd
+JOIN decade_totals dt ON cd.decade = dt.decade
+WHERE dt.total >= 5
+ORDER BY cd.category, cd.decade
+```
+
+Return rows shaped: `{category, decade, film_count, decade_total, pct}`.
+
+#### 1b. NEW `cinema_movements_by_decade` (count-based, curated subset)
+
+The curated movement set lives as a Python constant at the top of the file:
+
+```python
+CINEMA_MOVEMENT_NAMES = [
+    'silent', 'expressionism', 'hollywood golden age', 'neo-realism', 'noir',
+    'new wave', 'new hollywood', 'neo-noir', 'black and white',
+    'blockbuster', 'art house', 'franchise',
+]
+```
+
+SQL:
+
+```sql
+SELECT ct.technique_name AS movement,
+       (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+       COUNT(DISTINCT f.film_id) AS count,
+       ct.sort_order
+FROM film_technique fte
+JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
+JOIN film f ON fte.film_id = f.film_id
+WHERE ct.technique_name = ANY(:movement_names)
+  AND f.first_release_date IS NOT NULL
+GROUP BY ct.technique_name, decade, ct.sort_order
+ORDER BY ct.sort_order, decade
+```
+
+Pass `:movement_names` = `CINEMA_MOVEMENT_NAMES`.
+
+Return rows shaped: `{movement, decade, count, sort_order}`.
+
+#### 1c. NEW `message_by_decade_heatmap` (% within decade)
+
+SQL:
+
+```sql
+WITH decade_totals AS (
+  SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+         COUNT(*) AS total
+  FROM film
+  WHERE first_release_date IS NOT NULL
+  GROUP BY decade
+  HAVING COUNT(*) >= 20
+),
+message_totals AS (
+  SELECT mc.message_id, mc.message_name, mc.sort_order,
+         COUNT(DISTINCT fm.film_id) AS total_count
+  FROM message_conveyed mc
+  LEFT JOIN film_message fm ON mc.message_id = fm.message_id
+  GROUP BY mc.message_id, mc.message_name, mc.sort_order
+  HAVING COUNT(DISTINCT fm.film_id) >= 5
+),
+message_decade AS (
+  SELECT mc.message_name AS message,
+         mc.sort_order,
+         (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+         COUNT(DISTINCT f.film_id) AS film_count
+  FROM film_message fm
+  JOIN message_conveyed mc ON fm.message_id = mc.message_id
+  JOIN film f ON fm.film_id = f.film_id
+  WHERE f.first_release_date IS NOT NULL
+    AND mc.message_id IN (SELECT message_id FROM message_totals)
+  GROUP BY mc.message_name, mc.sort_order, decade
+)
+SELECT md.message, md.decade, md.film_count, dt.total AS decade_total,
+       ROUND((md.film_count::numeric / dt.total) * 100, 2) AS pct,
+       md.sort_order
+FROM message_decade md
+JOIN decade_totals dt ON md.decade = dt.decade
+ORDER BY md.sort_order, md.decade
+```
+
+Return rows shaped: `{message, decade, film_count, decade_total, pct, sort_order}`.
+
+#### 1d. NEW `atmosphere_by_category` (cross-tab, % within category)
+
+SQL:
+
+```sql
+WITH category_totals AS (
+  SELECT c.category_name AS category, COUNT(DISTINCT fg.film_id) AS total
+  FROM film_genre fg
+  JOIN category c ON fg.category_id = c.category_id
+  WHERE c.historic_subcategory_name IS NULL
+  GROUP BY c.category_name
+),
+ca AS (
+  SELECT c.category_name AS category,
+         a.atmosphere_name AS atmosphere,
+         a.sort_order AS atmosphere_sort_order,
+         COUNT(DISTINCT fg.film_id) AS film_count
+  FROM film_genre fg
+  JOIN category c ON fg.category_id = c.category_id
+  JOIN film_atmosphere fa ON fg.film_id = fa.film_id
+  JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
+  WHERE c.historic_subcategory_name IS NULL
+  GROUP BY c.category_name, a.atmosphere_name, a.sort_order
+)
+SELECT ca.category, ca.atmosphere, ca.atmosphere_sort_order,
+       ca.film_count, ct.total AS category_total,
+       ROUND((ca.film_count::numeric / ct.total) * 100, 2) AS pct
+FROM ca
+JOIN category_totals ct ON ca.category = ct.category
+ORDER BY ca.category, ca.atmosphere_sort_order
+```
+
+Return rows shaped: `{category, atmosphere, atmosphere_sort_order, film_count, category_total, pct}`.
+
+### 2. NEW endpoint `GET /api/stats/person-tags`
+
+Query params: `person_id: int` (required), `role: str` (one of `director`, `composer`, `actor`, default `director`).
+
+Tier check: only pro/admin allowed. Return 403 otherwise.
+
+Logic:
+- Validate person exists. If not, return 404.
+- Resolve film_id list:
+  - For director / composer: `SELECT film_id FROM crew WHERE person_id = :pid AND job_id IN (SELECT job_id FROM person_job WHERE role_name = 'Director'|'Composer')`
+  - For actor: `SELECT film_id FROM casting WHERE person_id = :pid`
+- If 0 films, return `{person: {...}, top_themes: [], top_atmospheres: [], ...}` (empty lists).
+- Otherwise run 4 small queries against the resolved film list:
+  - top 8 themes (excluding `: ` subtypes)
+  - top 5 atmospheres
+  - top 5 character contexts
+  - top 3 messages
+- Return shape per `PersonTagsResponse` defined in PLAN.md.
+
+Use a `WITH person_films AS (...)` CTE in each query to keep things readable.
+
+### 3. NEW endpoint `GET /api/stats/people-with-films`
+
+Query params: `role: str` (`director`/`composer`/`actor`, default `director`), `q: str | None` (optional name search).
+
+Tier check: pro/admin only.
+
+Return top 30 people in that role, with `film_count >= 3`, ordered by `film_count DESC`. If `q` provided, filter `WHERE name ILIKE '%q%'`.
+
+SQL pattern (director shown):
+
+```sql
+SELECT p.person_id,
+       TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
+       COUNT(DISTINCT c.film_id) AS film_count
+FROM crew c
+JOIN person p ON c.person_id = p.person_id
+JOIN person_job pj ON c.job_id = pj.job_id
+WHERE pj.role_name = 'Director'
+  AND (:q::text IS NULL OR (COALESCE(p.firstname, '') || ' ' || p.lastname) ILIKE '%' || :q || '%')
+GROUP BY p.person_id, p.firstname, p.lastname
+HAVING COUNT(DISTINCT c.film_id) >= 3
+ORDER BY film_count DESC, name
+LIMIT 30
+```
+
+For actor: same pattern via `casting` (no role_name needed since casting is implicitly actors).
+
+### 4. Pydantic schemas
+
+Add new response models in `backend/app/routers/stats.py` (or extract to `backend/app/schemas/stats.py` if cleaner):
+
+- Update `TaxonomyPayload` to add `cinema_movements_by_decade`, `message_by_decade_heatmap`, `atmosphere_by_category`. Update `category_by_decade_heatmap` shape (now has `film_count`, `decade_total`, `pct` instead of just `count`).
+- New `PersonTagsResponse`, `PersonSearchResult`.
+
+### 5. Verification
+
+Manual test:
+```bash
+# Get pro JWT or use admin
+curl -H "Authorization: Bearer <jwt>" http://localhost:8000/api/stats/dashboard | jq '.taxonomy.cinema_movements_by_decade[0:3], .taxonomy.message_by_decade_heatmap[0:3], .taxonomy.atmosphere_by_category[0:3]'
+
+curl -H "Authorization: Bearer <jwt>" "http://localhost:8000/api/stats/people-with-films?role=director&q=kuro" | jq '.'
+
+curl -H "Authorization: Bearer <jwt>" "http://localhost:8000/api/stats/person-tags?person_id=42&role=director" | jq '.'
+```
+
+Dashboard payload should still respond in <2s for pro tier despite the added queries (they're parallel).
+```
+
+---
+
+## Step 17c-Frontend Prompt — Taxonomy stats enhancements UI
+
+```
+Read CLAUDE.md, then PLAN.md (Step 17c section), then this prompt.
+
+Read these files for context before changing anything:
+- frontend/src/components/stats/CategoryDecadeHeatmap.tsx (existing heatmap to generalize/rename)
+- frontend/src/components/stats/TaxonomyTab.tsx (will receive 5 new sections)
+- frontend/src/components/stats/Section.tsx (for consistent section wrapping)
+- frontend/src/components/stats/PersonRankCard.tsx (reuse pattern for autocomplete result rendering if helpful)
+- frontend/src/components/stats/chartTheme.ts
+- frontend/src/types/api.ts (extend types)
+- frontend/src/api/client.ts (add 2 new API functions)
+
+## Task: Implement 5 taxonomy enhancements in the dashboard
+
+### 1. Extend types in `frontend/src/types/api.ts`
+
+Update `TaxonomyPayload`:
+
+```typescript
+export interface CategoryDecadeCell {
+  category: string;
+  decade: number;
+  film_count: number;
+  decade_total: number;
+  pct: number;
+}
+
+export interface CinemaMovementCell {
+  movement: string;
+  decade: number;
+  count: number;
+  sort_order: number;
+}
+
+export interface MessageDecadeCell {
+  message: string;
+  decade: number;
+  film_count: number;
+  decade_total: number;
+  pct: number;
+  sort_order: number;
+}
+
+export interface AtmosphereByCategoryCell {
+  category: string;
+  atmosphere: string;
+  atmosphere_sort_order: number;
+  film_count: number;
+  category_total: number;
+  pct: number;
+}
+
+export interface TaxonomyPayload {
+  top_themes: { name: string; count: number }[];
+  category_distribution: { name: string; count: number }[];
+  top_atmospheres: { name: string; count: number }[];
+  category_by_decade_heatmap: CategoryDecadeCell[];     // shape changed
+  cinema_movements_by_decade: CinemaMovementCell[];     // NEW
+  message_by_decade_heatmap: MessageDecadeCell[];       // NEW
+  atmosphere_by_category: AtmosphereByCategoryCell[];   // NEW
+}
+
+export interface PersonSearchResult {
+  person_id: number;
+  name: string;
+  film_count: number;
+}
+
+export interface TagCount {
+  name: string;
+  count: number;
+}
+
+export interface PersonTagsResponse {
+  person: { person_id: number; name: string; film_count: number };
+  top_themes: TagCount[];
+  top_atmospheres: TagCount[];
+  top_characters: TagCount[];
+  top_messages: TagCount[];
+}
+```
+
+### 2. Add API functions in `frontend/src/api/client.ts`
+
+```typescript
+export async function searchPeopleWithFilms(
+  role: "director" | "composer" | "actor",
+  q: string,
+): Promise<PersonSearchResult[]> {
+  const params = new URLSearchParams({ role });
+  if (q) params.set("q", q);
+  const res = await fetch(`${BASE}/stats/people-with-films?${params}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new ApiError(res.status, "Failed to search people");
+  return res.json();
+}
+
+export async function getPersonTags(
+  personId: number,
+  role: "director" | "composer" | "actor",
+): Promise<PersonTagsResponse> {
+  const res = await fetch(
+    `${BASE}/stats/person-tags?person_id=${personId}&role=${role}`,
+    { headers: { ...getAuthHeaders() } },
+  );
+  if (!res.ok) throw new ApiError(res.status, "Failed to load person tags");
+  return res.json();
+}
+```
+
+### 3. Generalize `CategoryDecadeHeatmap.tsx` → rename to `DecadeHeatmap.tsx`
+
+Generalize the existing component to support both count and percentage display, plus arbitrary row/decade dimensions.
+
+New prop signature:
+```typescript
+interface DecadeHeatmapProps<T> {
+  data: T[];
+  rowKey: (cell: T) => string;        // e.g., (c) => c.category
+  decadeKey: (cell: T) => number;     // e.g., (c) => c.decade
+  valueKey: (cell: T) => number;      // numeric value used for color intensity (count or pct)
+  cellLabel: (cell: T) => string;     // text shown inside cell, e.g., "12%" or "24"
+  tooltip: (cell: T) => string;       // tooltip text
+  rowSortOrder?: (cell: T) => number; // optional custom sort key for rows (else alphabetical)
+  rowLabelWidth?: number;             // default 110, increase to 160 for long movement names
+}
+```
+
+Keep the same SVG layout (40×40 cells, amber color scaling) but compute opacity from `valueKey`. The colour formula stays `0.05 + (value / maxValue) * 0.95` clamped.
+
+When `rowSortOrder` is provided, sort rows by it. Otherwise sort alphabetically by `rowKey`.
+
+Update the import in `TaxonomyTab.tsx` and any other usages.
+
+### 4. Create `frontend/src/components/stats/AtmosphereCategoryHeatmap.tsx`
+
+A separate dedicated component because the axis structure is different (categories are rows, atmospheres are cols, both labels are short). It's structurally similar to `DecadeHeatmap` but with atmosphere names as column labels (rotated -45deg, like decades) and percentages in cells.
+
+Most atmosphere names are short ("feel good", "violent") so column width can be 50px. Cell shows "25%" if pct >= 1, blank if 0.
+
+Hover tooltip: "Comedy · feel good · 25% (120 of 480 films)".
+
+### 5. Create `frontend/src/components/stats/PersonTagsWidget.tsx`
+
+A self-contained interactive widget. Internal state:
+- `role: "director" | "composer" | "actor"` (default "director")
+- `query: string` (text in search box)
+- `selectedPerson: PersonSearchResult | null`
+- `tags: PersonTagsResponse | null`
+- `loading: boolean`
+
+Layout:
+- Top row: 3-button toggle (Director / Composer / Actor) using shadcn Toggle/ToggleGroup, plus a search Input next to it
+- When `query.length >= 2` and no `selectedPerson`: debounced (250ms) call to `searchPeopleWithFilms`, show dropdown of up to 30 results below the input. Each row: "Name — N films". Click → sets selectedPerson, clears query, calls getPersonTags.
+- When `selectedPerson` is set: show the 4 ranked lists (themes/atmospheres/characters/messages), and a "× Reset" button next to the person name (e.g. "Akira Kurosawa — 27 films  ×")
+- Resetting clears selectedPerson and tags, returns to search state.
+- Changing the role toggle resets the selection too.
+
+Display of the 4 lists:
+- Use a 2-column grid (Themes | Atmospheres in row 1, Characters | Messages in row 2) on desktop. On mobile, single column.
+- Each list has a small heading (e.g., "Top 8 themes") and entries shown as `<TagPill>` with the count beside the name (`war (8)`).
+- Use existing Tag chip styling if available, or a simple badge with amber border.
+
+Loading state: show a small skeleton or spinner.
+
+### 6. Update `TaxonomyTab.tsx` with all 5 new sections
+
+Keep the existing top sections (Top 20 themes / Categories distribution / Atmosphere word cloud) at the top.
+
+New sections in this order:
+
+1. **Categories × decade (% within decade)** — use `<DecadeHeatmap>` with the new props.
+   - Subtitle: "What share of each decade's films belongs to each genre. Each cell = % of decade."
+   - cellLabel: returns `${pct}%` if pct >= 1, else empty
+   - tooltip: `"{category} · {decade}s · {pct}% ({film_count} of {decade_total} films)"`
+2. **Cinema movements × decade (counts)** — use `<DecadeHeatmap>` with rowSortOrder so movements appear chronologically.
+   - Subtitle: "Number of films tagged with each movement, per decade. The diagonal pattern reveals when each era dominated."
+   - cellLabel: returns count if > 0
+   - rowLabelWidth: 160 (for "hollywood golden age")
+3. **Messages × decade (% within decade)** — use `<DecadeHeatmap>` with rowSortOrder.
+   - Subtitle: "% of films per decade conveying each message. Notice when feminist films emerge, when ecological themes appear..."
+   - cellLabel: returns `${pct}%` if pct >= 0.5, else empty
+4. **Most common tags by filmography** — use `<PersonTagsWidget>`.
+   - Subtitle: "Pick a director, actor, or composer to see their characteristic themes, atmospheres, characters, and messages."
+5. **Atmosphere by genre** — use `<AtmosphereCategoryHeatmap>`.
+   - Subtitle: "% of films in each genre matching each atmosphere. A genre's signature mood profile."
+
+Wrap each in `<Section title="..." subtitle="...">`.
+
+### 7. Verification
+
+After implementation, log in as Pro/Admin, visit `/stats?tab=taxonomy`:
+- All existing top sections still render correctly
+- 3 heatmaps render with correct row ordering (categories alphabetical, movements chronological by sort_order, messages chronological by sort_order)
+- Cell labels show "%" for the two percentage heatmaps, plain numbers for cinema movements
+- Person widget: switch role, search a few directors, verify tag breakdowns appear
+- Atmosphere×category heatmap renders 12 rows (categories) × ~23 cols (atmospheres). Tooltips work.
+
+### Important notes
+
+- Match existing dark theme. Heatmap cell color stays amber.
+- Mobile: heatmaps need horizontal scroll (existing pattern, kept). Person widget grid collapses to 1 column.
+- Don't break existing PeopleTab, FinancialsTab, QuickStatsTab — only the Taxonomy tab is touched.
+- All new sections inherit the existing tab gating (Pro/Admin only) — no new tier checks needed in frontend.
+- React Query: the dashboard query is already cached, so the new fields come along for free. The two new endpoints (person-tags, people-with-films) don't need React Query — use simple `useState` + `useEffect` debounced calls inside `PersonTagsWidget`.
+```
+
+---
+
+
