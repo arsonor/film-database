@@ -23,7 +23,7 @@ export const NO_DATA_COLOR = "#1f1f1f";
 
 export function bucketFor(count: number): CountBucket | null {
   if (count <= 0) return null;
-  let chosen = FILM_COUNT_BUCKETS[0];
+  let chosen: CountBucket = FILM_COUNT_BUCKETS[0]!;
   for (const b of FILM_COUNT_BUCKETS) {
     if (count >= b.min) chosen = b;
   }

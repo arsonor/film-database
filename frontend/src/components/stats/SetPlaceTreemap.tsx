@@ -98,7 +98,7 @@ export function SetPlaceTreemap({ data }: SetPlaceTreemapProps) {
       <Breadcrumbs path={path} onJump={(i) => setPath(path.slice(0, i))} />
       <ResponsiveContainer width="100%" height={500}>
         <Treemap
-          data={visible as unknown as object[]}
+          data={visible as unknown as readonly Record<string, unknown>[]}
           dataKey="size"
           nameKey="name"
           stroke="#0f0f0f"
