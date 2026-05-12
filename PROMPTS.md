@@ -243,448 +243,694 @@ atmospheres 1.4 · themes 1.3 · motivations 1.1 · messages 1.0 · cinema_types
 *(see git history for original prompts)*
 ---
 
-## Step 17c-Backend Prompt — Taxonomy stats enhancements
+## Step 17c-Taxonomy stats enhancements
+
+*(see git history for original prompts)*
+---
+
+## Step 17d-Backend Prompt — Geography stats data
 
 ```
-Read CLAUDE.md, then PLAN.md (Step 17c section, paying attention to the Backend changes payload shape), then this prompt.
+Read PLAN.md (Step 17d section, paying attention to the Backend changes payload shape and the ISO mapping note), then this prompt.
 
 Read these files for context before changing anything:
-- backend/app/routers/stats.py (existing dashboard endpoint, parallel-query pattern, tier resolution)
+- backend/app/routers/stats.py (existing dashboard endpoint, parallel-query pattern, tier resolution — mirror what's done for taxonomy)
+- backend/app/routers/geography.py (existing search/countries endpoints, free-text country name patterns)
 - backend/app/tier_config.py
-- backend/app/auth.py (UserInfo, get_current_user, tier check pattern)
-- database/seed_taxonomy.sql (CINEMA_TYPE values + sort_orders, MESSAGE values + sort_orders)
+- backend/app/auth.py
+- database/migrations/020_collection_and_production_country.sql (shows production_country + film_production_country structure)
+- database/schema.sql (skim geography + film_set_place)
 
-## Task: Extend the Taxonomy section of the dashboard payload + add 2 new endpoints
+## Task: Populate `geography` block of the dashboard payload + add 2 new endpoints
 
-### 1. Extend `taxonomy` block of `/api/stats/dashboard`
+### 1. Create `backend/app/data/country_name_to_iso.py`
 
-All new SQL queries follow the existing parallel-query pattern in `stats.py`. Add them only when tier is pro or admin (existing gating already handles this).
-
-#### 1a. CHANGE `category_by_decade_heatmap` semantics from count to percentage
-
-Replace the existing query. New SQL:
-
-```sql
-WITH decade_totals AS (
-  SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
-         COUNT(*) AS total
-  FROM film
-  WHERE first_release_date IS NOT NULL
-  GROUP BY decade
-),
-category_decade AS (
-  SELECT c.category_name AS category,
-         (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
-         COUNT(DISTINCT f.film_id) AS film_count
-  FROM film_genre fg
-  JOIN category c ON fg.category_id = c.category_id
-  JOIN film f ON fg.film_id = f.film_id
-  WHERE c.historic_subcategory_name IS NULL
-    AND f.first_release_date IS NOT NULL
-  GROUP BY c.category_name, decade
-)
-SELECT cd.category, cd.decade, cd.film_count,
-       dt.total AS decade_total,
-       ROUND((cd.film_count::numeric / dt.total) * 100, 2) AS pct
-FROM category_decade cd
-JOIN decade_totals dt ON cd.decade = dt.decade
-WHERE dt.total >= 5
-ORDER BY cd.category, cd.decade
-```
-
-Return rows shaped: `{category, decade, film_count, decade_total, pct}`.
-
-#### 1b. NEW `cinema_movements_by_decade` (count-based, curated subset)
-
-The curated movement set lives as a Python constant at the top of the file:
+A static dict mapping common English country names → ISO 3166-1 alpha-2 codes. Include the ~80 most common ones plus variants:
 
 ```python
-CINEMA_MOVEMENT_NAMES = [
-    'silent', 'expressionism', 'hollywood golden age', 'neo-realism', 'noir',
-    'new wave', 'new hollywood', 'neo-noir', 'black and white',
-    'blockbuster', 'art house', 'franchise',
-]
+# Map (free-text country names found in `geography.country`) → ISO alpha-2 code.
+# Includes common variants/aliases. Lookup should be case-insensitive (.lower() both sides).
+
+COUNTRY_NAME_TO_ISO: dict[str, str] = {
+    "united states": "US",
+    "united states of america": "US",
+    "usa": "US",
+    "us": "US",
+    "united kingdom": "GB",
+    "uk": "GB",
+    "great britain": "GB",
+    "england": "GB",
+    "scotland": "GB",
+    "wales": "GB",
+    "france": "FR",
+    "germany": "DE",
+    "west germany": "DE",
+    "east germany": "DE",
+    "italy": "IT",
+    "spain": "ES",
+    "portugal": "PT",
+    "belgium": "BE",
+    "netherlands": "NL",
+    "the netherlands": "NL",
+    "holland": "NL",
+    "luxembourg": "LU",
+    "switzerland": "CH",
+    "austria": "AT",
+    "ireland": "IE",
+    "denmark": "DK",
+    "sweden": "SE",
+    "norway": "NO",
+    "finland": "FI",
+    "iceland": "IS",
+    "poland": "PL",
+    "czech republic": "CZ",
+    "czechia": "CZ",
+    "slovakia": "SK",
+    "hungary": "HU",
+    "romania": "RO",
+    "bulgaria": "BG",
+    "greece": "GR",
+    "croatia": "HR",
+    "serbia": "RS",
+    "slovenia": "SI",
+    "bosnia and herzegovina": "BA",
+    "north macedonia": "MK",
+    "albania": "AL",
+    "turkey": "TR",
+    "ukraine": "UA",
+    "russia": "RU",
+    "soviet union": "RU",
+    "ussr": "RU",
+    "belarus": "BY",
+    "estonia": "EE",
+    "latvia": "LV",
+    "lithuania": "LT",
+    "georgia": "GE",
+    "armenia": "AM",
+    "china": "CN",
+    "hong kong": "HK",
+    "taiwan": "TW",
+    "japan": "JP",
+    "south korea": "KR",
+    "korea": "KR",
+    "north korea": "KP",
+    "india": "IN",
+    "pakistan": "PK",
+    "bangladesh": "BD",
+    "sri lanka": "LK",
+    "nepal": "NP",
+    "thailand": "TH",
+    "vietnam": "VN",
+    "cambodia": "KH",
+    "laos": "LA",
+    "myanmar": "MM",
+    "burma": "MM",
+    "indonesia": "ID",
+    "malaysia": "MY",
+    "philippines": "PH",
+    "singapore": "SG",
+    "mongolia": "MN",
+    "iran": "IR",
+    "iraq": "IQ",
+    "israel": "IL",
+    "palestine": "PS",
+    "lebanon": "LB",
+    "syria": "SY",
+    "jordan": "JO",
+    "saudi arabia": "SA",
+    "united arab emirates": "AE",
+    "uae": "AE",
+    "qatar": "QA",
+    "kuwait": "KW",
+    "yemen": "YE",
+    "egypt": "EG",
+    "morocco": "MA",
+    "algeria": "DZ",
+    "tunisia": "TN",
+    "libya": "LY",
+    "south africa": "ZA",
+    "nigeria": "NG",
+    "kenya": "KE",
+    "ethiopia": "ET",
+    "ghana": "GH",
+    "senegal": "SN",
+    "ivory coast": "CI",
+    "cote d'ivoire": "CI",
+    "rwanda": "RW",
+    "uganda": "UG",
+    "tanzania": "TZ",
+    "zimbabwe": "ZW",
+    "mali": "ML",
+    "burkina faso": "BF",
+    "democratic republic of the congo": "CD",
+    "congo": "CG",
+    "angola": "AO",
+    "mozambique": "MZ",
+    "canada": "CA",
+    "mexico": "MX",
+    "cuba": "CU",
+    "jamaica": "JM",
+    "haiti": "HT",
+    "dominican republic": "DO",
+    "puerto rico": "PR",
+    "brazil": "BR",
+    "argentina": "AR",
+    "chile": "CL",
+    "colombia": "CO",
+    "venezuela": "VE",
+    "peru": "PE",
+    "bolivia": "BO",
+    "ecuador": "EC",
+    "uruguay": "UY",
+    "paraguay": "PY",
+    "guatemala": "GT",
+    "honduras": "HN",
+    "nicaragua": "NI",
+    "costa rica": "CR",
+    "panama": "PA",
+    "australia": "AU",
+    "new zealand": "NZ",
+    "papua new guinea": "PG",
+}
+
+
+def country_name_to_iso(name: str | None) -> str | None:
+    """Returns ISO 3166-1 alpha-2 code for a free-text country name, or None.
+
+    Case-insensitive lookup against the static map.
+    """
+    if not name:
+        return None
+    return COUNTRY_NAME_TO_ISO.get(name.strip().lower())
 ```
 
-SQL:
+### 2. Extend `geography` block in `/api/stats/dashboard`
+
+In `stats.py`, when the user is Pro or Admin, populate `geography` block instead of returning `null`. Use the existing parallel-query pattern (one coroutine per sub-query, gathered with `asyncio.gather()`).
+
+#### 2a. `production_countries` (top to bottom by count)
 
 ```sql
-SELECT ct.technique_name AS movement,
-       (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
-       COUNT(DISTINCT f.film_id) AS count,
-       ct.sort_order
-FROM film_technique fte
-JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
-JOIN film f ON fte.film_id = f.film_id
-WHERE ct.technique_name = ANY(:movement_names)
-  AND f.first_release_date IS NOT NULL
-GROUP BY ct.technique_name, decade, ct.sort_order
-ORDER BY ct.sort_order, decade
+SELECT pc.country_code AS iso,
+       pc.country_name AS country,
+       COUNT(DISTINCT fpc.film_id) AS film_count
+FROM production_country pc
+JOIN film_production_country fpc ON pc.country_id = fpc.country_id
+GROUP BY pc.country_code, pc.country_name
+ORDER BY film_count DESC, country
 ```
 
-Pass `:movement_names` = `CINEMA_MOVEMENT_NAMES`.
+Return shape: `[{"iso", "country", "film_count"}]`.
 
-Return rows shaped: `{movement, decade, count, sort_order}`.
-
-#### 1c. NEW `message_by_decade_heatmap` (% within decade)
-
-SQL:
+#### 2b. `set_place_countries` (by country aggregated, ISO-mapped in Python)
 
 ```sql
-WITH decade_totals AS (
-  SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
-         COUNT(*) AS total
-  FROM film
-  WHERE first_release_date IS NOT NULL
-  GROUP BY decade
-  HAVING COUNT(*) >= 20
-),
-message_totals AS (
-  SELECT mc.message_id, mc.message_name, mc.sort_order,
-         COUNT(DISTINCT fm.film_id) AS total_count
-  FROM message_conveyed mc
-  LEFT JOIN film_message fm ON mc.message_id = fm.message_id
-  GROUP BY mc.message_id, mc.message_name, mc.sort_order
-  HAVING COUNT(DISTINCT fm.film_id) >= 5
-),
-message_decade AS (
-  SELECT mc.message_name AS message,
-         mc.sort_order,
-         (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
-         COUNT(DISTINCT f.film_id) AS film_count
-  FROM film_message fm
-  JOIN message_conveyed mc ON fm.message_id = mc.message_id
-  JOIN film f ON fm.film_id = f.film_id
-  WHERE f.first_release_date IS NOT NULL
-    AND mc.message_id IN (SELECT message_id FROM message_totals)
-  GROUP BY mc.message_name, mc.sort_order, decade
-)
-SELECT md.message, md.decade, md.film_count, dt.total AS decade_total,
-       ROUND((md.film_count::numeric / dt.total) * 100, 2) AS pct,
-       md.sort_order
-FROM message_decade md
-JOIN decade_totals dt ON md.decade = dt.decade
-ORDER BY md.sort_order, md.decade
+SELECT g.country, COUNT(DISTINCT fsp.film_id) AS film_count
+FROM geography g
+JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
+WHERE g.country IS NOT NULL
+GROUP BY g.country
+ORDER BY film_count DESC, g.country
 ```
 
-Return rows shaped: `{message, decade, film_count, decade_total, pct, sort_order}`.
+In Python: walk the results, apply `country_name_to_iso(row.country)` to get ISO. **Aggregate by ISO** (multiple free-text variants may map to the same code, e.g., "USSR" and "Soviet Union" both → RU). Drop rows where ISO is None (unmapped, will be excluded from the choropleth). Return `[{"iso", "country", "film_count"}]` with country = the canonical English name (use the production_country.country_name lookup if available, fall back to the original free-text).
 
-#### 1d. NEW `atmosphere_by_category` (cross-tab, % within category)
-
-SQL:
+#### 2c. `set_place_treemap` (hierarchical)
 
 ```sql
-WITH category_totals AS (
-  SELECT c.category_name AS category, COUNT(DISTINCT fg.film_id) AS total
-  FROM film_genre fg
-  JOIN category c ON fg.category_id = c.category_id
-  WHERE c.historic_subcategory_name IS NULL
-  GROUP BY c.category_name
-),
-ca AS (
-  SELECT c.category_name AS category,
-         a.atmosphere_name AS atmosphere,
-         a.sort_order AS atmosphere_sort_order,
-         COUNT(DISTINCT fg.film_id) AS film_count
-  FROM film_genre fg
-  JOIN category c ON fg.category_id = c.category_id
-  JOIN film_atmosphere fa ON fg.film_id = fa.film_id
-  JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
-  WHERE c.historic_subcategory_name IS NULL
-  GROUP BY c.category_name, a.atmosphere_name, a.sort_order
-)
-SELECT ca.category, ca.atmosphere, ca.atmosphere_sort_order,
-       ca.film_count, ct.total AS category_total,
-       ROUND((ca.film_count::numeric / ct.total) * 100, 2) AS pct
-FROM ca
-JOIN category_totals ct ON ca.category = ct.category
-ORDER BY ca.category, ca.atmosphere_sort_order
+SELECT g.continent, g.country, g.state_city, g.geography_id,
+       COUNT(DISTINCT fsp.film_id) AS film_count
+FROM geography g
+JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
+WHERE g.continent IS NOT NULL
+GROUP BY g.continent, g.country, g.state_city, g.geography_id
+ORDER BY g.continent, g.country, g.state_city
 ```
 
-Return rows shaped: `{category, atmosphere, atmosphere_sort_order, film_count, category_total, pct}`.
+Return shape: `[{"continent", "country", "state_city", "geography_id", "film_count"}]`.
 
-### 2. NEW endpoint `GET /api/stats/person-tags`
+#### 2d. `production_country_total` / `set_place_country_total`
 
-Query params: `person_id: int` (required), `role: str` (one of `director`, `composer`, `actor`, default `director`).
-
-Tier check: only pro/admin allowed. Return 403 otherwise.
-
-Logic:
-- Validate person exists. If not, return 404.
-- Resolve film_id list:
-  - For director / composer: `SELECT film_id FROM crew WHERE person_id = :pid AND job_id IN (SELECT job_id FROM person_job WHERE role_name = 'Director'|'Composer')`
-  - For actor: `SELECT film_id FROM casting WHERE person_id = :pid`
-- If 0 films, return `{person: {...}, top_themes: [], top_atmospheres: [], ...}` (empty lists).
-- Otherwise run 4 small queries against the resolved film list:
-  - top 8 themes (excluding `: ` subtypes)
-  - top 5 atmospheres
-  - top 5 character contexts
-  - top 3 messages
-- Return shape per `PersonTagsResponse` defined in PLAN.md.
-
-Use a `WITH person_films AS (...)` CTE in each query to keep things readable.
-
-### 3. NEW endpoint `GET /api/stats/people-with-films`
-
-Query params: `role: str` (`director`/`composer`/`actor`, default `director`), `q: str | None` (optional name search).
-
-Tier check: pro/admin only.
-
-Return top 30 people in that role, with `film_count >= 3`, ordered by `film_count DESC`. If `q` provided, filter `WHERE name ILIKE '%q%'`.
-
-SQL pattern (director shown):
+Total distinct countries with at least one film:
 
 ```sql
-SELECT p.person_id,
-       TRIM(COALESCE(p.firstname, '') || ' ' || p.lastname) AS name,
-       COUNT(DISTINCT c.film_id) AS film_count
-FROM crew c
-JOIN person p ON c.person_id = p.person_id
-JOIN person_job pj ON c.job_id = pj.job_id
-WHERE pj.role_name = 'Director'
-  AND (:q::text IS NULL OR (COALESCE(p.firstname, '') || ' ' || p.lastname) ILIKE '%' || :q || '%')
-GROUP BY p.person_id, p.firstname, p.lastname
-HAVING COUNT(DISTINCT c.film_id) >= 3
-ORDER BY film_count DESC, name
-LIMIT 30
+-- production
+SELECT COUNT(DISTINCT country_id) FROM film_production_country;
+-- set place (count distinct countries from geography, free-text)
+SELECT COUNT(DISTINCT country) FROM geography
+WHERE country IS NOT NULL
+AND geography_id IN (SELECT geography_id FROM film_set_place);
 ```
 
-For actor: same pattern via `casting` (no role_name needed since casting is implicitly actors).
+Return shape: integers.
+
+#### 2e. `most_international_film`
+
+```sql
+SELECT fpc.film_id, f.original_title AS title,
+       COUNT(*) AS country_count,
+       array_agg(pc.country_code ORDER BY pc.country_code) AS countries
+FROM film_production_country fpc
+JOIN film f ON fpc.film_id = f.film_id
+JOIN production_country pc ON fpc.country_id = pc.country_id
+GROUP BY fpc.film_id, f.original_title
+ORDER BY country_count DESC, f.original_title
+LIMIT 1
+```
+
+Return shape: `{"film_id", "title", "country_count", "countries": [iso, ...]}` or `null` if no data.
+
+### 3. NEW endpoint `GET /api/stats/films-by-country`
+
+Query params:
+- `type: str` (`production` or `set_place`, required)
+- `iso: str` (ISO alpha-2, required)
+- `limit: int = 10` (max 30)
+
+Tier check: Pro/Admin only, 403 otherwise.
+
+**For `type=production`:**
+
+```sql
+SELECT f.film_id, f.original_title AS title, f.poster_url,
+       EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+       f.weighted_score
+FROM film f
+JOIN film_production_country fpc ON f.film_id = fpc.film_id
+JOIN production_country pc ON fpc.country_id = pc.country_id
+WHERE pc.country_code = :iso
+ORDER BY f.weighted_score DESC NULLS LAST, f.first_release_date DESC
+LIMIT :limit
+```
+
+**For `type=set_place`:**
+
+Resolve ISO → country name via reverse lookup of `COUNTRY_NAME_TO_ISO` (i.e., find all free-text variants that map to this ISO), then query:
+
+```sql
+SELECT DISTINCT f.film_id, f.original_title AS title, f.poster_url,
+       EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+       f.weighted_score
+FROM film f
+JOIN film_set_place fsp ON f.film_id = fsp.film_id
+JOIN geography g ON fsp.geography_id = g.geography_id
+WHERE LOWER(g.country) = ANY(:country_names)
+ORDER BY f.weighted_score DESC NULLS LAST, f.first_release_date DESC
+LIMIT :limit
+```
+
+Where `:country_names` is the list of lowercase free-text variants for this ISO (e.g., for `iso=US`: `['united states', 'united states of america', 'usa', 'us']`).
+
+Return shape: `[{film_id, title, poster_url, year, weighted_score}]`.
 
 ### 4. Pydantic schemas
 
-Add new response models in `backend/app/routers/stats.py` (or extract to `backend/app/schemas/stats.py` if cleaner):
+Add to `stats.py` (or `schemas/stats.py`):
 
-- Update `TaxonomyPayload` to add `cinema_movements_by_decade`, `message_by_decade_heatmap`, `atmosphere_by_category`. Update `category_by_decade_heatmap` shape (now has `film_count`, `decade_total`, `pct` instead of just `count`).
-- New `PersonTagsResponse`, `PersonSearchResult`.
+```python
+class ProductionCountryCell(BaseModel):
+    iso: str
+    country: str
+    film_count: int
+
+class SetPlaceCountryCell(BaseModel):
+    iso: str
+    country: str
+    film_count: int
+
+class SetPlaceTreemapCell(BaseModel):
+    continent: str
+    country: str | None
+    state_city: str | None
+    geography_id: int
+    film_count: int
+
+class MostInternationalFilm(BaseModel):
+    film_id: int
+    title: str
+    country_count: int
+    countries: list[str]
+
+class GeographyPayload(BaseModel):
+    production_countries: list[ProductionCountryCell]
+    set_place_countries: list[SetPlaceCountryCell]
+    set_place_treemap: list[SetPlaceTreemapCell]
+    production_country_total: int
+    set_place_country_total: int
+    most_international_film: MostInternationalFilm | None
+
+class FilmByCountry(BaseModel):
+    film_id: int
+    title: str
+    poster_url: str | None
+    year: int | None
+    weighted_score: float | None
+```
+
+Update `DashboardResponse.geography` from `None`-only to `GeographyPayload | None`.
 
 ### 5. Verification
 
-Manual test:
 ```bash
-# Get pro JWT or use admin
-curl -H "Authorization: Bearer <jwt>" http://localhost:8000/api/stats/dashboard | jq '.taxonomy.cinema_movements_by_decade[0:3], .taxonomy.message_by_decade_heatmap[0:3], .taxonomy.atmosphere_by_category[0:3]'
+curl -H "Authorization: Bearer <pro-jwt>" http://localhost:8000/api/stats/dashboard | jq '.geography.production_country_total, .geography.set_place_country_total, .geography.most_international_film, .geography.production_countries[0:3], .geography.set_place_treemap[0:3]'
 
-curl -H "Authorization: Bearer <jwt>" "http://localhost:8000/api/stats/people-with-films?role=director&q=kuro" | jq '.'
+curl -H "Authorization: Bearer <pro-jwt>" "http://localhost:8000/api/stats/films-by-country?type=production&iso=US&limit=5" | jq '.'
 
-curl -H "Authorization: Bearer <jwt>" "http://localhost:8000/api/stats/person-tags?person_id=42&role=director" | jq '.'
+curl -H "Authorization: Bearer <pro-jwt>" "http://localhost:8000/api/stats/films-by-country?type=set_place&iso=FR&limit=5" | jq '.'
+
+# As free user: geography should be null
+curl -H "Authorization: Bearer <free-jwt>" http://localhost:8000/api/stats/dashboard | jq '.geography'
 ```
 
-Dashboard payload should still respond in <2s for pro tier despite the added queries (they're parallel).
+Dashboard payload still responds in <2s for pro tier (queries are parallel).
 ```
 
 ---
 
-## Step 17c-Frontend Prompt — Taxonomy stats enhancements UI
+## Step 17d-Frontend Prompt — Geography tab UI
 
 ```
-Read CLAUDE.md, then PLAN.md (Step 17c section), then this prompt.
+Read PLAN.md (Step 17d section), then this prompt.
 
 Read these files for context before changing anything:
-- frontend/src/components/stats/CategoryDecadeHeatmap.tsx (existing heatmap to generalize/rename)
-- frontend/src/components/stats/TaxonomyTab.tsx (will receive 5 new sections)
-- frontend/src/components/stats/Section.tsx (for consistent section wrapping)
-- frontend/src/components/stats/PersonRankCard.tsx (reuse pattern for autocomplete result rendering if helpful)
+- frontend/src/components/stats/GeographyTab.tsx (current placeholder, will be replaced)
+- frontend/src/components/stats/LockedTabPlaceholder.tsx (used for non-pro tiers)
+- frontend/src/components/stats/StatCard.tsx (reused for top stat cards)
+- frontend/src/components/stats/Section.tsx (consistent section wrapping)
+- frontend/src/components/stats/PosterRow.tsx (existing pattern, reuse for the country films panel)
 - frontend/src/components/stats/chartTheme.ts
 - frontend/src/types/api.ts (extend types)
-- frontend/src/api/client.ts (add 2 new API functions)
+- frontend/src/api/client.ts (add getFilmsByCountry)
+- frontend/src/context/AuthContext.tsx (useAuth hook, tier)
+- frontend/src/lib/tierAccess.ts
 
-## Task: Implement 5 taxonomy enhancements in the dashboard
+## Task: Implement the Geography tab with two world maps + treemap + click-to-films panel
+
+### 0. Install dependency + download world topojson
+
+```bash
+cd frontend
+npm install react-simple-maps@3.0.0 d3-geo@3.1.0
+npm install -D @types/react-simple-maps @types/d3-geo
+```
+
+Download the world topojson file (110m resolution, ~120 KB) and save it at `frontend/public/world-110m.json`. The standard file is hosted at:
+- https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json
+
+Commit this file to the repo (it's tiny and avoids a CDN dependency at runtime).
 
 ### 1. Extend types in `frontend/src/types/api.ts`
 
-Update `TaxonomyPayload`:
-
 ```typescript
-export interface CategoryDecadeCell {
-  category: string;
-  decade: number;
-  film_count: number;
-  decade_total: number;
-  pct: number;
-}
-
-export interface CinemaMovementCell {
-  movement: string;
-  decade: number;
-  count: number;
-  sort_order: number;
-}
-
-export interface MessageDecadeCell {
-  message: string;
-  decade: number;
-  film_count: number;
-  decade_total: number;
-  pct: number;
-  sort_order: number;
-}
-
-export interface AtmosphereByCategoryCell {
-  category: string;
-  atmosphere: string;
-  atmosphere_sort_order: number;
-  film_count: number;
-  category_total: number;
-  pct: number;
-}
-
-export interface TaxonomyPayload {
-  top_themes: { name: string; count: number }[];
-  category_distribution: { name: string; count: number }[];
-  top_atmospheres: { name: string; count: number }[];
-  category_by_decade_heatmap: CategoryDecadeCell[];     // shape changed
-  cinema_movements_by_decade: CinemaMovementCell[];     // NEW
-  message_by_decade_heatmap: MessageDecadeCell[];       // NEW
-  atmosphere_by_category: AtmosphereByCategoryCell[];   // NEW
-}
-
-export interface PersonSearchResult {
-  person_id: number;
-  name: string;
+export interface ProductionCountryCell {
+  iso: string;
+  country: string;
   film_count: number;
 }
 
-export interface TagCount {
-  name: string;
-  count: number;
+export interface SetPlaceCountryCell {
+  iso: string;
+  country: string;
+  film_count: number;
 }
 
-export interface PersonTagsResponse {
-  person: { person_id: number; name: string; film_count: number };
-  top_themes: TagCount[];
-  top_atmospheres: TagCount[];
-  top_characters: TagCount[];
-  top_messages: TagCount[];
+export interface SetPlaceTreemapCell {
+  continent: string;
+  country: string | null;
+  state_city: string | null;
+  geography_id: number;
+  film_count: number;
+}
+
+export interface MostInternationalFilm {
+  film_id: number;
+  title: string;
+  country_count: number;
+  countries: string[];
+}
+
+export interface GeographyPayload {
+  production_countries: ProductionCountryCell[];
+  set_place_countries: SetPlaceCountryCell[];
+  set_place_treemap: SetPlaceTreemapCell[];
+  production_country_total: number;
+  set_place_country_total: number;
+  most_international_film: MostInternationalFilm | null;
+}
+
+export interface FilmByCountry {
+  film_id: number;
+  title: string;
+  poster_url: string | null;
+  year: number | null;
+  weighted_score: number | null;
 }
 ```
 
-### 2. Add API functions in `frontend/src/api/client.ts`
+Update `DashboardStats.geography` type from `null` to `GeographyPayload | null`.
+
+### 2. Add API function in `frontend/src/api/client.ts`
 
 ```typescript
-export async function searchPeopleWithFilms(
-  role: "director" | "composer" | "actor",
-  q: string,
-): Promise<PersonSearchResult[]> {
-  const params = new URLSearchParams({ role });
-  if (q) params.set("q", q);
-  const res = await fetch(`${BASE}/stats/people-with-films?${params}`, {
-    headers: { ...getAuthHeaders() },
-  });
-  if (!res.ok) throw new ApiError(res.status, "Failed to search people");
-  return res.json();
-}
-
-export async function getPersonTags(
-  personId: number,
-  role: "director" | "composer" | "actor",
-): Promise<PersonTagsResponse> {
+export async function getFilmsByCountry(
+  type: "production" | "set_place",
+  iso: string,
+  limit = 10,
+): Promise<FilmByCountry[]> {
   const res = await fetch(
-    `${BASE}/stats/person-tags?person_id=${personId}&role=${role}`,
+    `${BASE}/stats/films-by-country?type=${type}&iso=${iso}&limit=${limit}`,
     { headers: { ...getAuthHeaders() } },
   );
-  if (!res.ok) throw new ApiError(res.status, "Failed to load person tags");
+  if (!res.ok) throw new ApiError(res.status, "Failed to load films for country");
   return res.json();
 }
 ```
 
-### 3. Generalize `CategoryDecadeHeatmap.tsx` → rename to `DecadeHeatmap.tsx`
+### 3. Create `frontend/src/lib/colorScale.ts`
 
-Generalize the existing component to support both count and percentage display, plus arbitrary row/decade dimensions.
+A helper for mapping a film count to a color intensity (0–1 alpha). Counts span 1–3000+, so use a **log scale** rather than linear to make small markets visible:
 
-New prop signature:
 ```typescript
-interface DecadeHeatmapProps<T> {
-  data: T[];
-  rowKey: (cell: T) => string;        // e.g., (c) => c.category
-  decadeKey: (cell: T) => number;     // e.g., (c) => c.decade
-  valueKey: (cell: T) => number;      // numeric value used for color intensity (count or pct)
-  cellLabel: (cell: T) => string;     // text shown inside cell, e.g., "12%" or "24"
-  tooltip: (cell: T) => string;       // tooltip text
-  rowSortOrder?: (cell: T) => number; // optional custom sort key for rows (else alphabetical)
-  rowLabelWidth?: number;             // default 110, increase to 160 for long movement names
+// Maps a count to a 0..1 intensity, log-scaled for visibility across orders of magnitude.
+export function intensity(count: number, maxCount: number): number {
+  if (count <= 0) return 0;
+  if (maxCount <= 1) return 1;
+  // log scale: small counts already get significant intensity
+  return Math.log(count + 1) / Math.log(maxCount + 1);
+}
+
+export function amberShade(intensity: number): string {
+  // Map 0..1 intensity to an amber HSL color, with low end staying visible.
+  if (intensity === 0) return "#1f1f1f"; // dark gray for no-data countries
+  const lightness = 50 - intensity * 30; // 50% → 20%
+  const opacity = 0.3 + intensity * 0.7; // 0.3 → 1.0
+  return `hsla(38, 92%, ${lightness}%, ${opacity})`;
+}
+
+// Build legend buckets for the color scale (used in the legend below the map)
+export function legendBuckets(maxCount: number): Array<{ label: string; intensity: number }> {
+  const buckets = [1, 10, 50, 200, 1000];
+  return buckets
+    .filter((b) => b <= maxCount * 2)
+    .map((count) => ({
+      label: count >= 1000 ? `${count}+` : `${count}`,
+      intensity: intensity(count, maxCount),
+    }));
 }
 ```
 
-Keep the same SVG layout (40×40 cells, amber color scaling) but compute opacity from `valueKey`. The colour formula stays `0.05 + (value / maxValue) * 0.95` clamped.
+### 4. Create `frontend/src/components/stats/WorldMap.tsx`
 
-When `rowSortOrder` is provided, sort rows by it. Otherwise sort alphabetically by `rowKey`.
+Generic choropleth component using react-simple-maps. Props:
 
-Update the import in `TaxonomyTab.tsx` and any other usages.
+```typescript
+interface WorldMapProps {
+  data: { iso: string; country: string; film_count: number }[];
+  onCountryClick: (iso: string, country: string) => void;
+  selectedIso?: string | null;
+}
+```
 
-### 4. Create `frontend/src/components/stats/AtmosphereCategoryHeatmap.tsx`
+Implementation:
 
-A separate dedicated component because the axis structure is different (categories are rows, atmospheres are cols, both labels are short). It's structurally similar to `DecadeHeatmap` but with atmosphere names as column labels (rotated -45deg, like decades) and percentages in cells.
+- Load `/world-110m.json` once (use `useEffect`, cache the result with `useMemo`).
+- Build a `Map<iso2, film_count>` from `data` for O(1) lookup.
+- Render `ComposableMap` with `projection="geoMercator"` or `geoEqualEarth` (Equal Earth looks better for a world view). Use `width=900 height=400` with `ResponsiveContainer`-like wrapper for responsiveness.
+- Inside `Geographies`, render one `Geography` per country. Look up the film count from the map (note: react-simple-maps + world-atlas uses **numeric ISO codes** like `"840"` for US, not alpha-2. You'll need to convert. The world-atlas geojson properties include `name`, which is the English country name — use that against the same `COUNTRY_NAME_TO_ISO` mapping, **OR** add an `id_iso2` mapping in this component. Simpler: use the country `name` from the geojson, normalize via a small client-side ISO map matching the backend's COUNTRY_NAME_TO_ISO).
+- Fill: `amberShade(intensity(count, max))`. No data → dark gray.
+- Stroke: thin slate gray border between countries.
+- Hover: change cursor to pointer, slight stroke highlight.
+- Tooltip on hover: floating div with country name + film count.
+- Click: call `onCountryClick(iso, country)`.
+- Selected country (matching `selectedIso`) gets a thicker amber-yellow stroke.
 
-Most atmosphere names are short ("feel good", "violent") so column width can be 50px. Cell shows "25%" if pct >= 1, blank if 0.
+Include a legend below the map: a horizontal row of `legendBuckets()` rendered as small colored squares with their label.
 
-Hover tooltip: "Comedy · feel good · 25% (120 of 480 films)".
+**Add a small client-side `iso3ToIso2` or `countryName → iso2` helper in this component file or import it.** Best path: maintain a static `WORLD_ATLAS_NAME_TO_ISO2` in the component file mirroring the backend mapping (since the world-atlas geojson uses simple country names).
 
-### 5. Create `frontend/src/components/stats/PersonTagsWidget.tsx`
+### 5. Create `frontend/src/components/stats/CountryFilmsPanel.tsx`
 
-A self-contained interactive widget. Internal state:
-- `role: "director" | "composer" | "actor"` (default "director")
-- `query: string` (text in search box)
-- `selectedPerson: PersonSearchResult | null`
-- `tags: PersonTagsResponse | null`
-- `loading: boolean`
+The click-triggered panel showing top-10 films for the selected country. Props:
 
-Layout:
-- Top row: 3-button toggle (Director / Composer / Actor) using shadcn Toggle/ToggleGroup, plus a search Input next to it
-- When `query.length >= 2` and no `selectedPerson`: debounced (250ms) call to `searchPeopleWithFilms`, show dropdown of up to 30 results below the input. Each row: "Name — N films". Click → sets selectedPerson, clears query, calls getPersonTags.
-- When `selectedPerson` is set: show the 4 ranked lists (themes/atmospheres/characters/messages), and a "× Reset" button next to the person name (e.g. "Akira Kurosawa — 27 films  ×")
-- Resetting clears selectedPerson and tags, returns to search state.
-- Changing the role toggle resets the selection too.
+```typescript
+interface CountryFilmsPanelProps {
+  iso: string;
+  country: string;
+  type: "production" | "set_place";
+  onClose: () => void;
+}
+```
 
-Display of the 4 lists:
-- Use a 2-column grid (Themes | Atmospheres in row 1, Characters | Messages in row 2) on desktop. On mobile, single column.
-- Each list has a small heading (e.g., "Top 8 themes") and entries shown as `<TagPill>` with the count beside the name (`war (8)`).
-- Use existing Tag chip styling if available, or a simple badge with amber border.
+Implementation:
+- On mount and on prop change: call `getFilmsByCountry(type, iso, 10)`, store in state.
+- Loading state: skeleton/spinner.
+- Render a card with header (country flag emoji + country name + "×" close button), then a vertical list of films (poster left, title + year right). Click a film → navigate to `/films/{film_id}`.
+- Use the existing flag emoji helper if present (from `lib/nationalityFlags.ts` or similar) — if absent, just show the ISO code in a small monospace badge.
 
-Loading state: show a small skeleton or spinner.
+### 6. Create `frontend/src/components/stats/SetPlaceTreemap.tsx`
 
-### 6. Update `TaxonomyTab.tsx` with all 5 new sections
+Wrapper around Recharts `Treemap`. Transforms the flat `set_place_treemap` data into the hierarchical structure Recharts wants:
 
-Keep the existing top sections (Top 20 themes / Categories distribution / Atmosphere word cloud) at the top.
+```typescript
+interface SetPlaceTreemapProps {
+  data: SetPlaceTreemapCell[];
+}
+```
 
-New sections in this order:
+Transform: group by continent, then country, then leave cities as leaves. Recharts Treemap takes `{name, size, children}`. Build a 3-level tree.
 
-1. **Categories × decade (% within decade)** — use `<DecadeHeatmap>` with the new props.
-   - Subtitle: "What share of each decade's films belongs to each genre. Each cell = % of decade."
-   - cellLabel: returns `${pct}%` if pct >= 1, else empty
-   - tooltip: `"{category} · {decade}s · {pct}% ({film_count} of {decade_total} films)"`
-2. **Cinema movements × decade (counts)** — use `<DecadeHeatmap>` with rowSortOrder so movements appear chronologically.
-   - Subtitle: "Number of films tagged with each movement, per decade. The diagonal pattern reveals when each era dominated."
-   - cellLabel: returns count if > 0
-   - rowLabelWidth: 160 (for "hollywood golden age")
-3. **Messages × decade (% within decade)** — use `<DecadeHeatmap>` with rowSortOrder.
-   - Subtitle: "% of films per decade conveying each message. Notice when feminist films emerge, when ecological themes appear..."
-   - cellLabel: returns `${pct}%` if pct >= 0.5, else empty
-4. **Most common tags by filmography** — use `<PersonTagsWidget>`.
-   - Subtitle: "Pick a director, actor, or composer to see their characteristic themes, atmospheres, characters, and messages."
-5. **Atmosphere by genre** — use `<AtmosphereCategoryHeatmap>`.
-   - Subtitle: "% of films in each genre matching each atmosphere. A genre's signature mood profile."
+Render:
+```tsx
+<ResponsiveContainer width="100%" height={500}>
+  <Treemap
+    data={transformed}
+    dataKey="size"
+    nameKey="name"
+    stroke="#0f0f0f"
+    fill="#f59e0b"
+    isAnimationActive={false}
+  >
+    <Tooltip ... />
+  </Treemap>
+</ResponsiveContainer>
+```
 
-Wrap each in `<Section title="..." subtitle="...">`.
+On click on a leaf (city), navigate to `/browse?location=<geography_id>`. Recharts Treemap's `onClick` gives access to the original data node, so `geography_id` can be embedded into the node.
 
-### 7. Verification
+Use log-scaled sizes if visual disparity is too big (cities with 5 films should still be visible alongside cities with 200).
 
-After implementation, log in as Pro/Admin, visit `/stats?tab=taxonomy`:
-- All existing top sections still render correctly
-- 3 heatmaps render with correct row ordering (categories alphabetical, movements chronological by sort_order, messages chronological by sort_order)
-- Cell labels show "%" for the two percentage heatmaps, plain numbers for cinema movements
-- Person widget: switch role, search a few directors, verify tag breakdowns appear
-- Atmosphere×category heatmap renders 12 rows (categories) × ~23 cols (atmospheres). Tooltips work.
+### 7. Replace `GeographyTab.tsx`
+
+Full implementation. Layout (vertical):
+
+```tsx
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
+
+export function GeographyTab({ data }: { data: GeographyPayload | null }) {
+  const { tier } = useAuth();
+  const [selectedProd, setSelectedProd] = useState<{ iso: string; country: string } | null>(null);
+  const [selectedSet, setSelectedSet] = useState<{ iso: string; country: string } | null>(null);
+
+  if (data === null) {
+    if (tier === "anonymous") {
+      return <LockedTabPlaceholder reason="signup" tabName="Geography" />;
+    }
+    return <LockedTabPlaceholder reason="upgrade" tabName="Geography" />;
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Stat cards row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard value={data.production_country_total} label="Countries produced in" />
+        <StatCard value={data.set_place_country_total} label="Countries set in" />
+        {data.most_international_film && (
+          <StatCard
+            value={`${data.most_international_film.country_count} countries`}
+            label="Most international film"
+            sublabel={data.most_international_film.title}
+          />
+        )}
+      </div>
+
+      {/* Production map */}
+      <Section
+        title="Where films are produced"
+        subtitle="Each country shaded by the number of films co-produced there. Click a country for its top 10 films."
+      >
+        <WorldMap
+          data={data.production_countries}
+          onCountryClick={(iso, country) => setSelectedProd({ iso, country })}
+          selectedIso={selectedProd?.iso ?? null}
+        />
+        {selectedProd && (
+          <CountryFilmsPanel
+            iso={selectedProd.iso}
+            country={selectedProd.country}
+            type="production"
+            onClose={() => setSelectedProd(null)}
+          />
+        )}
+      </Section>
+
+      {/* Set place map */}
+      <Section
+        title="Where films take place"
+        subtitle="Same map, different question: which countries are the films *set* in?"
+      >
+        <WorldMap
+          data={data.set_place_countries}
+          onCountryClick={(iso, country) => setSelectedSet({ iso, country })}
+          selectedIso={selectedSet?.iso ?? null}
+        />
+        {selectedSet && (
+          <CountryFilmsPanel
+            iso={selectedSet.iso}
+            country={selectedSet.country}
+            type="set_place"
+            onClose={() => setSelectedSet(null)}
+          />
+        )}
+      </Section>
+
+      {/* Treemap */}
+      <Section
+        title="Locations breakdown"
+        subtitle="Continent → country → city. Click a city to browse its films."
+      >
+        <SetPlaceTreemap data={data.set_place_treemap} />
+      </Section>
+    </div>
+  );
+}
+```
+
+Update the parent (`StatsPage.tsx`) to pass `data.geography` as the prop.
+
+### 8. Verification
+
+Log in as Pro/Admin, visit `/stats?tab=geo`:
+- Stat cards show counts (e.g. "78 countries produced in", "95 countries set in")
+- Production world map renders, US/UK/France brightly shaded, smaller markets dimly visible. Click US → panel opens with top 10 American productions.
+- Set-place world map shows different shading pattern.
+- Treemap renders 5-6 continents at top level, click into one → countries, click into one → cities.
+- Click a city → navigates to /browse with the location filter applied.
+
+Log in as Free → see "Upgrade to Pro" placeholder.
+Log out → see "Sign up free" placeholder.
 
 ### Important notes
 
-- Match existing dark theme. Heatmap cell color stays amber.
-- Mobile: heatmaps need horizontal scroll (existing pattern, kept). Person widget grid collapses to 1 column.
-- Don't break existing PeopleTab, FinancialsTab, QuickStatsTab — only the Taxonomy tab is touched.
-- All new sections inherit the existing tab gating (Pro/Admin only) — no new tier checks needed in frontend.
-- React Query: the dashboard query is already cached, so the new fields come along for free. The two new endpoints (person-tags, people-with-films) don't need React Query — use simple `useState` + `useEffect` debounced calls inside `PersonTagsWidget`.
+- Match dark theme: map ocean = `#0f0f0f` (page background), country fill = amber-scaled, country stroke = subtle slate gray `#334155`.
+- The world topojson goes in `/public/world-110m.json` so Vite serves it as a static asset.
+- Don't use d3-scale or chroma libraries unless absolutely needed — our color helper in `lib/colorScale.ts` is enough.
+- Mobile responsiveness: world map renders narrow but legible at 380px viewport, treemap height=350 instead of 500 on mobile.
+- Don't break TaxonomyTab, FinancialsTab, PeopleTab, QuickStatsTab — only GeographyTab is touched.
+- React Query: dashboard query already cached; the new `getFilmsByCountry` endpoint should use a small in-memory cache or just refetch on country click (results are small).
 ```
 
 ---
+
 
 

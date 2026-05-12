@@ -72,7 +72,7 @@ export function StatsPage() {
         />
       );
     } else if (activeTab === "geo") {
-      body = <GeographyTab />;
+      body = <GeographyTab data={data.geography} />;
     } else if (activeTab === "financials") {
       if (!data.financials) {
         body = <LockedTabPlaceholder reason="signup" tabName="Financials" />;

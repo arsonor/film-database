@@ -23,6 +23,13 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from backend.app.auth import UserInfo, get_current_user
+from backend.app.data.country_name_to_iso import (
+    LEGACY_ISO_ALIASES,
+    country_name_to_iso,
+    iso_to_country_names,
+    normalize_iso,
+    preferred_country_name,
+)
 from backend.app.database import engine
 
 logger = logging.getLogger(__name__)
@@ -152,6 +159,52 @@ class PersonSearchResult(BaseModel):
     film_count: int
 
 
+class ProductionCountryCell(BaseModel):
+    iso: str
+    country: str
+    film_count: int
+
+
+class SetPlaceCountryCell(BaseModel):
+    iso: str
+    country: str
+    film_count: int
+
+
+class SetPlaceTreemapCell(BaseModel):
+    continent: str
+    country: str | None
+    state_city: str | None
+    geography_id: int
+    film_count: int
+
+
+class MostInternationalFilm(BaseModel):
+    film_id: int
+    title: str
+    poster_url: str | None
+    year: int | None
+    country_count: int
+    countries: list[str]
+
+
+class GeographyPayload(BaseModel):
+    production_countries: list[ProductionCountryCell]
+    set_place_countries: list[SetPlaceCountryCell]
+    set_place_treemap: list[SetPlaceTreemapCell]
+    production_country_total: int
+    set_place_country_total: int
+    most_international_film: MostInternationalFilm | None
+
+
+class FilmByCountry(BaseModel):
+    film_id: int
+    title: str
+    poster_url: str | None
+    year: int | None
+    weighted_score: float | None
+
+
 class PersonalStats(BaseModel):
     seen_count: int
     unseen_count: int
@@ -167,7 +220,7 @@ class PersonalStats(BaseModel):
 class DashboardResponse(BaseModel):
     tier: str
     quick: QuickStats | None
-    geography: dict[str, Any] | None
+    geography: GeographyPayload | None
     financials: FinancialsStats | None
     people: PeopleStats | None
     taxonomy: TaxonomyStats | None
@@ -913,6 +966,168 @@ async def _build_taxonomy() -> TaxonomyStats:
     )
 
 
+async def _build_geography() -> GeographyPayload:
+    """Geography tab payload — production countries + set-place breakdowns."""
+    (
+        production_rows,
+        set_place_country_rows,
+        treemap_rows,
+        production_total_rows,
+        set_place_total_rows,
+        most_intl_rows,
+    ) = await asyncio.gather(
+        # 2a. Production countries — ISO codes already present.
+        _q(
+            """
+            SELECT pc.country_code AS iso,
+                   pc.country_name AS country,
+                   COUNT(DISTINCT fpc.film_id) AS film_count
+            FROM production_country pc
+            JOIN film_production_country fpc ON pc.country_id = fpc.country_id
+            GROUP BY pc.country_code, pc.country_name
+            ORDER BY film_count DESC, country
+            """
+        ),
+        # 2b. Set-place — free-text country names from `geography`. ISO is
+        # resolved in Python below.
+        _q(
+            """
+            SELECT g.country, COUNT(DISTINCT fsp.film_id) AS film_count
+            FROM geography g
+            JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
+            WHERE g.country IS NOT NULL
+            GROUP BY g.country
+            ORDER BY film_count DESC, g.country
+            """
+        ),
+        # 2c. Set-place hierarchical treemap data.
+        _q(
+            """
+            SELECT g.continent, g.country, g.state_city, g.geography_id,
+                   COUNT(DISTINCT fsp.film_id) AS film_count
+            FROM geography g
+            JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
+            WHERE g.continent IS NOT NULL
+            GROUP BY g.continent, g.country, g.state_city, g.geography_id
+            ORDER BY g.continent, g.country, g.state_city
+            """
+        ),
+        # 2d. Distinct country totals.
+        _q("SELECT COUNT(DISTINCT country_id) FROM film_production_country"),
+        _q(
+            """
+            SELECT COUNT(DISTINCT country) FROM geography
+            WHERE country IS NOT NULL
+              AND geography_id IN (SELECT geography_id FROM film_set_place)
+            """
+        ),
+        # 2e. Most international film.
+        _q(
+            """
+            SELECT fpc.film_id, f.original_title AS title,
+                   f.poster_url,
+                   EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+                   COUNT(*) AS country_count,
+                   array_agg(pc.country_code ORDER BY pc.country_code) AS countries
+            FROM film_production_country fpc
+            JOIN film f ON fpc.film_id = f.film_id
+            JOIN production_country pc ON fpc.country_id = pc.country_id
+            GROUP BY fpc.film_id, f.original_title, f.poster_url, f.first_release_date
+            ORDER BY country_count DESC, f.original_title
+            LIMIT 1
+            """
+        ),
+    )
+
+    # production_countries — fold legacy ISO codes (SU→RU, YU→RS, CS→CZ,
+    # DD→DE) into their modern successors so the world map can show them.
+    production_by_iso: dict[str, int] = {}
+    production_canonical_name: dict[str, str] = {}
+    for raw_iso, raw_name, count in production_rows:
+        if not raw_iso:
+            continue
+        iso = normalize_iso(raw_iso) or raw_iso
+        production_by_iso[iso] = production_by_iso.get(iso, 0) + int(count)
+        # Prefer the modern successor's name; only keep the legacy name as a
+        # fallback if no modern row has been seen yet.
+        if iso not in production_canonical_name or raw_iso == iso:
+            production_canonical_name[iso] = raw_name
+
+    production_countries = [
+        ProductionCountryCell(
+            iso=iso,
+            country=production_canonical_name.get(iso) or preferred_country_name(iso),
+            film_count=count,
+        )
+        for iso, count in sorted(
+            production_by_iso.items(), key=lambda kv: (-kv[1], kv[0])
+        )
+    ]
+    iso_to_canonical = {r.iso: r.country for r in production_countries}
+
+    # set_place_countries — resolve free-text → ISO, then aggregate by ISO.
+    set_place_by_iso: dict[str, int] = {}
+    for country_name, count in set_place_country_rows:
+        iso = country_name_to_iso(country_name)
+        if iso is None:
+            continue
+        set_place_by_iso[iso] = set_place_by_iso.get(iso, 0) + int(count)
+
+    set_place_countries = [
+        SetPlaceCountryCell(
+            iso=iso,
+            country=iso_to_canonical.get(iso) or preferred_country_name(iso),
+            film_count=count,
+        )
+        for iso, count in sorted(
+            set_place_by_iso.items(), key=lambda kv: (-kv[1], kv[0])
+        )
+    ]
+
+    set_place_treemap = [
+        SetPlaceTreemapCell(
+            continent=r[0],
+            country=r[1],
+            state_city=r[2],
+            geography_id=int(r[3]),
+            film_count=int(r[4]),
+        )
+        for r in treemap_rows
+    ]
+
+    # Use the deduplicated post-merge counts. The raw SQL totals would
+    # double-count legacy/modern pairs (e.g. SU + RU as two entries) and the
+    # set-place SQL total counts free-text variants (e.g. "USSR" and "Soviet
+    # Union" as two distinct countries), which is misleading.
+    production_country_total = len(production_countries)
+    set_place_country_total = len(set_place_countries)
+    # set_place_total_rows is kept fetched for backwards compatibility but
+    # intentionally ignored.
+    _ = set_place_total_rows
+    _ = production_total_rows
+
+    most_intl: MostInternationalFilm | None = None
+    if most_intl_rows:
+        r = most_intl_rows[0]
+        most_intl = MostInternationalFilm(
+            film_id=int(r[0]),
+            title=r[1],
+            poster_url=r[2],
+            year=r[3],
+            country_count=int(r[4]),
+            countries=list(r[5]) if r[5] is not None else [],
+        )
+
+    return GeographyPayload(
+        production_countries=production_countries,
+        set_place_countries=set_place_countries,
+        set_place_treemap=set_place_treemap,
+        production_country_total=production_country_total,
+        set_place_country_total=set_place_country_total,
+        most_international_film=most_intl,
+    )
+
+
 async def _build_personal(user_id: str, total_films: int) -> PersonalStats:
     params = {"uid": user_id}
     (
@@ -1003,6 +1218,7 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
     show_financials = tier in ("free", "pro", "admin")
     show_people = tier in ("pro", "admin")
     show_taxonomy = tier in ("pro", "admin")
+    show_geography = tier in ("pro", "admin")
     show_personal = user is not None and tier in ("pro", "admin")
 
     tasks = [_build_quick()]
@@ -1012,6 +1228,8 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
         tasks.append(_build_people())
     if show_taxonomy:
         tasks.append(_build_taxonomy())
+    if show_geography:
+        tasks.append(_build_geography())
 
     results = await asyncio.gather(*tasks)
 
@@ -1027,6 +1245,9 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
     taxonomy = results[idx] if show_taxonomy else None
     if show_taxonomy:
         idx += 1
+    geography = results[idx] if show_geography else None
+    if show_geography:
+        idx += 1
 
     personal = None
     if show_personal:
@@ -1035,7 +1256,7 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
     return DashboardResponse(
         tier=tier,
         quick=quick,
-        geography=None,
+        geography=geography,
         financials=financials,
         people=people,
         taxonomy=taxonomy,
@@ -1239,3 +1460,82 @@ async def person_tags(
         top_characters=[TagCount(name=r[0], count=int(r[1])) for r in chars_rows],
         top_messages=[TagCount(name=r[0], count=int(r[1])) for r in msgs_rows],
     )
+
+
+# =============================================================================
+# Films by country (Step 17d) — drives the country click-panel on the maps.
+# =============================================================================
+
+
+_FILM_BY_COUNTRY_TYPES = ("production", "set_place")
+
+
+@router.get("/stats/films-by-country", response_model=list[FilmByCountry])
+async def films_by_country(
+    type: str = Query(..., description="'production' or 'set_place'"),
+    iso: str = Query(..., min_length=2, max_length=2),
+    limit: int = Query(10, ge=1, le=30),
+    user: UserInfo | None = Depends(get_current_user),
+):
+    """Top films associated with a country, sorted by weighted_score.
+
+    `type=production` matches against production_country.country_code directly.
+    `type=set_place` reverse-resolves the ISO to its free-text variants and
+    matches LOWER(geography.country) against them.
+    """
+    _require_pro(user)
+    if type not in _FILM_BY_COUNTRY_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid type '{type}'. Must be one of: {', '.join(_FILM_BY_COUNTRY_TYPES)}",
+        )
+
+    iso_upper = normalize_iso(iso.upper()) or iso.upper()
+
+    if type == "production":
+        # Include legacy aliases (e.g. clicking RU also pulls SU = Soviet
+        # Union films, since TMDB sometimes tags them with the defunct code).
+        iso_aliases = [
+            legacy for legacy, modern in LEGACY_ISO_ALIASES.items() if modern == iso_upper
+        ]
+        iso_set = [iso_upper, *iso_aliases]
+        sql = """
+            SELECT f.film_id, f.original_title AS title, f.poster_url,
+                   EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+                   f.weighted_score
+            FROM film f
+            JOIN film_production_country fpc ON f.film_id = fpc.film_id
+            JOIN production_country pc ON fpc.country_id = pc.country_id
+            WHERE pc.country_code = ANY(:iso_set)
+            ORDER BY f.weighted_score DESC NULLS LAST, f.first_release_date DESC
+            LIMIT :limit
+        """
+        rows = await _q(sql, {"iso_set": iso_set, "limit": limit})
+    else:
+        # set_place — reverse-lookup ISO to free-text variants.
+        names = iso_to_country_names(iso_upper)
+        if not names:
+            return []
+        sql = """
+            SELECT DISTINCT f.film_id, f.original_title AS title, f.poster_url,
+                   EXTRACT(YEAR FROM f.first_release_date)::int AS year,
+                   f.weighted_score
+            FROM film f
+            JOIN film_set_place fsp ON f.film_id = fsp.film_id
+            JOIN geography g ON fsp.geography_id = g.geography_id
+            WHERE LOWER(g.country) = ANY(:names)
+            ORDER BY f.weighted_score DESC NULLS LAST, year DESC NULLS LAST
+            LIMIT :limit
+        """
+        rows = await _q(sql, {"names": names, "limit": limit})
+
+    return [
+        FilmByCountry(
+            film_id=int(r[0]),
+            title=r[1],
+            poster_url=r[2],
+            year=r[3],
+            weighted_score=float(r[4]) if r[4] is not None else None,
+        )
+        for r in rows
+    ]

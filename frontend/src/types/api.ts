@@ -427,6 +427,52 @@ export interface PersonTagsResponse {
   top_messages: TagCount[];
 }
 
+export interface ProductionCountryCell {
+  iso: string;
+  country: string;
+  film_count: number;
+}
+
+export interface SetPlaceCountryCell {
+  iso: string;
+  country: string;
+  film_count: number;
+}
+
+export interface SetPlaceTreemapCell {
+  continent: string;
+  country: string | null;
+  state_city: string | null;
+  geography_id: number;
+  film_count: number;
+}
+
+export interface MostInternationalFilm {
+  film_id: number;
+  title: string;
+  poster_url: string | null;
+  year: number | null;
+  country_count: number;
+  countries: string[];
+}
+
+export interface GeographyPayload {
+  production_countries: ProductionCountryCell[];
+  set_place_countries: SetPlaceCountryCell[];
+  set_place_treemap: SetPlaceTreemapCell[];
+  production_country_total: number;
+  set_place_country_total: number;
+  most_international_film: MostInternationalFilm | null;
+}
+
+export interface FilmByCountry {
+  film_id: number;
+  title: string;
+  poster_url: string | null;
+  year: number | null;
+  weighted_score: number | null;
+}
+
 export interface PersonalStatsPayload {
   seen_count: number;
   unseen_count: number;
@@ -442,7 +488,7 @@ export interface PersonalStatsPayload {
 export interface DashboardStats {
   tier: Tier;
   quick: QuickStatsPayload;
-  geography: null;
+  geography: GeographyPayload | null;
   financials: FinancialsPayload | null;
   people: PeoplePayload | null;
   taxonomy: TaxonomyPayload | null;

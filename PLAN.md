@@ -34,6 +34,7 @@
 | 17a | Stats Dashboard — Quick / Financials / People / Taxonomy (MVP) | ✅ DONE | New /stats page, 4 tabs, tier-gated, single bulk endpoint |
 | 17b | Production-country + franchise data prep, sidebar overhaul, Top 20 franchises | ✅ DONE | tmdb_collection + film_production_country tables, backfill scripts, sidebar reorg, exact franchise filter |
 | 17c | Stats Dashboard — Taxonomy enhancements (% heatmap fix + 2 new heatmaps + per-person tags + cross-tab) | ✅ DONE | 5 sections: Categories % heatmap, cinema-movements heatmap, messages % heatmap, person filmography tag breakdown, atmosphere×category cross-tab |
+| 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | 🔲 TODO | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
 
 ---
 
@@ -107,162 +108,156 @@ Manual rating of top-12 results on 10 reference films, adjust weights and bonuse
 
 ---
 
-## Step 17c: Stats Dashboard — Taxonomy enhancements
+## Step 17c: Stats Dashboard — Taxonomy enhancements ✅
+
+*(see git history for details)*
+
+---
+
+## Step 17d: Stats Dashboard — Geography tab (world map + set-place treemap)
 
 ### Goal
-Extend the Taxonomy tab with deeper analytics. Five additions, all Pro/Admin-only (mirrors the existing Taxonomy tab tier gating).
+Replace the "Coming soon" placeholder with a fully interactive Geography tab. Two map visualisations side-by-side answering different questions: **where films were produced** (industry geography) and **where films take place** (set-place geography). Pro/Admin only — the existing tier gating in the Taxonomy tab is the model.
 
-#### 1. Fix existing Category × decade heatmap → use percentages
+### Sections
 
-The current heatmap shows raw film counts which inflates totals (a film tagged with 3 categories counts 3 times in a decade) and makes decades incomparable (the 1970s have more total films than the 1920s, so absolute counts always look heavier on the right side).
+#### 1. Stat cards row (top)
 
-**New formula**: `count of films in (category C, decade D) / total films released in decade D × 100`.
+Three compact `StatCard`s:
+- **Countries produced in** — distinct production countries with at least 1 film
+- **Countries set in** — distinct set-place countries with at least 1 film
+- **Most international film** — the film with the most production countries (e.g., "7 countries: The Lord of the Rings")
 
-This answers "what % of 1980s films were Drama?" instead of "how many genre tags were applied to 1980s Dramas?". The denominator is `COUNT(DISTINCT film_id) WHERE first_release_date IS IN decade`, **not** `SUM(category counts)` — we want the share of films that have this genre, not the share of genre-tags.
+#### 2. World map — Production countries (choropleth)
 
-Frontend cell label changes from `45` to `12%`. Tooltip: "Drama · 1980s · 12% of decade (45 films out of 380)".
+A full-width interactive world map. Each country shaded by its film count using an amber scale. Hover → tooltip with country name + count. Click → right side-panel opens showing the **top 10 films co-produced by that country** (poster + title + year, sorted by `weighted_score DESC NULLS LAST`).
 
-#### 2. New: Cinema movements × decade heatmap (count-based)
+Legend: a horizontal color scale below the map ("1 — 50 — 500+ films") with non-linear bucketing because counts span 4 orders of magnitude (US has thousands, smaller markets have 1-5).
 
-A second heatmap directly below the categories one, scoped to a curated subset of `cinema_type` values that have strong temporal patterns:
+Countries with 0 films are shown in muted dark gray (not invisible — so the user can still see the world outline).
 
-```
-['silent', 'expressionism', 'hollywood golden age', 'neo-realism', 'noir',
- 'new wave', 'new hollywood', 'neo-noir', 'black and white',
- 'blockbuster', 'art house', 'franchise']
-```
+#### 3. World map — Set place countries (choropleth)
 
-This is the only heatmap that **stays count-based** — because few films get a movement tag at all (most films aren't part of any movement), percentages would be misleading ("5% of 1960s films are New Wave" sounds small but is actually historically dominant). Counts make the eras visible.
+Same component, different data. Below the production map. Hover/click work the same way; click shows top 10 films *set* in that country.
 
-Rows must be ordered by `sort_order` (chronological by movement era), not alphabetically, so the diagonal pattern of cinema history is visible.
+The two maps are stacked vertically (not side-by-side) so each gets full width — small choropleths are unreadable.
 
-Subtitle: "Number of films tagged with each movement, per decade. Use this to see when each movement dominated."
+#### 4. Set-place treemap (continent → country → city)
 
-#### 3. New: Messages × decade heatmap (% within decade)
+A Recharts `Treemap` showing the hierarchical breakdown of set-place data. Top-level rectangles = continents (sized by film count), each containing country rectangles, each containing city rectangles. Two clicks to drill down (default Recharts behaviour).
 
-Third heatmap, all 18 message values, percentage-based (same formula as #1), with `HAVING decade_total >= 20` so we don't show empty cells for decades with too few films (1900s, 1910s).
+This complements the country map by adding the **city level** which isn't shown on a world map.
 
-Filter out any message value with `total_count < 5` across the whole DB (avoids showing rows that are nearly empty everywhere).
+Click on a city rectangle → navigate to `/browse?location=<geography_id>` so the user can see those films.
 
-Subtitle: "% of films per decade conveying each message. Notice when feminist films emerge, when ecological themes appear..."
+### Data sources
 
-#### 4. New: Most common tags for a director / composer
+**Already in DB (from Step 17b):**
+- `production_country` (country_code = ISO alpha-2, country_name = English)
+- `film_production_country` (film_id, country_id)
 
-An interactive widget that lets the user search-select a person (director, composer, or actor) and shows their characteristic tags as compact ranked lists.
+**Already in DB (existing):**
+- `geography` (continent, country, state_city) — free-text English
+- `film_set_place` (film_id, geography_id)
 
-**UX**:
-- A role toggle (Director / Composer / Actor), default Director
-- An autocomplete-search input listing only people with `≥ 3 films` in that role (avoids bloating the dropdown with people who appeared in one film)
-- After selection: 4 ranked lists side-by-side or stacked
-  - **Top 8 themes** (excluding "parent: sub" subtypes for cleanliness)
-  - **Top 5 atmospheres**
-  - **Top 5 character types**
-  - **Top 3 messages**
-- Each entry shows tag name + film count (e.g., "war (12)")
-- A small subtitle: "Based on N films by {name}"
-- A reset button to clear selection
+### Important: ISO code mapping for set-place
 
-**Ranking**: raw count for v1. We can add IDF-weighting later if it proves needed, but for popular themes like "social" and "war" raw count is already meaningful at the per-person level.
+The production map already has ISO codes (`production_country.country_code`). The set-place data does **not** — `geography.country` is free-text. To put set-place data on a world map, we need to map those text names to ISO alpha-2 codes.
 
-#### 5. Atmosphere × Category cross-tab heatmap
+**Approach**: build a static mapping table in the backend `backend/app/data/country_name_to_iso.py` covering the ~80 most common country names that appear in the dataset (e.g., "United States" → "US", "France" → "FR", "South Korea" → "KR"). Names that don't match the table fall back to free-text lookup against `production_country.country_name` (case-insensitive). Unmatched countries are silently dropped from the choropleth (the treemap still shows them since the treemap doesn't need ISO codes).
 
-A compact heatmap (12 categories × ~23 atmospheres) showing the share of films in each genre that have each atmosphere. Reveals patterns like "Comedy → feel good", "Horror → disturbing/violent", "Drama → depressive/sad".
+Alternatively (cleaner long-term): add `country_code VARCHAR(2)` to `geography` and backfill it via a migration. Either approach works; the static map is faster to implement and good enough since the country names in `geography` are mostly standard.
 
-Formula: `films(category=C, atmosphere=A) / films(category=C) × 100`. So each row sums to roughly the average number of atmospheres per film in that genre (typically 1–3).
-
-Subtitle: "% of films in each genre matching each atmosphere. A genre's signature mood profile."
-
-Atmospheres ordered by `sort_order`. Categories sorted alphabetically.
-
-### Tier visibility
-
-All five additions live inside the existing **Taxonomy tab**, which is already gated to Pro/Admin. No new tier logic needed.
+**Decision for 17d**: ship with the static map (no schema change). If unmatched countries become a problem, do the migration in 17e or later.
 
 ### Backend changes
 
-Extend `/api/stats/dashboard` payload, **`taxonomy` block**, with new fields:
+Extend `/api/stats/dashboard` payload, **`geography` block** (currently `null`):
 
 ```python
 {
-  # existing fields kept (top_themes, category_distribution, top_atmospheres):
-  "top_themes": [...],
-  "category_distribution": [...],
-  "top_atmospheres": [...],
-
-  # CHANGED: shape kept, semantics swapped to %.
-  "category_by_decade_heatmap": [
-    {"category": "Drama", "decade": 1980, "film_count": 45,
-     "decade_total": 380, "pct": 11.84}
-  ],
-
-  # NEW: cinema-types heatmap (count-based, curated subset)
-  "cinema_movements_by_decade": [
-    {"movement": "new wave", "decade": 1960, "count": 24, "sort_order": 207}
-  ],
-
-  # NEW: messages heatmap (% within decade)
-  "message_by_decade_heatmap": [
-    {"message": "feminist", "decade": 2010, "film_count": 18,
-     "decade_total": 410, "pct": 4.39, "sort_order": 101}
-  ],
-
-  # NEW: atmosphere × category cross-tab
-  "atmosphere_by_category": [
-    {"category": "Comedy", "atmosphere": "feel good", "film_count": 120,
-     "category_total": 480, "pct": 25.0, "atmosphere_sort_order": 101}
-  ]
+  "geography": {
+    "production_countries": [
+      {"iso": "US", "country": "United States", "film_count": 1842}
+    ],
+    "set_place_countries": [
+      {"iso": "FR", "country": "France", "film_count": 312}
+    ],
+    "set_place_treemap": [
+      {
+        "continent": "Europe",
+        "country": "France",
+        "state_city": "Paris",   # or null at country level
+        "geography_id": 42,
+        "film_count": 89
+      }
+    ],
+    "production_country_total": 78,
+    "set_place_country_total": 95,
+    "most_international_film": {
+      "film_id": 521,
+      "title": "The Lord of the Rings: ...",
+      "country_count": 7,
+      "countries": ["US", "NZ", "DE", ...]
+    }
+  }
 }
 ```
 
-For the per-person tag breakdown, **new endpoint** (not in the dashboard payload, since user picks person interactively):
+**Two new endpoints** for the click-on-country interaction (not in the dashboard payload, fetched lazily):
 
 ```
-GET /api/stats/person-tags?person_id=<id>&role=<director|composer|actor>
-→ {
-  "person": {"person_id": 42, "name": "Akira Kurosawa", "film_count": 27},
-  "top_themes": [{"name": "war", "count": 8}, ...],   # top 8
-  "top_atmospheres": [{"name": "epic", "count": 6}, ...],   # top 5
-  "top_characters": [{"name": "samurai", "count": 5}, ...],   # top 5
-  "top_messages": [{"name": "humanist", "count": 4}, ...]   # top 3
-}
+GET /api/stats/films-by-country?type=production&iso=US&limit=10
+→ [{film_id, title, poster_url, year, weighted_score}]
+
+GET /api/stats/films-by-country?type=set_place&iso=FR&limit=10
+→ [{film_id, title, poster_url, year, weighted_score}]
 ```
 
-Protected by Pro/Admin tier (return 403 otherwise). Use existing `tier_config` pattern.
-
-Also a small **person search endpoint** for the autocomplete:
-
-```
-GET /api/stats/people-with-films?role=<director|composer|actor>&q=<search>
-→ [{"person_id": 1, "name": "...", "film_count": 27}]
-```
-
-Returns top 30 matches by name ILIKE %q% with `HAVING film_count >= 3`. Pro/Admin only.
+Both Pro/Admin only.
 
 ### Frontend changes
 
-**Modified files:**
-- `frontend/src/components/stats/CategoryDecadeHeatmap.tsx` — generalized to handle either count or percentage display, accept new prop `valueType: "count" | "percent"` and `getCellValue`/`getTooltip` callbacks. Rename to `DecadeHeatmap.tsx` (since it's now reused for 3 different dimensions). Existing import in `TaxonomyTab.tsx` updated.
-- `frontend/src/components/stats/TaxonomyTab.tsx` — add the 5 new sections.
-- `frontend/src/types/api.ts` — extend `TaxonomyPayload`, add `PersonTagsResponse`, `PersonSearchResult`.
-- `frontend/src/api/client.ts` — add `getPersonTags()`, `searchPeopleWithFilms()`.
+**Library choice: `react-simple-maps`** (~70 KB gzipped, declarative, React-native). Pairs well with a small world topojson file (~120 KB) hosted in `frontend/public/world-110m.json` for fastest load.
 
 **New files:**
-- `frontend/src/components/stats/PersonTagsWidget.tsx` — the interactive person→tags widget (role toggle + autocomplete + 4 ranked lists).
-- `frontend/src/components/stats/AtmosphereCategoryHeatmap.tsx` — separate component (different axis structure: rows = categories, cols = atmospheres, both labels are short text).
+- `frontend/src/components/stats/WorldMap.tsx` — generic choropleth component. Props: `data`, `onCountryClick`, `colorScale`, `legendBuckets`.
+- `frontend/src/components/stats/SetPlaceTreemap.tsx` — Recharts Treemap wrapper.
+- `frontend/src/components/stats/CountryFilmsPanel.tsx` — the click-triggered side panel showing top-10 films for the clicked country.
+- `frontend/src/lib/colorScale.ts` — helper for non-linear color buckets (matching the choropleth legend).
+- `frontend/public/world-110m.json` — the topojson world map (one-time download, ~120 KB).
+
+**Modified files:**
+- `frontend/src/components/stats/GeographyTab.tsx` — replace `LockedTabPlaceholder` with full implementation, with internal tier check (Pro/Admin only — show LockedTabPlaceholder for everyone else).
+- `frontend/src/types/api.ts` — add `GeographyPayload`, `ProductionCountryCell`, etc.
+- `frontend/src/api/client.ts` — add `getFilmsByCountry()`.
+
+### Tier visibility
+
+The Geography tab moves from `coming_soon` to the full Pro/Admin gating. Same model as the existing Taxonomy tab:
+- Anonymous + Free: see `LockedTabPlaceholder reason="upgrade"` or `"signup"` respectively
+- Pro/Admin: see the full geography content
+
+Update the tier resolution in `backend/app/routers/stats.py` accordingly — the `geography` block should be `null` for anonymous and free, populated for Pro and admin.
 
 ### Files summary
 
-**Modified backend (1):**
-- `backend/app/routers/stats.py` — extend `/api/stats/dashboard` taxonomy block, add 2 new endpoints (`/api/stats/person-tags`, `/api/stats/people-with-films`).
+**Modified backend (2):**
+- `backend/app/routers/stats.py` — populate `geography` block in dashboard for Pro/Admin, add 2 new endpoints.
+- `backend/app/data/country_name_to_iso.py` (NEW) — static mapping table.
 
-**Modified frontend (4):** see above.
+**Modified frontend (3):** `GeographyTab.tsx`, `types/api.ts`, `api/client.ts`.
 
-**New frontend (2):** see above.
+**New frontend (4):** `WorldMap.tsx`, `SetPlaceTreemap.tsx`, `CountryFilmsPanel.tsx`, `lib/colorScale.ts`.
+
+**New dependency:** `react-simple-maps` (~70 KB gzipped).
+
+**New asset:** `world-110m.json` (~120 KB, served from /public).
 
 ### Out of scope (deferred)
 
-- IDF-weighted ranking for per-person tags (raw counts ship in 17c).
-- Tag co-occurrence force-directed graph (deferred, separate ticket if ever).
-- Heatmaps for themes / atmospheres / characters as standalone (too many rows; the cross-tab and per-person widget cover this need indirectly).
-- "Rare films/tag combinations" — redundant with the browse page's AND mode, which lets users build their own rare combinations interactively.
+- Schema migration to add `country_code` to `geography` table (the static mapping table is enough for now).
+- Per-decade animation of the world map ("watch cinema spread across the globe"). Cool but expensive in code.
+- Set-place city heatmap on the map itself (cities aren't on a choropleth; the treemap covers this).
+
 

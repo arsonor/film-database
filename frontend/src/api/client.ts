@@ -1,6 +1,7 @@
 import type {
   DashboardStats,
   EnrichmentPreview,
+  FilmByCountry,
   FilmDetail,
   FilterState,
   GeographySearchResult,
@@ -249,6 +250,29 @@ export async function getPersonTags(
     { headers },
   );
   if (!res.ok) throw new ApiError(res.status, "Failed to load person tags");
+  return res.json();
+}
+
+export async function getFilmsByCountry(
+  type: "production" | "set_place",
+  iso: string,
+  limit = 10,
+): Promise<FilmByCountry[]> {
+  const headers = await getAuthHeaders();
+  const params = new URLSearchParams({ type, iso, limit: String(limit) });
+  const url = `${BASE}/stats/films-by-country?${params}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    // Surface the backend's detail so we can actually see what failed.
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = JSON.stringify(body.detail);
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(res.status, `films-by-country ${res.status}: ${detail}`);
+  }
   return res.json();
 }
 
