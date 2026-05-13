@@ -93,6 +93,7 @@ export function GameSetup({ onStart }: GameSetupProps) {
     if (mode !== "free") return undefined;
     const d = DECADES[decadeIdx];
     const f: GamePoolFilters = {};
+    if (!d) return f;
     if (d.min != null) f.year_min = d.min;
     if (d.max != null) f.year_max = d.max;
     if (language) f.language = language;
