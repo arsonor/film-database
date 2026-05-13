@@ -495,6 +495,92 @@ export interface DashboardStats {
   personal_stats: PersonalStatsPayload | null;
 }
 
+// =============================================================================
+// Game mode ("Tag It")
+// =============================================================================
+
+export interface GameFilm {
+  film_id: number;
+  title: string;
+  year: number | null;
+  poster_url: string | null;
+}
+
+export interface GameTag {
+  dimension: string;
+  value: string;
+}
+
+export interface GamePoolFilters {
+  year_min?: number | null;
+  year_max?: number | null;
+  language?: string | null;
+}
+
+export interface AlreadyPlayedDaily {
+  film_id: number;
+  tags_used: number;
+  lives_remaining: number;
+  jokers_used: number;
+  stars: number;
+  tag_sequence: { dimension: string; value: string; remaining: number; correct: boolean }[] | null;
+  completed: boolean;
+  played_at: string | null;
+}
+
+export interface GameSetupResponse {
+  films: GameFilm[];
+  pool_size: number;
+  mode: "daily" | "free";
+  already_played?: AlreadyPlayedDaily | null;
+}
+
+export interface GameCheckResult {
+  remaining_count: number;
+  target_included: boolean;
+  victory: boolean;
+}
+
+export interface GameHint {
+  dimension: string | null;
+  tag: string | null;
+  would_reduce_to: number | null;
+}
+
+export interface GameRemainingResponse {
+  films: GameFilm[];
+}
+
+export interface GameResultData {
+  mode: "daily" | "free";
+  film_id: number;
+  challenge_date?: string | null;
+  tags_used: number;
+  lives_remaining: number;
+  jokers_used: number;
+  stars: number;
+  tag_sequence: { dimension: string; value: string; remaining: number; correct: boolean }[];
+  completed: boolean;
+}
+
+export interface GameModeStats {
+  games: number;
+  wins: number;
+  avg_stars: number;
+  best_stars: number;
+  best_tags: number | null;
+}
+
+export interface GameDailyStats extends GameModeStats {
+  current_streak: number;
+  max_streak: number;
+}
+
+export interface GameStats {
+  daily: GameDailyStats;
+  free: GameModeStats;
+}
+
 export const ARRAY_FILTER_KEYS = [
   "categories",
   "themes",

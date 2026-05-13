@@ -4,6 +4,14 @@ import type {
   FilmByCountry,
   FilmDetail,
   FilterState,
+  GameCheckResult,
+  GameHint,
+  GamePoolFilters,
+  GameRemainingResponse,
+  GameResultData,
+  GameSetupResponse,
+  GameStats,
+  GameTag,
   GeographySearchResult,
   PaginatedFilms,
   PersonRole,
@@ -518,6 +526,106 @@ export async function fetchAuthMe(): Promise<{ id: string; email: string; tier: 
   } catch {
     return null;
   }
+}
+
+// =============================================================================
+// Game mode ("Tag It")
+// =============================================================================
+
+export async function fetchDailyChallenge(): Promise<GameSetupResponse> {
+  // fetchJson already includes auth headers — backend uses them to detect "already played"
+  return fetchJson<GameSetupResponse>(`${BASE}/game/daily`);
+}
+
+export async function fetchRandomFilms(
+  filters: GamePoolFilters,
+): Promise<GameSetupResponse> {
+  const sp = new URLSearchParams();
+  if (filters.year_min != null) sp.set("year_min", String(filters.year_min));
+  if (filters.year_max != null) sp.set("year_max", String(filters.year_max));
+  if (filters.language) sp.set("language", filters.language);
+  const res = await fetch(`${BASE}/game/random?${sp}`);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {}
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function checkGameTags(
+  filmId: number,
+  tags: GameTag[],
+  poolFilters?: GamePoolFilters,
+): Promise<GameCheckResult> {
+  const res = await fetch(`${BASE}/game/check`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ film_id: filmId, tags, pool_filters: poolFilters ?? null }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "check failed");
+  return res.json();
+}
+
+export async function useJokerRemaining(
+  tags: GameTag[],
+  poolFilters?: GamePoolFilters,
+): Promise<GameRemainingResponse> {
+  const res = await fetch(`${BASE}/game/joker/remaining`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tags, pool_filters: poolFilters ?? null }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "remaining failed");
+  return res.json();
+}
+
+export async function useJokerHint(
+  filmId: number,
+  tags: GameTag[],
+  poolFilters?: GamePoolFilters,
+): Promise<GameHint> {
+  const res = await fetch(`${BASE}/game/joker/hint`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ film_id: filmId, tags, pool_filters: poolFilters ?? null }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "hint failed");
+  return res.json();
+}
+
+export async function useJokerSynopsis(filmId: number): Promise<{ synopsis: string | null }> {
+  const res = await fetch(`${BASE}/game/joker/synopsis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ film_id: filmId }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "synopsis failed");
+  return res.json();
+}
+
+export async function saveGameResult(data: GameResultData): Promise<{ saved: boolean; id: number }> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/game/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || "save failed");
+  }
+  return res.json();
+}
+
+export async function fetchGameStats(): Promise<GameStats> {
+  const auth = await getAuthHeaders();
+  const res = await fetch(`${BASE}/game/stats`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "stats failed");
+  return res.json();
 }
 
 // Tag review

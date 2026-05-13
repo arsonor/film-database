@@ -6,6 +6,7 @@ import { BrowsePage } from "@/pages/BrowsePage";
 import { FilmDetailPage } from "@/pages/FilmDetailPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { CollectionPage } from "@/pages/CollectionPage";
+import { GamePage } from "@/pages/GamePage";
 import { StatsPage } from "@/pages/StatsPage";
 import { TaxonomyAdminPage } from "@/pages/TaxonomyAdminPage";
 
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/add" element={<AddFilmPage />} />
             <Route path="/collection" element={<CollectionPage />} />
             <Route path="/stats" element={<StatsPage />} />
+            <Route path="/game" element={<GamePage />} />
             <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
             <Route path="/auth" element={<AuthPage />} />
           </Routes>

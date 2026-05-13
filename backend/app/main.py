@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.auth import UserInfo, require_authenticated
 from backend.app.database import engine
-from backend.app.routers import add_film, films, geography, persons, stats, tag_review, taxonomy, users
+from backend.app.routers import add_film, films, game, geography, persons, stats, tag_review, taxonomy, users
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.include_router(add_film.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(tag_review.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
+app.include_router(game.router, prefix="/api")
 
 
 # =============================================================================

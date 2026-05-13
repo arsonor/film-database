@@ -7,6 +7,7 @@ import {
   BookMarked,
   Film,
   Filter,
+  Gamepad2,
   LogIn,
   LogOut,
   PanelLeftClose,
@@ -146,6 +147,17 @@ export function Header({
 
       {/* Right: Sort (desktop) + User menu (always visible) */}
       <div className="flex items-center gap-2">
+        {/* Play — visible to everyone */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate("/game")}
+          title="Tag It — daily game"
+          className="gap-1.5 font-semibold text-primary hover:text-primary"
+        >
+          <Gamepad2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Play</span>
+        </Button>
         {/* Stats — visible to everyone */}
         <Button
           variant="ghost"

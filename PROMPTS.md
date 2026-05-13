@@ -248,689 +248,248 @@ atmospheres 1.4 · themes 1.3 · motivations 1.1 · messages 1.0 · cinema_types
 *(see git history for original prompts)*
 ---
 
-## Step 17d-Backend Prompt — Geography stats data
+## Step 17d-Geography stats data & tab UI
 
-```
-Read PLAN.md (Step 17d section, paying attention to the Backend changes payload shape and the ISO mapping note), then this prompt.
-
-Read these files for context before changing anything:
-- backend/app/routers/stats.py (existing dashboard endpoint, parallel-query pattern, tier resolution — mirror what's done for taxonomy)
-- backend/app/routers/geography.py (existing search/countries endpoints, free-text country name patterns)
-- backend/app/tier_config.py
-- backend/app/auth.py
-- database/migrations/020_collection_and_production_country.sql (shows production_country + film_production_country structure)
-- database/schema.sql (skim geography + film_set_place)
-
-## Task: Populate `geography` block of the dashboard payload + add 2 new endpoints
-
-### 1. Create `backend/app/data/country_name_to_iso.py`
-
-A static dict mapping common English country names → ISO 3166-1 alpha-2 codes. Include the ~80 most common ones plus variants:
-
-```python
-# Map (free-text country names found in `geography.country`) → ISO alpha-2 code.
-# Includes common variants/aliases. Lookup should be case-insensitive (.lower() both sides).
-
-COUNTRY_NAME_TO_ISO: dict[str, str] = {
-    "united states": "US",
-    "united states of america": "US",
-    "usa": "US",
-    "us": "US",
-    "united kingdom": "GB",
-    "uk": "GB",
-    "great britain": "GB",
-    "england": "GB",
-    "scotland": "GB",
-    "wales": "GB",
-    "france": "FR",
-    "germany": "DE",
-    "west germany": "DE",
-    "east germany": "DE",
-    "italy": "IT",
-    "spain": "ES",
-    "portugal": "PT",
-    "belgium": "BE",
-    "netherlands": "NL",
-    "the netherlands": "NL",
-    "holland": "NL",
-    "luxembourg": "LU",
-    "switzerland": "CH",
-    "austria": "AT",
-    "ireland": "IE",
-    "denmark": "DK",
-    "sweden": "SE",
-    "norway": "NO",
-    "finland": "FI",
-    "iceland": "IS",
-    "poland": "PL",
-    "czech republic": "CZ",
-    "czechia": "CZ",
-    "slovakia": "SK",
-    "hungary": "HU",
-    "romania": "RO",
-    "bulgaria": "BG",
-    "greece": "GR",
-    "croatia": "HR",
-    "serbia": "RS",
-    "slovenia": "SI",
-    "bosnia and herzegovina": "BA",
-    "north macedonia": "MK",
-    "albania": "AL",
-    "turkey": "TR",
-    "ukraine": "UA",
-    "russia": "RU",
-    "soviet union": "RU",
-    "ussr": "RU",
-    "belarus": "BY",
-    "estonia": "EE",
-    "latvia": "LV",
-    "lithuania": "LT",
-    "georgia": "GE",
-    "armenia": "AM",
-    "china": "CN",
-    "hong kong": "HK",
-    "taiwan": "TW",
-    "japan": "JP",
-    "south korea": "KR",
-    "korea": "KR",
-    "north korea": "KP",
-    "india": "IN",
-    "pakistan": "PK",
-    "bangladesh": "BD",
-    "sri lanka": "LK",
-    "nepal": "NP",
-    "thailand": "TH",
-    "vietnam": "VN",
-    "cambodia": "KH",
-    "laos": "LA",
-    "myanmar": "MM",
-    "burma": "MM",
-    "indonesia": "ID",
-    "malaysia": "MY",
-    "philippines": "PH",
-    "singapore": "SG",
-    "mongolia": "MN",
-    "iran": "IR",
-    "iraq": "IQ",
-    "israel": "IL",
-    "palestine": "PS",
-    "lebanon": "LB",
-    "syria": "SY",
-    "jordan": "JO",
-    "saudi arabia": "SA",
-    "united arab emirates": "AE",
-    "uae": "AE",
-    "qatar": "QA",
-    "kuwait": "KW",
-    "yemen": "YE",
-    "egypt": "EG",
-    "morocco": "MA",
-    "algeria": "DZ",
-    "tunisia": "TN",
-    "libya": "LY",
-    "south africa": "ZA",
-    "nigeria": "NG",
-    "kenya": "KE",
-    "ethiopia": "ET",
-    "ghana": "GH",
-    "senegal": "SN",
-    "ivory coast": "CI",
-    "cote d'ivoire": "CI",
-    "rwanda": "RW",
-    "uganda": "UG",
-    "tanzania": "TZ",
-    "zimbabwe": "ZW",
-    "mali": "ML",
-    "burkina faso": "BF",
-    "democratic republic of the congo": "CD",
-    "congo": "CG",
-    "angola": "AO",
-    "mozambique": "MZ",
-    "canada": "CA",
-    "mexico": "MX",
-    "cuba": "CU",
-    "jamaica": "JM",
-    "haiti": "HT",
-    "dominican republic": "DO",
-    "puerto rico": "PR",
-    "brazil": "BR",
-    "argentina": "AR",
-    "chile": "CL",
-    "colombia": "CO",
-    "venezuela": "VE",
-    "peru": "PE",
-    "bolivia": "BO",
-    "ecuador": "EC",
-    "uruguay": "UY",
-    "paraguay": "PY",
-    "guatemala": "GT",
-    "honduras": "HN",
-    "nicaragua": "NI",
-    "costa rica": "CR",
-    "panama": "PA",
-    "australia": "AU",
-    "new zealand": "NZ",
-    "papua new guinea": "PG",
-}
-
-
-def country_name_to_iso(name: str | None) -> str | None:
-    """Returns ISO 3166-1 alpha-2 code for a free-text country name, or None.
-
-    Case-insensitive lookup against the static map.
-    """
-    if not name:
-        return None
-    return COUNTRY_NAME_TO_ISO.get(name.strip().lower())
-```
-
-### 2. Extend `geography` block in `/api/stats/dashboard`
-
-In `stats.py`, when the user is Pro or Admin, populate `geography` block instead of returning `null`. Use the existing parallel-query pattern (one coroutine per sub-query, gathered with `asyncio.gather()`).
-
-#### 2a. `production_countries` (top to bottom by count)
-
-```sql
-SELECT pc.country_code AS iso,
-       pc.country_name AS country,
-       COUNT(DISTINCT fpc.film_id) AS film_count
-FROM production_country pc
-JOIN film_production_country fpc ON pc.country_id = fpc.country_id
-GROUP BY pc.country_code, pc.country_name
-ORDER BY film_count DESC, country
-```
-
-Return shape: `[{"iso", "country", "film_count"}]`.
-
-#### 2b. `set_place_countries` (by country aggregated, ISO-mapped in Python)
-
-```sql
-SELECT g.country, COUNT(DISTINCT fsp.film_id) AS film_count
-FROM geography g
-JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
-WHERE g.country IS NOT NULL
-GROUP BY g.country
-ORDER BY film_count DESC, g.country
-```
-
-In Python: walk the results, apply `country_name_to_iso(row.country)` to get ISO. **Aggregate by ISO** (multiple free-text variants may map to the same code, e.g., "USSR" and "Soviet Union" both → RU). Drop rows where ISO is None (unmapped, will be excluded from the choropleth). Return `[{"iso", "country", "film_count"}]` with country = the canonical English name (use the production_country.country_name lookup if available, fall back to the original free-text).
-
-#### 2c. `set_place_treemap` (hierarchical)
-
-```sql
-SELECT g.continent, g.country, g.state_city, g.geography_id,
-       COUNT(DISTINCT fsp.film_id) AS film_count
-FROM geography g
-JOIN film_set_place fsp ON g.geography_id = fsp.geography_id
-WHERE g.continent IS NOT NULL
-GROUP BY g.continent, g.country, g.state_city, g.geography_id
-ORDER BY g.continent, g.country, g.state_city
-```
-
-Return shape: `[{"continent", "country", "state_city", "geography_id", "film_count"}]`.
-
-#### 2d. `production_country_total` / `set_place_country_total`
-
-Total distinct countries with at least one film:
-
-```sql
--- production
-SELECT COUNT(DISTINCT country_id) FROM film_production_country;
--- set place (count distinct countries from geography, free-text)
-SELECT COUNT(DISTINCT country) FROM geography
-WHERE country IS NOT NULL
-AND geography_id IN (SELECT geography_id FROM film_set_place);
-```
-
-Return shape: integers.
-
-#### 2e. `most_international_film`
-
-```sql
-SELECT fpc.film_id, f.original_title AS title,
-       COUNT(*) AS country_count,
-       array_agg(pc.country_code ORDER BY pc.country_code) AS countries
-FROM film_production_country fpc
-JOIN film f ON fpc.film_id = f.film_id
-JOIN production_country pc ON fpc.country_id = pc.country_id
-GROUP BY fpc.film_id, f.original_title
-ORDER BY country_count DESC, f.original_title
-LIMIT 1
-```
-
-Return shape: `{"film_id", "title", "country_count", "countries": [iso, ...]}` or `null` if no data.
-
-### 3. NEW endpoint `GET /api/stats/films-by-country`
-
-Query params:
-- `type: str` (`production` or `set_place`, required)
-- `iso: str` (ISO alpha-2, required)
-- `limit: int = 10` (max 30)
-
-Tier check: Pro/Admin only, 403 otherwise.
-
-**For `type=production`:**
-
-```sql
-SELECT f.film_id, f.original_title AS title, f.poster_url,
-       EXTRACT(YEAR FROM f.first_release_date)::int AS year,
-       f.weighted_score
-FROM film f
-JOIN film_production_country fpc ON f.film_id = fpc.film_id
-JOIN production_country pc ON fpc.country_id = pc.country_id
-WHERE pc.country_code = :iso
-ORDER BY f.weighted_score DESC NULLS LAST, f.first_release_date DESC
-LIMIT :limit
-```
-
-**For `type=set_place`:**
-
-Resolve ISO → country name via reverse lookup of `COUNTRY_NAME_TO_ISO` (i.e., find all free-text variants that map to this ISO), then query:
-
-```sql
-SELECT DISTINCT f.film_id, f.original_title AS title, f.poster_url,
-       EXTRACT(YEAR FROM f.first_release_date)::int AS year,
-       f.weighted_score
-FROM film f
-JOIN film_set_place fsp ON f.film_id = fsp.film_id
-JOIN geography g ON fsp.geography_id = g.geography_id
-WHERE LOWER(g.country) = ANY(:country_names)
-ORDER BY f.weighted_score DESC NULLS LAST, f.first_release_date DESC
-LIMIT :limit
-```
-
-Where `:country_names` is the list of lowercase free-text variants for this ISO (e.g., for `iso=US`: `['united states', 'united states of america', 'usa', 'us']`).
-
-Return shape: `[{film_id, title, poster_url, year, weighted_score}]`.
-
-### 4. Pydantic schemas
-
-Add to `stats.py` (or `schemas/stats.py`):
-
-```python
-class ProductionCountryCell(BaseModel):
-    iso: str
-    country: str
-    film_count: int
-
-class SetPlaceCountryCell(BaseModel):
-    iso: str
-    country: str
-    film_count: int
-
-class SetPlaceTreemapCell(BaseModel):
-    continent: str
-    country: str | None
-    state_city: str | None
-    geography_id: int
-    film_count: int
-
-class MostInternationalFilm(BaseModel):
-    film_id: int
-    title: str
-    country_count: int
-    countries: list[str]
-
-class GeographyPayload(BaseModel):
-    production_countries: list[ProductionCountryCell]
-    set_place_countries: list[SetPlaceCountryCell]
-    set_place_treemap: list[SetPlaceTreemapCell]
-    production_country_total: int
-    set_place_country_total: int
-    most_international_film: MostInternationalFilm | None
-
-class FilmByCountry(BaseModel):
-    film_id: int
-    title: str
-    poster_url: str | None
-    year: int | None
-    weighted_score: float | None
-```
-
-Update `DashboardResponse.geography` from `None`-only to `GeographyPayload | None`.
-
-### 5. Verification
-
-```bash
-curl -H "Authorization: Bearer <pro-jwt>" http://localhost:8000/api/stats/dashboard | jq '.geography.production_country_total, .geography.set_place_country_total, .geography.most_international_film, .geography.production_countries[0:3], .geography.set_place_treemap[0:3]'
-
-curl -H "Authorization: Bearer <pro-jwt>" "http://localhost:8000/api/stats/films-by-country?type=production&iso=US&limit=5" | jq '.'
-
-curl -H "Authorization: Bearer <pro-jwt>" "http://localhost:8000/api/stats/films-by-country?type=set_place&iso=FR&limit=5" | jq '.'
-
-# As free user: geography should be null
-curl -H "Authorization: Bearer <free-jwt>" http://localhost:8000/api/stats/dashboard | jq '.geography'
-```
-
-Dashboard payload still responds in <2s for pro tier (queries are parallel).
-```
+*(see git history for original prompts)*
 
 ---
 
-## Step 17d-Frontend Prompt — Geography tab UI
+## Step 18 Prompt — Game Mode "Tag It"
 
-```
-Read PLAN.md (Step 17d section), then this prompt.
+Read CLAUDE.md, then PLAN.md (Step 18), then these files:
+- `backend/app/routers/films.py` (for reference: how list_films builds filter queries + count)
+- `backend/app/routers/users.py` (for reference: endpoint patterns)
+- `backend/app/schemas/film.py`
+- `backend/app/database.py`
+- `backend/app/main.py`
+- `backend/app/tier_config.py`
+- `frontend/src/components/filters/FilterSection.tsx`
+- `frontend/src/components/filters/FilterChip.tsx`
+- `frontend/src/hooks/useTaxonomy.ts`
+- `frontend/src/api/client.ts`
+- `frontend/src/types/api.ts`
+- `frontend/src/components/layout/Header.tsx`
+- `frontend/src/App.tsx`
+- `database/schema.sql`
 
-Read these files for context before changing anything:
-- frontend/src/components/stats/GeographyTab.tsx (current placeholder, will be replaced)
-- frontend/src/components/stats/LockedTabPlaceholder.tsx (used for non-pro tiers)
-- frontend/src/components/stats/StatCard.tsx (reused for top stat cards)
-- frontend/src/components/stats/Section.tsx (consistent section wrapping)
-- frontend/src/components/stats/PosterRow.tsx (existing pattern, reuse for the country films panel)
-- frontend/src/components/stats/chartTheme.ts
-- frontend/src/types/api.ts (extend types)
-- frontend/src/api/client.ts (add getFilmsByCountry)
-- frontend/src/context/AuthContext.tsx (useAuth hook, tier)
-- frontend/src/lib/tierAccess.ts
+### Overview
 
-## Task: Implement the Geography tab with two world maps + treemap + click-to-films panel
+Build a game mode called "Tag It" where the player picks a film from 3 random options, then selects taxonomy tags one by one to narrow the matching film count from the full database down to 1. The goal is to isolate the target film using as few tags as possible. The player has 3 lives — selecting a tag that eliminates the target film costs a life. At 0 lives = game over. Two modes: daily challenge (same film for everyone, shareable results) and free play (unlimited, with optional decade/language filters).
 
-### 0. Install dependency + download world topojson
+This is a large step with backend + frontend. The backend is mostly new endpoints (no changes to existing ones). The frontend is an entirely new page with several new components. Existing components (FilterSection, FilterChip) can be referenced for styling but the game has its own interaction model — do NOT reuse them directly since game clicks have different behavior (check against target, life system) than browse filter clicks.
 
-```bash
-cd frontend
-npm install react-simple-maps@3.0.0 d3-geo@3.1.0
-npm install -D @types/react-simple-maps @types/d3-geo
-```
+### Part 1 — Database: Migration 022
 
-Download the world topojson file (110m resolution, ~120 KB) and save it at `frontend/public/world-110m.json`. The standard file is hosted at:
-- https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json
+Create `database/migrations/022_game_mode.sql`:
 
-Commit this file to the repo (it's tiny and avoids a CDN dependency at runtime).
+```sql
+-- Step 18: Game mode tables
 
-### 1. Extend types in `frontend/src/types/api.ts`
+CREATE TABLE IF NOT EXISTS daily_challenge (
+    challenge_date DATE PRIMARY KEY,
+    film_id INTEGER NOT NULL REFERENCES film(film_id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
 
-```typescript
-export interface ProductionCountryCell {
-  iso: string;
-  country: string;
-  film_count: number;
-}
+CREATE TABLE IF NOT EXISTS game_result (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES user_profile(id) ON DELETE CASCADE,
+    film_id INTEGER NOT NULL REFERENCES film(film_id),
+    mode TEXT NOT NULL CHECK (mode IN ('daily', 'free')),
+    challenge_date DATE,
+    tags_used INTEGER NOT NULL,
+    lives_remaining INTEGER NOT NULL CHECK (lives_remaining >= 0 AND lives_remaining <= 3),
+    jokers_used INTEGER DEFAULT 0,
+    stars INTEGER NOT NULL CHECK (stars >= 0 AND stars <= 5),
+    tag_sequence JSONB,
+    completed BOOLEAN DEFAULT TRUE,
+    played_at TIMESTAMP DEFAULT NOW()
+);
 
-export interface SetPlaceCountryCell {
-  iso: string;
-  country: string;
-  film_count: number;
-}
-
-export interface SetPlaceTreemapCell {
-  continent: string;
-  country: string | null;
-  state_city: string | null;
-  geography_id: number;
-  film_count: number;
-}
-
-export interface MostInternationalFilm {
-  film_id: number;
-  title: string;
-  country_count: number;
-  countries: string[];
-}
-
-export interface GeographyPayload {
-  production_countries: ProductionCountryCell[];
-  set_place_countries: SetPlaceCountryCell[];
-  set_place_treemap: SetPlaceTreemapCell[];
-  production_country_total: number;
-  set_place_country_total: number;
-  most_international_film: MostInternationalFilm | null;
-}
-
-export interface FilmByCountry {
-  film_id: number;
-  title: string;
-  poster_url: string | null;
-  year: number | null;
-  weighted_score: number | null;
-}
+CREATE INDEX IF NOT EXISTS idx_game_result_user ON game_result(user_id);
+CREATE INDEX IF NOT EXISTS idx_game_result_daily ON game_result(challenge_date);
+CREATE INDEX IF NOT EXISTS idx_game_result_user_mode ON game_result(user_id, mode);
 ```
 
-Update `DashboardStats.geography` type from `null` to `GeographyPayload | null`.
+Update `database/schema.sql` with the same tables for fresh installs.
 
-### 2. Add API function in `frontend/src/api/client.ts`
+### Part 2 — Backend: Game Router
 
-```typescript
-export async function getFilmsByCountry(
-  type: "production" | "set_place",
-  iso: string,
-  limit = 10,
-): Promise<FilmByCountry[]> {
-  const res = await fetch(
-    `${BASE}/stats/films-by-country?type=${type}&iso=${iso}&limit=${limit}`,
-    { headers: { ...getAuthHeaders() } },
-  );
-  if (!res.ok) throw new ApiError(res.status, "Failed to load films for country");
-  return res.json();
+Create `backend/app/routers/game.py`:
+
+All endpoints are under the `/game` prefix. Import `Query` from fastapi, `text` from sqlalchemy, `UserInfo`/`get_current_user`/`require_authenticated` from auth, `get_db` from database.
+
+**`GET /game/daily`** — Get today's daily challenge:
+```python
+@router.get("/game/daily")
+async def get_daily_challenge(db: AsyncSession = Depends(get_db)):
+```
+- Check if a `daily_challenge` row exists for today's date
+- If not, create one: pick a random film that has tags in at least 5 different dimensions. Query:
+  ```sql
+  SELECT f.film_id FROM film f
+  WHERE f.poster_url IS NOT NULL
+  AND f.summary IS NOT NULL
+  AND (
+    (SELECT COUNT(*) FROM (
+      SELECT 1 FROM film_theme WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_atmosphere WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_character WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_motivation WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_message WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_time_period WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_place_context WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_genre WHERE film_id = f.film_id LIMIT 1
+      UNION ALL SELECT 1 FROM film_cinema_type WHERE film_id = f.film_id LIMIT 1
+    ) dims) >= 5
+  )
+  ORDER BY RANDOM() LIMIT 1
+  ```
+  Or a simpler approach: just count distinct dimensions that have at least one tag for this film. Use whatever approach is cleanest.
+- Insert the daily_challenge row
+- Then pick 2 random decoy films (different from the target, also with posters)
+- Return: `{films: [{film_id, title, year, poster_url}, ...], pool_size: int}`. All 3 are valid targets. The player picks one and that becomes the target. For the daily challenge, all 3 films are fixed for the day (so all players see the same 3 choices, but they might pick different targets — that's fine, it adds variety to the shareable scores). Store only one `film_id` in `daily_challenge`. Return that film + 2 random decoys. All are valid targets. The daily leaderboard tracks results by `challenge_date` regardless of which film was picked.
+
+**`GET /game/random`** — Get 3 random films for free play:
+```python
+@router.get("/game/random")
+async def get_random_films(
+    year_min: int | None = Query(None),
+    year_max: int | None = Query(None),
+    language: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+```
+- Build a filtered pool query: `SELECT film_id, original_title, first_release_date, poster_url FROM film WHERE poster_url IS NOT NULL`
+- Add optional filters: `EXTRACT(YEAR FROM first_release_date) >= :year_min`, same for year_max
+- For language: join `film_language` where `is_original = TRUE` and `language_code = :language`
+- Count the pool. If < 50, return error 400: `"Not enough films in this pool ({count}) — broaden your filters (minimum 50)"`
+- Pick 3 random films from the pool: `ORDER BY RANDOM() LIMIT 3`
+- Return: `{films: [...], pool_size: int}`
+
+**`POST /game/check`** — Core game mechanic (called on every tag click):
+```python
+@router.post("/game/check")
+async def check_tags(
+    body: dict,  # {film_id: int, tags: [{dimension: str, value: str}], pool_filters?: {year_min, year_max, language}}
+    db: AsyncSession = Depends(get_db),
+):
+```
+- `body["film_id"]` is the target film
+- `body["tags"]` is the list of all currently selected tags
+- `body.get("pool_filters")` optionally restricts the base pool (for free play with decade/language filters)
+- Build a COUNT query that applies all tags as AND filters (same logic as `list_films` but only returning count). For each tag in the list, add a subquery: `film_id IN (SELECT film_id FROM film_{dimension_table} ft JOIN {dimension_table} t ON ... WHERE t.{name_column} = :value)`. AND all subqueries together.
+- Also apply pool_filters if present (year range, language).
+- Execute two things:
+  1. `SELECT COUNT(*) FROM film WHERE {all_conditions}` → `remaining_count`
+  2. Check if target film matches all conditions: `SELECT 1 FROM film WHERE film_id = :target AND {all_conditions}` → `target_included`
+- Return: `{remaining_count: int, target_included: bool, victory: bool}`
+  - `victory = remaining_count == 1 and target_included`
+
+**Performance note**: This endpoint is called on every click, so it must be fast. The query is essentially N subqueries ANDed together (one per tag). With indexes on the junction tables (which already exist), this should be fast even with 10 tags. But if performance becomes an issue, consider caching the current result set in the session.
+
+**Dimension-to-table mapping**: Create a helper dict at module level:
+```python
+DIMENSION_TABLE_MAP = {
+    "categories": ("film_genre", "genre_id", "category", "category_name"),
+    "themes": ("film_theme", "theme_id", "theme_context", "theme_name"),
+    "atmospheres": ("film_atmosphere", "atmosphere_id", "atmosphere_context", "atmosphere_name"),
+    "characters": ("film_character", "character_id", "character_context", "character_name"),
+    "motivations": ("film_motivation", "motivation_id", "motivation_context", "motivation_name"),
+    "messages": ("film_message", "message_id", "message_context", "message_name"),
+    "cinema_types": ("film_cinema_type", "cinema_type_id", "cinema_type_context", "cinema_type_name"),
+    "time_periods": ("film_time_period", "time_period_id", "time_context", "time_period_name"),
+    "place_contexts": ("film_place_context", "place_context_id", "place_context", "place_context_name"),
 }
 ```
+Verify the actual table/column names against `schema.sql` before using — the naming conventions vary across dimensions.
 
-### 3. Create `frontend/src/lib/colorScale.ts`
+**`POST /game/joker/remaining`** — Show remaining films:
+- Same filter logic as `/check`, but return the actual films (not just count)
+- Limit to 20 results
+- Return: `{films: [{film_id, title, year, poster_url}, ...]}`
 
-A helper for mapping a film count to a color intensity (0–1 alpha). Counts span 1–3000+, so use a **log scale** rather than linear to make small markets visible:
+**`POST /game/joker/hint`** — Suggest the best next tag:
+- For each dimension, get the target film's tags in that dimension
+- For each of those tags (that isn't already selected), compute what the remaining count would be if that tag were added
+- Return the tag that reduces the count the most: `{dimension: str, tag: str, would_reduce_to: int}`
+- Optimize by only checking tags from the target film, limit to ~20 candidate tags.
 
-```typescript
-// Maps a count to a 0..1 intensity, log-scaled for visibility across orders of magnitude.
-export function intensity(count: number, maxCount: number): number {
-  if (count <= 0) return 0;
-  if (maxCount <= 1) return 1;
-  // log scale: small counts already get significant intensity
-  return Math.log(count + 1) / Math.log(maxCount + 1);
-}
+**`POST /game/joker/synopsis`** — Reveal synopsis:
+- Simple: `SELECT summary FROM film WHERE film_id = :fid`
+- Return: `{synopsis: str}`
 
-export function amberShade(intensity: number): string {
-  // Map 0..1 intensity to an amber HSL color, with low end staying visible.
-  if (intensity === 0) return "#1f1f1f"; // dark gray for no-data countries
-  const lightness = 50 - intensity * 30; // 50% → 20%
-  const opacity = 0.3 + intensity * 0.7; // 0.3 → 1.0
-  return `hsla(38, 92%, ${lightness}%, ${opacity})`;
-}
+**`POST /game/result`** — Save game result (requires auth):
+- For daily mode: reject if user already has a result for today
+- Return: `{saved: true, id: int}`
 
-// Build legend buckets for the color scale (used in the legend below the map)
-export function legendBuckets(maxCount: number): Array<{ label: string; intensity: number }> {
-  const buckets = [1, 10, 50, 200, 1000];
-  return buckets
-    .filter((b) => b <= maxCount * 2)
-    .map((count) => ({
-      label: count >= 1000 ? `${count}+` : `${count}`,
-      intensity: intensity(count, maxCount),
-    }));
-}
-```
+**`GET /game/stats`** — User game statistics (requires auth):
+- Return: `{total_games, total_wins, avg_stars, best_stars, best_tags, current_daily_streak, max_daily_streak, games_by_mode}`
 
-### 4. Create `frontend/src/components/stats/WorldMap.tsx`
+Register router in `main.py`: `app.include_router(game.router, prefix="/api")`
 
-Generic choropleth component using react-simple-maps. Props:
+### Part 3 — Frontend: Game Page Structure
 
-```typescript
-interface WorldMapProps {
-  data: { iso: string; country: string; film_count: number }[];
-  onCountryClick: (iso: string, country: string) => void;
-  selectedIso?: string | null;
-}
-```
+Create `frontend/src/pages/GamePage.tsx`:
 
-Implementation:
+State machine with 3 states: `"setup" | "playing" | "result"`. Renders `<GameSetup>`, `<GameBoard>`, or `<GameResult>` based on state. Dark theme, does NOT use Layout/Sidebar wrapper — own full-screen layout.
 
-- Load `/world-110m.json` once (use `useEffect`, cache the result with `useMemo`).
-- Build a `Map<iso2, film_count>` from `data` for O(1) lookup.
-- Render `ComposableMap` with `projection="geoMercator"` or `geoEqualEarth` (Equal Earth looks better for a world view). Use `width=900 height=400` with `ResponsiveContainer`-like wrapper for responsiveness.
-- Inside `Geographies`, render one `Geography` per country. Look up the film count from the map (note: react-simple-maps + world-atlas uses **numeric ISO codes** like `"840"` for US, not alpha-2. You'll need to convert. The world-atlas geojson properties include `name`, which is the English country name — use that against the same `COUNTRY_NAME_TO_ISO` mapping, **OR** add an `id_iso2` mapping in this component. Simpler: use the country `name` from the geojson, normalize via a small client-side ISO map matching the backend's COUNTRY_NAME_TO_ISO).
-- Fill: `amberShade(intensity(count, max))`. No data → dark gray.
-- Stroke: thin slate gray border between countries.
-- Hover: change cursor to pointer, slight stroke highlight.
-- Tooltip on hover: floating div with country name + film count.
-- Click: call `onCountryClick(iso, country)`.
-- Selected country (matching `selectedIso`) gets a thicker amber-yellow stroke.
+Add route in `App.tsx`: `<Route path="/game" element={<GamePage />} />`
 
-Include a legend below the map: a horizontal row of `legendBuckets()` rendered as small colored squares with their label.
+### Part 4 — Frontend: GameSetup Component
 
-**Add a small client-side `iso3ToIso2` or `countryName → iso2` helper in this component file or import it.** Best path: maintain a static `WORLD_ATLAS_NAME_TO_ISO2` in the component file mirroring the backend mapping (since the world-atlas geojson uses simple country names).
+`frontend/src/components/game/GameSetup.tsx`:
+- Title: "Tag It" with game icon, subtitle "Isolate the film using as few tags as possible"
+- Mode toggle: "Daily Challenge" / "Free Play" tabs
+- Daily: "Start" button, calls `GET /api/game/daily`. If already played today, show result + "Play Free"
+- Free play: decade buttons (All, 1950s–2020s) + language dropdown + "Start" with pool size
+- After receiving 3 films: show as large cards, prompt "Pick the film you know best"
 
-### 5. Create `frontend/src/components/stats/CountryFilmsPanel.tsx`
+### Part 5 — Frontend: GameBoard Component
 
-The click-triggered panel showing top-10 films for the selected country. Props:
+`frontend/src/components/game/GameBoard.tsx`:
+- Top bar: target film mini, remaining counter (animated), lives (hearts), jokers
+- 9 expandable taxonomy dimensions with clickable tag chips
+- Chip states: `available`, `selected-correct` (green), `selected-wrong` (red strikethrough)
+- On click: call `/api/game/check`, handle life loss or counter decrease
+- No undo on correct tags
+- Joker buttons: remaining (modal), hint (highlight), synopsis (modal)
 
-```typescript
-interface CountryFilmsPanelProps {
-  iso: string;
-  country: string;
-  type: "production" | "set_place";
-  onClose: () => void;
-}
-```
+### Part 6 — Frontend: GameResult Component
 
-Implementation:
-- On mount and on prop change: call `getFilmsByCountry(type, iso, 10)`, store in state.
-- Loading state: skeleton/spinner.
-- Render a card with header (country flag emoji + country name + "×" close button), then a vertical list of films (poster left, title + year right). Click a film → navigate to `/films/{film_id}`.
-- Use the existing flag emoji helper if present (from `lib/nationalityFlags.ts` or similar) — if absent, just show the ISO code in a small monospace badge.
+`frontend/src/components/game/GameResult.tsx`:
+- Victory: poster animation, stars, stats, tag path, share button
+- Game over: dimmed poster, attempt stats, share button
+- Share formats Wordle-style text with dimension-colored squares
+- Save result if authenticated
 
-### 6. Create `frontend/src/components/stats/SetPlaceTreemap.tsx`
+### Part 7 — Frontend: Supporting Components
 
-Wrapper around Recharts `Treemap`. Transforms the flat `set_place_treemap` data into the hierarchical structure Recharts wants:
+- `LivesDisplay.tsx` — 3 hearts with shake animation on loss
+- `RemainingCounter.tsx` — large animated number, color changes as it drops
+- `JokerButton.tsx` — icon + label + remaining badge, disabled at 0
 
-```typescript
-interface SetPlaceTreemapProps {
-  data: SetPlaceTreemapCell[];
-}
-```
+### Part 8 — Frontend: API Client + Types
 
-Transform: group by continent, then country, then leave cities as leaves. Recharts Treemap takes `{name, size, children}`. Build a 3-level tree.
+Add GameFilm, GameTag, GameCheckResult, GameResultData, GameStats types to `api.ts`.
+Add fetchDailyChallenge, fetchRandomFilms, checkGameTags, useJokerRemaining, useJokerHint, useJokerSynopsis, saveGameResult, fetchGameStats to `client.ts`.
 
-Render:
-```tsx
-<ResponsiveContainer width="100%" height={500}>
-  <Treemap
-    data={transformed}
-    dataKey="size"
-    nameKey="name"
-    stroke="#0f0f0f"
-    fill="#f59e0b"
-    isAnimationActive={false}
-  >
-    <Tooltip ... />
-  </Treemap>
-</ResponsiveContainer>
-```
+### Part 9 — Navigation
 
-On click on a leaf (city), navigate to `/browse?location=<geography_id>`. Recharts Treemap's `onClick` gives access to the original data node, so `geography_id` can be embedded into the node.
+Update Header.tsx: Add prominent "Play" link for all users (including anonymous) in the main header bar, not in the dropdown. If needed, remove the dashboard stats icon (it's already in the dropdown).
 
-Use log-scaled sizes if visual disparity is too big (cities with 5 films should still be visible alongside cities with 200).
-
-### 7. Replace `GeographyTab.tsx`
-
-Full implementation. Layout (vertical):
-
-```tsx
-import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
-
-export function GeographyTab({ data }: { data: GeographyPayload | null }) {
-  const { tier } = useAuth();
-  const [selectedProd, setSelectedProd] = useState<{ iso: string; country: string } | null>(null);
-  const [selectedSet, setSelectedSet] = useState<{ iso: string; country: string } | null>(null);
-
-  if (data === null) {
-    if (tier === "anonymous") {
-      return <LockedTabPlaceholder reason="signup" tabName="Geography" />;
-    }
-    return <LockedTabPlaceholder reason="upgrade" tabName="Geography" />;
-  }
-
-  return (
-    <div className="space-y-8">
-      {/* Stat cards row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard value={data.production_country_total} label="Countries produced in" />
-        <StatCard value={data.set_place_country_total} label="Countries set in" />
-        {data.most_international_film && (
-          <StatCard
-            value={`${data.most_international_film.country_count} countries`}
-            label="Most international film"
-            sublabel={data.most_international_film.title}
-          />
-        )}
-      </div>
-
-      {/* Production map */}
-      <Section
-        title="Where films are produced"
-        subtitle="Each country shaded by the number of films co-produced there. Click a country for its top 10 films."
-      >
-        <WorldMap
-          data={data.production_countries}
-          onCountryClick={(iso, country) => setSelectedProd({ iso, country })}
-          selectedIso={selectedProd?.iso ?? null}
-        />
-        {selectedProd && (
-          <CountryFilmsPanel
-            iso={selectedProd.iso}
-            country={selectedProd.country}
-            type="production"
-            onClose={() => setSelectedProd(null)}
-          />
-        )}
-      </Section>
-
-      {/* Set place map */}
-      <Section
-        title="Where films take place"
-        subtitle="Same map, different question: which countries are the films *set* in?"
-      >
-        <WorldMap
-          data={data.set_place_countries}
-          onCountryClick={(iso, country) => setSelectedSet({ iso, country })}
-          selectedIso={selectedSet?.iso ?? null}
-        />
-        {selectedSet && (
-          <CountryFilmsPanel
-            iso={selectedSet.iso}
-            country={selectedSet.country}
-            type="set_place"
-            onClose={() => setSelectedSet(null)}
-          />
-        )}
-      </Section>
-
-      {/* Treemap */}
-      <Section
-        title="Locations breakdown"
-        subtitle="Continent → country → city. Click a city to browse its films."
-      >
-        <SetPlaceTreemap data={data.set_place_treemap} />
-      </Section>
-    </div>
-  );
-}
-```
-
-Update the parent (`StatsPage.tsx`) to pass `data.geography` as the prop.
-
-### 8. Verification
-
-Log in as Pro/Admin, visit `/stats?tab=geo`:
-- Stat cards show counts (e.g. "78 countries produced in", "95 countries set in")
-- Production world map renders, US/UK/France brightly shaded, smaller markets dimly visible. Click US → panel opens with top 10 American productions.
-- Set-place world map shows different shading pattern.
-- Treemap renders 5-6 continents at top level, click into one → countries, click into one → cities.
-- Click a city → navigates to /browse with the location filter applied.
-
-Log in as Free → see "Upgrade to Pro" placeholder.
-Log out → see "Sign up free" placeholder.
-
-### Important notes
-
-- Match dark theme: map ocean = `#0f0f0f` (page background), country fill = amber-scaled, country stroke = subtle slate gray `#334155`.
-- The world topojson goes in `/public/world-110m.json` so Vite serves it as a static asset.
-- Don't use d3-scale or chroma libraries unless absolutely needed — our color helper in `lib/colorScale.ts` is enough.
-- Mobile responsiveness: world map renders narrow but legible at 380px viewport, treemap height=350 instead of 500 on mobile.
-- Don't break TaxonomyTab, FinancialsTab, PeopleTab, QuickStatsTab — only GeographyTab is touched.
-- React Query: dashboard query already cached; the new `getFilmsByCountry` endpoint should use a small in-memory cache or just refetch on country click (results are small).
-```
-
----
-
-
-
+### Verification
+- Daily challenge: shows 3 films, picking one starts the game, remaining counter starts at pool size
+- Selecting a correct tag: counter decreases, chip turns green/amber
+- Selecting a wrong tag: life lost (heart animation), tag crossed out red, counter unchanged, message shown
+- 0 lives: game over screen with stats + share button
+- Victory (remaining == 1): celebration, stars, share button
+- Share button copies Wordle-style text to clipboard
+- Jokers work: remaining shows film list, hint highlights a tag, synopsis shows text
+- Free play: decade and language filters restrict the pool, minimum 50 enforced
+- Daily mode: same 3 films for everyone on the same day
+- Game result saved to database for authenticated users
+- Game stats page shows streak, avg score, totals
+- Anonymous users can play daily challenge but results aren't saved
+- "Play" link visible in header for all users
+- All existing functionality unchanged

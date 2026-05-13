@@ -34,7 +34,8 @@
 | 17a | Stats Dashboard — Quick / Financials / People / Taxonomy (MVP) | ✅ DONE | New /stats page, 4 tabs, tier-gated, single bulk endpoint |
 | 17b | Production-country + franchise data prep, sidebar overhaul, Top 20 franchises | ✅ DONE | tmdb_collection + film_production_country tables, backfill scripts, sidebar reorg, exact franchise filter |
 | 17c | Stats Dashboard — Taxonomy enhancements (% heatmap fix + 2 new heatmaps + per-person tags + cross-tab) | ✅ DONE | 5 sections: Categories % heatmap, cinema-movements heatmap, messages % heatmap, person filmography tag breakdown, atmosphere×category cross-tab |
-| 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | 🔲 TODO | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
+| 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | ✅ DONE | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
+| 18 | Game mode — "Tag It" | ✅ DONE | Daily + free play, narrow down films by tags, 3 lives, jokers, shareable scores |
 
 ---
 
@@ -116,148 +117,122 @@ Manual rating of top-12 results on 10 reference films, adjust weights and bonuse
 
 ## Step 17d: Stats Dashboard — Geography tab (world map + set-place treemap)
 
+*(see git history for details)*
+
+---
+
+## Step 18: Game Mode — "Tag It"
+
 ### Goal
-Replace the "Coming soon" placeholder with a fully interactive Geography tab. Two map visualisations side-by-side answering different questions: **where films were produced** (industry geography) and **where films take place** (set-place geography). Pro/Admin only — the existing tier gating in the Taxonomy tab is the model.
+Build a game where the player picks a film and must isolate it from the full database by selecting taxonomy tags, minimizing the number of tags used. This is the primary differentiator from LLM-based film search — it requires a structured, verified, countable taxonomy that no chatbot can replicate.
 
-### Sections
+### Game concept
 
-#### 1. Stat cards row (top)
+**Core mechanic**: Player sees 3 random films (poster + title + year). Picks the one they know best. Then selects tags one by one across all 9 taxonomy dimensions to narrow the matching film count from ~4,000 down to 1. Fewest tags = best score.
 
-Three compact `StatCard`s:
-- **Countries produced in** — distinct production countries with at least 1 film
-- **Countries set in** — distinct set-place countries with at least 1 film
-- **Most international film** — the film with the most production countries (e.g., "7 countries: The Lord of the Rings")
+**Lives system**: 3 lives (❤️❤️❤️). Selecting a tag that eliminates the target film = lose 1 life. The tag is blocked (not applied) and crossed out in red. At 0 lives = game over, revealing the optimal tag path.
 
-#### 2. World map — Production countries (choropleth)
+**Jokers** (3 per round):
+- **"Show remaining"** — reveals the list of films still matching current tags
+- **"Hint tag"** — highlights the tag that would reduce the count the most while keeping the target film
+- **"Synopsis peek"** — shows the target film's synopsis to jog memory
 
-A full-width interactive world map. Each country shaded by its film count using an amber scale. Hover → tooltip with country name + count. Click → right side-panel opens showing the **top 10 films co-produced by that country** (poster + title + year, sorted by `weighted_score DESC NULLS LAST`).
+**Scoring**:
 
-Legend: a horizontal color scale below the map ("1 — 50 — 500+ films") with non-linear bucketing because counts span 4 orders of magnitude (US has thousands, smaller markets have 1-5).
+| Tags used | 3 lives | 2 lives | 1 life |
+|---|---|---|---|
+| 3–4 tags | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 5–6 tags | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| 7+ tags | ⭐⭐⭐ | ⭐⭐ | ⭐ |
 
-Countries with 0 films are shown in muted dark gray (not invisible — so the user can still see the world outline).
+Jokers don't affect score but "clean wins" (no jokers) tracked separately.
 
-#### 3. World map — Set place countries (choropleth)
+**Two modes**:
+- **Daily challenge**: Same film for everyone each day. Shareable result (like Wordle):
+  ```
+  🎬 CineTag Daily #42
+  🎯 Found in 5 tags
+  ❤️❤️🖤
+  ⭐⭐⭐
+  🟧🟧🟦🟧🟩⬛⬛⬛⬛
+  ```
+  Colored squares = dimensions used (without revealing actual tags).
+- **Free play**: Unlimited rounds with random films. Optional filters to restrict the film pool.
 
-Same component, different data. Below the production map. Hover/click work the same way; click shows top 10 films *set* in that country.
+**Pool filters** (free play only):
+- By decade: 1950s, 1960s, ... 2020s
+- By language: French, English, Japanese, Korean, etc.
+- Combo allowed (e.g. "1970s + French")
+- Minimum pool size enforced: if filtered pool < 50 films, show "Not enough films — broaden your filters"
 
-The two maps are stacked vertically (not side-by-side) so each gets full width — small choropleths are unreadable.
+### Database changes (Migration 012)
 
-#### 4. Set-place treemap (continent → country → city)
+```sql
+-- Daily challenge: one film per day
+CREATE TABLE IF NOT EXISTS daily_challenge (
+    challenge_date DATE PRIMARY KEY,
+    film_id INTEGER NOT NULL REFERENCES film(film_id),
+    created_at TIMESTAMP DEFAULT NOW()
+);
 
-A Recharts `Treemap` showing the hierarchical breakdown of set-place data. Top-level rectangles = continents (sized by film count), each containing country rectangles, each containing city rectangles. Two clicks to drill down (default Recharts behaviour).
+-- Game results per user
+CREATE TABLE IF NOT EXISTS game_result (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES user_profile(id) ON DELETE CASCADE,
+    film_id INTEGER NOT NULL REFERENCES film(film_id),
+    mode TEXT NOT NULL CHECK (mode IN ('daily', 'free')),
+    challenge_date DATE,               -- only for daily mode
+    tags_used INTEGER NOT NULL,
+    lives_remaining INTEGER NOT NULL,   -- 0-3
+    jokers_used INTEGER DEFAULT 0,
+    stars INTEGER NOT NULL,             -- 1-5
+    tag_sequence JSONB,                 -- ordered list of tags selected [{dim, tag, remaining_count, correct}]
+    completed BOOLEAN DEFAULT TRUE,     -- false if game over
+    played_at TIMESTAMP DEFAULT NOW()
+);
 
-This complements the country map by adding the **city level** which isn't shown on a world map.
-
-Click on a city rectangle → navigate to `/browse?location=<geography_id>` so the user can see those films.
-
-### Data sources
-
-**Already in DB (from Step 17b):**
-- `production_country` (country_code = ISO alpha-2, country_name = English)
-- `film_production_country` (film_id, country_id)
-
-**Already in DB (existing):**
-- `geography` (continent, country, state_city) — free-text English
-- `film_set_place` (film_id, geography_id)
-
-### Important: ISO code mapping for set-place
-
-The production map already has ISO codes (`production_country.country_code`). The set-place data does **not** — `geography.country` is free-text. To put set-place data on a world map, we need to map those text names to ISO alpha-2 codes.
-
-**Approach**: build a static mapping table in the backend `backend/app/data/country_name_to_iso.py` covering the ~80 most common country names that appear in the dataset (e.g., "United States" → "US", "France" → "FR", "South Korea" → "KR"). Names that don't match the table fall back to free-text lookup against `production_country.country_name` (case-insensitive). Unmatched countries are silently dropped from the choropleth (the treemap still shows them since the treemap doesn't need ISO codes).
-
-Alternatively (cleaner long-term): add `country_code VARCHAR(2)` to `geography` and backfill it via a migration. Either approach works; the static map is faster to implement and good enough since the country names in `geography` are mostly standard.
-
-**Decision for 17d**: ship with the static map (no schema change). If unmatched countries become a problem, do the migration in 17e or later.
+CREATE INDEX IF NOT EXISTS idx_game_result_user ON game_result(user_id);
+CREATE INDEX IF NOT EXISTS idx_game_result_daily ON game_result(challenge_date);
+CREATE INDEX IF NOT EXISTS idx_game_result_mode ON game_result(user_id, mode);
+```
 
 ### Backend changes
 
-Extend `/api/stats/dashboard` payload, **`geography` block** (currently `null`):
+**New router: `backend/app/routers/game.py`**
 
-```python
-{
-  "geography": {
-    "production_countries": [
-      {"iso": "US", "country": "United States", "film_count": 1842}
-    ],
-    "set_place_countries": [
-      {"iso": "FR", "country": "France", "film_count": 312}
-    ],
-    "set_place_treemap": [
-      {
-        "continent": "Europe",
-        "country": "France",
-        "state_city": "Paris",   # or null at country level
-        "geography_id": 42,
-        "film_count": 89
-      }
-    ],
-    "production_country_total": 78,
-    "set_place_country_total": 95,
-    "most_international_film": {
-      "film_id": 521,
-      "title": "The Lord of the Rings: ...",
-      "country_count": 7,
-      "countries": ["US", "NZ", "DE", ...]
-    }
-  }
-}
-```
-
-**Two new endpoints** for the click-on-country interaction (not in the dashboard payload, fetched lazily):
-
-```
-GET /api/stats/films-by-country?type=production&iso=US&limit=10
-→ [{film_id, title, poster_url, year, weighted_score}]
-
-GET /api/stats/films-by-country?type=set_place&iso=FR&limit=10
-→ [{film_id, title, poster_url, year, weighted_score}]
-```
-
-Both Pro/Admin only.
+Endpoints:
+- `GET /api/game/daily` — today's daily challenge (3 films + pool size), auto-created if missing
+- `GET /api/game/random?year_min=&year_max=&language=` — 3 random films from filtered pool + pool size
+- `POST /api/game/check` — core mechanic: receives tags, returns remaining_count + target_included + victory
+- `POST /api/game/joker/remaining` — list of remaining films (max 20)
+- `POST /api/game/joker/hint` — best next tag to pick
+- `POST /api/game/joker/synopsis` — target film synopsis
+- `POST /api/game/result` — save completed game (requires auth)
+- `GET /api/game/stats` — user game statistics (requires auth)
 
 ### Frontend changes
 
-**Library choice: `react-simple-maps`** (~70 KB gzipped, declarative, React-native). Pairs well with a small world topojson file (~120 KB) hosted in `frontend/public/world-110m.json` for fastest load.
+**New page: `/game` — GamePage.tsx** with 3 states: Setup → Playing → Result
 
-**New files:**
-- `frontend/src/components/stats/WorldMap.tsx` — generic choropleth component. Props: `data`, `onCountryClick`, `colorScale`, `legendBuckets`.
-- `frontend/src/components/stats/SetPlaceTreemap.tsx` — Recharts Treemap wrapper.
-- `frontend/src/components/stats/CountryFilmsPanel.tsx` — the click-triggered side panel showing top-10 films for the clicked country.
-- `frontend/src/lib/colorScale.ts` — helper for non-linear color buckets (matching the choropleth legend).
-- `frontend/public/world-110m.json` — the topojson world map (one-time download, ~120 KB).
+**7 new components** in `frontend/src/components/game/`:
+- GameSetup, GameBoard, GameResult, LivesDisplay, RemainingCounter, JokerButton, ShareResult
 
-**Modified files:**
-- `frontend/src/components/stats/GeographyTab.tsx` — replace `LockedTabPlaceholder` with full implementation, with internal tier check (Pro/Admin only — show LockedTabPlaceholder for everyone else).
-- `frontend/src/types/api.ts` — add `GeographyPayload`, `ProductionCountryCell`, etc.
-- `frontend/src/api/client.ts` — add `getFilmsByCountry()`.
+**Navigation**: "Play" link in header, prominent, available to all users
 
-### Tier visibility
+### Access rules
+- Daily challenge: available to everyone (anonymous + free + pro + admin) — viral hook, no gating
+- Free play: requires authentication (free tier and above)
+- Game stats/history: requires authentication
+- All taxonomy dimensions available in game mode regardless of tier
 
-The Geography tab moves from `coming_soon` to the full Pro/Admin gating. Same model as the existing Taxonomy tab:
-- Anonymous + Free: see `LockedTabPlaceholder reason="upgrade"` or `"signup"` respectively
-- Pro/Admin: see the full geography content
-
-Update the tier resolution in `backend/app/routers/stats.py` accordingly — the `geography` block should be `null` for anonymous and free, populated for Pro and admin.
-
-### Files summary
-
-**Modified backend (2):**
-- `backend/app/routers/stats.py` — populate `geography` block in dashboard for Pro/Admin, add 2 new endpoints.
-- `backend/app/data/country_name_to_iso.py` (NEW) — static mapping table.
-
-**Modified frontend (3):** `GeographyTab.tsx`, `types/api.ts`, `api/client.ts`.
-
-**New frontend (4):** `WorldMap.tsx`, `SetPlaceTreemap.tsx`, `CountryFilmsPanel.tsx`, `lib/colorScale.ts`.
-
-**New dependency:** `react-simple-maps` (~70 KB gzipped).
-
-**New asset:** `world-110m.json` (~120 KB, served from /public).
-
-### Out of scope (deferred)
-
-- Schema migration to add `country_code` to `geography` table (the static mapping table is enough for now).
-- Per-decade animation of the world map ("watch cinema spread across the globe"). Cool but expensive in code.
-- Set-place city heatmap on the map itself (cities aren't on a choropleth; the treemap covers this).
-
-
+### Files modified
+- `database/migrations/012_game_mode.sql` — new tables
+- `database/schema.sql` — updated for fresh installs
+- `backend/app/routers/game.py` — new router (all game endpoints)
+- `backend/app/main.py` — register game router
+- `frontend/src/pages/GamePage.tsx` — new page
+- `frontend/src/components/game/*.tsx` — 7 new components
+- `frontend/src/api/client.ts` — game API functions
+- `frontend/src/types/api.ts` — game types
+- `frontend/src/components/layout/Header.tsx` — add game link to nav
+- `frontend/src/App.tsx` — add /game route
