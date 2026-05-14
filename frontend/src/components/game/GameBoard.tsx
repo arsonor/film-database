@@ -172,9 +172,9 @@ export function GameBoard({ target, poolSize, poolFilters, onVictory, onGameOver
         <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Lifelines
         </div>
-        <JokerButton icon={Eye} label="Remaining" remaining={jokers.remaining} onClick={jokerShowRemaining} disabled={busy} />
-        <JokerButton icon={Lightbulb} label="Hint" remaining={jokers.hint} onClick={jokerShowHint} disabled={busy} />
-        <JokerButton icon={FileText} label="Synopsis" remaining={jokers.synopsis} onClick={jokerShowSynopsis} disabled={busy} />
+        <JokerButton icon={Eye} label="Remaining" remaining={jokers.remaining} onClick={jokerShowRemaining} disabled={busy} description="Reveal the films still matching your correct tags so far." />
+        <JokerButton icon={Lightbulb} label="Hint" remaining={jokers.hint} onClick={jokerShowHint} disabled={busy} description="Highlights one tag that significantly reduces the remaining count." />
+        <JokerButton icon={FileText} label="Synopsis" remaining={jokers.synopsis} onClick={jokerShowSynopsis} disabled={busy} description="Shows the film's synopsis as a clue." />
       </aside>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 lg:pr-40">
@@ -250,13 +250,13 @@ export function GameBoard({ target, poolSize, poolFilters, onVictory, onGameOver
                             {groupTitle}
                           </div>
                         )}
-                        <span className="mr-1.5 mb-1.5 inline-flex items-center align-top">
+                        <span className="mr-2 mb-2 inline-flex items-center align-top sm:mr-1.5 sm:mb-1.5">
                           <button
                             disabled={busy || !!playedTag}
                             onClick={() => handleClickTag(dim, item.name)}
                             title={description}
                             className={cn(
-                              "rounded-md border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed",
+                              "rounded-md border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed sm:px-2 sm:py-1 sm:text-xs",
                               description && "rounded-r-none",
                               cls,
                             )}
@@ -269,7 +269,7 @@ export function GameBoard({ target, poolSize, poolFilters, onVictory, onGameOver
                                 <button
                                   onClick={(e) => e.stopPropagation()}
                                   className={cn(
-                                    "rounded-md rounded-l-none border border-l-0 px-1 py-1 transition-colors",
+                                    "rounded-md rounded-l-none border border-l-0 px-2 py-2 transition-colors sm:px-1 sm:py-1",
                                     playedTag?.correct
                                       ? "border-emerald-500 bg-emerald-500/20 text-emerald-300/70"
                                       : playedTag
@@ -279,7 +279,7 @@ export function GameBoard({ target, poolSize, poolFilters, onVictory, onGameOver
                                           : "border-border text-muted-foreground/60 hover:text-foreground",
                                   )}
                                 >
-                                  <Info className="h-3 w-3" />
+                                  <Info className="h-4 w-4 sm:h-3 sm:w-3" />
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent

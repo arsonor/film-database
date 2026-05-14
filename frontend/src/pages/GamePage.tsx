@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Film, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,12 @@ export function GamePage() {
   const [poolFilters, setPoolFilters] = useState<GamePoolFilters | undefined>();
   const [finalState, setFinalState] = useState<GameState | null>(null);
   const [victory, setVictory] = useState(false);
+
+  useEffect(() => {
+    if (phase === "result") {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [phase]);
 
   function handleStart(
     m: "daily" | "free",
