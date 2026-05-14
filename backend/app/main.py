@@ -53,6 +53,11 @@ app.include_router(game.router, prefix="/api")
 # =============================================================================
 
 
+@app.get("/api/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.get("/api/auth/me")
 async def auth_me(user: UserInfo = Depends(require_authenticated)):
     return {"id": user.id, "email": user.email, "tier": user.tier}
