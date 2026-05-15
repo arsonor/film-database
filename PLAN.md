@@ -36,6 +36,7 @@
 | 17c | Stats Dashboard — Taxonomy enhancements (% heatmap fix + 2 new heatmaps + per-person tags + cross-tab) | ✅ DONE | 5 sections: Categories % heatmap, cinema-movements heatmap, messages % heatmap, person filmography tag breakdown, atmosphere×category cross-tab |
 | 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | ✅ DONE | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
 | 18 | Game mode — "Tag It" | ✅ DONE | Daily + free play, narrow down films by tags, 3 lives, jokers, shareable scores |
+| 19 | Game mode — "Chain It" + Game Hub + Stats page | ✅ DONE | Chain films through shared tags, game selection hub, unified stats + history |
 
 ---
 
@@ -43,196 +44,99 @@
 
 *(see git history for step details)*
 
-## Step 12: Taxonomy restructure ✅
+## Step 12–17d: Feature Development (completed)
 
-  Merging characters_type + character_context, cinema_type + cultural_movement, moving Disaster to
-  themes and dialogs to cinema, adding sort_order-based grouping to 7 dimensions, adding new theme
-  values (curse, game), renaming gang → team/group/gang.
-
----
-
-## Step 13: Performance Optimization (Deployed) ✅
-
-  Backend: pool_size 5→10, asyncio.gather() for 18 parallel queries in get_film().
-  Frontend: React Query caching (staleTime 30s browse, 60s detail, Infinity taxonomy).
-  Infrastructure: Render moved from Oregon → Frankfurt (10ms vs 150ms to Supabase Paris).
-
----
-
-## Step 14: Advanced 'click on tag' behaviour ✅
-
-  Frontend: TagFilter type (include/exclude/mode), 3 chip states (off/include/exclude), right-click
-  exclude, AND/OR toggle. Backend: _not and _mode query params for all 10 dimensions.
-
----
-
-## Step 15a: Supabase Auth + User Roles + vu Migration ✅
-
-  Supabase Auth (email/password + Google OAuth), user tiers (free/pro/admin), auto-profile creation,
-  per-user film status (seen/favorite/watchlist/rating/notes), film.vu migrated to user_film_status.
-
----
-
-## Step 15b: Personal Tracking UI + My Collection + Nav Menu ✅
-
-*(see git history for details)*
-
----
-
-## Step 15c: Tier-Gated Taxonomy Access
-
-Restrict taxonomy filter access based on user tier. Anonymous and free users see all dimensions but can only interact with a subset. Pro users get full access. This creates the core value proposition for upgrading.
-
----
-
-## Step 16: Recommender Engine (in-DB)
-
-Two complementary surfaces driven by the same taxonomy-based similarity:
-- **Carousel** ("Similar Films" section on each film page) — passive, top-N algorithm-curated.
-- **Button** ("Refine in Browse →" inside the same section header) — active, drops the user on /browse with the most distinctive tags pre-selected so they can iterate manually.
-
-### Step 16d (later, no separate ticket) — Tuning loop
-
-Manual rating of top-12 results on 10 reference films, adjust weights and bonuses iteratively. Optional admin debug view exposing per-dimension contribution to score.
-
----
-
-## Step 17a: Stats Dashboard — MVP (Quick + Financials + People + Taxonomy)
-
-*(see git history for details)*
-
----
-
-## Step 17b: Production-country + franchise data prep, sidebar overhaul, Top 20 franchises ✅
-
-*(see git history for details)*
-
----
-
-## Step 17c: Stats Dashboard — Taxonomy enhancements ✅
-
-*(see git history for details)*
-
----
-
-## Step 17d: Stats Dashboard — Geography tab (world map + set-place treemap)
-
-*(see git history for details)*
+*(see git history for step details)*
 
 ---
 
 ## Step 18: Game Mode — "Tag It"
 
+*(see git history for details)*
+
+---
+
+## Step 19: Game Mode — "Chain It" + Game Hub + Stats Page
+
 ### Goal
-Build a game where the player picks a film and must isolate it from the full database by selecting taxonomy tags, minimizing the number of tags used. This is the primary differentiator from LLM-based film search — it requires a structured, verified, countable taxonomy that no chatbot can replicate.
+1. Build a second game: "Chain It" — connect two distant films by building a chain through shared tags.
+2. Restructure `/game` into a Game Hub with game selection.
+3. Create a unified Game Stats page with per-game stats and game history.
 
-### Game concept
+### Chain It — Game Concept
 
-**Core mechanic**: Player sees 3 random films (poster + title + year). Picks the one they know best. Then selects tags one by one across all 9 taxonomy dimensions to narrow the matching film count from ~4,000 down to 1. Fewest tags = best score.
+**Setup**: The system picks an origin film and a target film. They must share at least 1 tag (so the game is winnable) but have low similarity (so it's not trivial). The player sees both films (poster + title + year) but only the origin's tags are visible. The target's tags are hidden.
 
-**Lives system**: 3 lives (❤️❤️❤️). Selecting a tag that eliminates the target film = lose 1 life. The tag is blocked (not applied) and crossed out in red. At 0 lives = game over, revealing the optimal tag path.
+**Each round**:
+1. Player sees the current film's tags (all 9 dimensions). Pick ONE tag you believe the target also has.
+2. If correct: tag is accumulated into the chain. The system displays a list of films matching ALL accumulated tags (sorted by popularity, excluding target + current film + all previous chain films).
+3. If wrong: life lost, tag crossed out, not applied. Try another tag from the same film.
+4. Player picks a film from the displayed list. That film becomes the new "current film," its tags are revealed.
+5. Pick another tag (not already accumulated), and so on.
+6. The target film is hidden from the display list until the matching pool (minus chain films) drops to ≤ 10 films. Then the target starts appearing in the list.
+7. **Win**: player clicks the target film when it appears in the list.
+
+**Lives**: 3 (same as Tag It). Wrong tag = lose 1 life. 0 lives = game over.
 
 **Jokers** (3 per round):
-- **"Show remaining"** — reveals the list of films still matching current tags
-- **"Hint tag"** — highlights the tag that would reduce the count the most while keeping the target film
-- **"Synopsis peek"** — shows the target film's synopsis to jog memory
+- **"Synopsis"** — show the target film's synopsis
+- **"Reveal tag"** — reveal one random tag of the target film (from a dimension not yet used in the chain)
+- **"Shuffle"** — re-randomize the displayed film list (show different films from the same pool)
 
-**Scoring**:
+**Scoring**: Based on chain length (number of intermediate films, not counting origin and target) + lives remaining:
 
-| Tags used | 3 lives | 2 lives | 1 life |
+| Chain length | 3 lives | 2 lives | 1 life |
 |---|---|---|---|
-| 3–4 tags | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| 5–6 tags | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| 7+ tags | ⭐⭐⭐ | ⭐⭐ | ⭐ |
+| 2–3 films | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 4–5 films | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| 6+ films | ⭐⭐⭐ | ⭐⭐ | ⭐ |
 
-Jokers don't affect score but "clean wins" (no jokers) tracked separately.
+**Display list size**: Show up to 20 films from the matching pool, sorted by popularity (weighted_score). Shuffle joker re-randomizes from the full pool.
 
-**Two modes**:
-- **Daily challenge**: Same film for everyone each day. Shareable result (like Wordle):
-  ```
-  🎬 CineTag Daily #42
-  🎯 Found in 5 tags
-  ❤️❤️🖤
-  ⭐⭐⭐
-  🟧🟧🟦🟧🟩⬛⬛⬛⬛
-  ```
-  Colored squares = dimensions used (without revealing actual tags).
-- **Free play**: Unlimited rounds with random films. Optional filters to restrict the film pool.
+**Two modes**: Daily challenge (fixed origin+target pair for everyone) + Free play (random pair, with optional decade/language pool filters).
 
-**Pool filters** (free play only):
-- By decade: 1950s, 1960s, ... 2020s
-- By language: French, English, Japanese, Korean, etc.
-- Combo allowed (e.g. "1970s + French")
-- Minimum pool size enforced: if filtered pool < 50 films, show "Not enough films — broaden your filters"
+**Shareable result**:
+```
+🔗 CineTag Chain #17
+🎬 Toy Story → Megalopolis → Close Encounters → Annihilation → Solaris → 2001 → Stalker
+📏 5 steps | ❤️❤️🖤 | ⭐⭐⭐⭐
 
-### Database changes (Migration 012)
-
-```sql
--- Daily challenge: one film per day
-CREATE TABLE IF NOT EXISTS daily_challenge (
-    challenge_date DATE PRIMARY KEY,
-    film_id INTEGER NOT NULL REFERENCES film(film_id),
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Game results per user
-CREATE TABLE IF NOT EXISTS game_result (
-    id SERIAL PRIMARY KEY,
-    user_id UUID REFERENCES user_profile(id) ON DELETE CASCADE,
-    film_id INTEGER NOT NULL REFERENCES film(film_id),
-    mode TEXT NOT NULL CHECK (mode IN ('daily', 'free')),
-    challenge_date DATE,               -- only for daily mode
-    tags_used INTEGER NOT NULL,
-    lives_remaining INTEGER NOT NULL,   -- 0-3
-    jokers_used INTEGER DEFAULT 0,
-    stars INTEGER NOT NULL,             -- 1-5
-    tag_sequence JSONB,                 -- ordered list of tags selected [{dim, tag, remaining_count, correct}]
-    completed BOOLEAN DEFAULT TRUE,     -- false if game over
-    played_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_game_result_user ON game_result(user_id);
-CREATE INDEX IF NOT EXISTS idx_game_result_daily ON game_result(challenge_date);
-CREATE INDEX IF NOT EXISTS idx_game_result_mode ON game_result(user_id, mode);
+https://cinetag.eu/game
 ```
 
-### Backend changes
+### Pair Selection Algorithm
 
-**New router: `backend/app/routers/game.py`**
+Both films must have poster + summary + ≥5 tag dimensions. Must share ≥1 common tag. Must have low similarity (not in each other's top-50 similar, or ≤3 shared tags total).
 
-Endpoints:
-- `GET /api/game/daily` — today's daily challenge (3 films + pool size), auto-created if missing
-- `GET /api/game/random?year_min=&year_max=&language=` — 3 random films from filtered pool + pool size
-- `POST /api/game/check` — core mechanic: receives tags, returns remaining_count + target_included + victory
-- `POST /api/game/joker/remaining` — list of remaining films (max 20)
-- `POST /api/game/joker/hint` — best next tag to pick
-- `POST /api/game/joker/synopsis` — target film synopsis
-- `POST /api/game/result` — save completed game (requires auth)
-- `GET /api/game/stats` — user game statistics (requires auth)
+### Database Changes (Migration 023)
 
-### Frontend changes
+Add `game_type` + `target_film_id` columns to `daily_challenge`, recreate PK as `(challenge_date, game_type)`. Add `game_type` + `chain_length` + `origin_film_id` + `target_film_id` to `game_result`. Update unique index.
 
-**New page: `/game` — GamePage.tsx** with 3 states: Setup → Playing → Result
+### Backend: New Chain Endpoints
 
-**7 new components** in `frontend/src/components/game/`:
-- GameSetup, GameBoard, GameResult, LivesDisplay, RemainingCounter, JokerButton, ShareResult
+- `GET /game/chain/daily` — origin + target pair + origin's tags
+- `GET /game/chain/random` — random pair with optional pool filters
+- `POST /game/chain/check-tag` — verify if a tag exists on the target
+- `POST /game/chain/get-films` — matching films for accumulated tags (target hidden until pool ≤ 10)
+- `POST /game/chain/get-tags` — all tags for a film
+- `POST /game/chain/joker/synopsis`, `joker/reveal-tag`
+- `GET /game/history` — paginated game history with film details
 
-**Navigation**: "Play" link in header, prominent, available to all users
+### Frontend: Route Restructure
 
-### Access rules
-- Daily challenge: available to everyone (anonymous + free + pro + admin) — viral hook, no gating
-- Free play: requires authentication (free tier and above)
-- Game stats/history: requires authentication
-- All taxonomy dimensions available in game mode regardless of tier
+- `/game` → GameHubPage (game selection)
+- `/game/tag-it` → TagItPage (renamed)
+- `/game/chain-it` → ChainItPage (new)
+- `/game/stats` → GameStatsPage (new, unified stats + history)
 
-### Files modified
-- `database/migrations/012_game_mode.sql` — new tables
-- `database/schema.sql` — updated for fresh installs
-- `backend/app/routers/game.py` — new router (all game endpoints)
-- `backend/app/main.py` — register game router
-- `frontend/src/pages/GamePage.tsx` — new page
-- `frontend/src/components/game/*.tsx` — 7 new components
-- `frontend/src/api/client.ts` — game API functions
-- `frontend/src/types/api.ts` — game types
-- `frontend/src/components/layout/Header.tsx` — add game link to nav
-- `frontend/src/App.tsx` — add /game route
+### Files Modified
+- `database/migrations/023_chain_it.sql`
+- `backend/app/routers/game.py` — chain endpoints + game_type + history
+- `frontend/src/pages/GameHubPage.tsx` — new
+- `frontend/src/pages/TagItPage.tsx` — renamed
+- `frontend/src/pages/ChainItPage.tsx` — new
+- `frontend/src/pages/GameStatsPage.tsx` — new
+- `frontend/src/components/game/Chain*.tsx` — 5 new components
+- `frontend/src/api/client.ts` + `types/api.ts` — chain types + API functions
+- `frontend/src/App.tsx` — new routes
+- `frontend/src/components/layout/Header.tsx` — link to hub

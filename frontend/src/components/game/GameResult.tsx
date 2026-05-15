@@ -51,8 +51,8 @@ export function GameResult({ target, state, victory, mode, onPlayAgain, onHome }
   const lifelinesLine = `💡 ${jokersUsed}/3 lifelines used`;
   const shareText =
     mode === "daily"
-      ? `🎬 Tag It Daily #${dayNumber}\n🎯 ${victory ? `Found in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}`
-      : `🎬 Tag It — Free Play\n🎯 ${victory ? `Found "${target.title}" in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}`;
+      ? `🎬 Tag It Daily #${dayNumber}\n🎯 ${victory ? `Found in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}\nhttps://cinetag.eu/game`
+      : `🎬 Tag It — Free Play\n🎯 ${victory ? `Found "${target.title}" in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}\nhttps://cinetag.eu/game`;
 
   // Save result exactly once per mount. useRef survives React strict-mode
   // double-invocation (state guards don't, because both closures capture saved=false).

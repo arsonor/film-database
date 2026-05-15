@@ -576,9 +576,124 @@ export interface GameDailyStats extends GameModeStats {
   max_streak: number;
 }
 
+export interface GameTypeStats {
+  daily: GameDailyStats;
+  free: GameModeStats;
+}
+
 export interface GameStats {
   daily: GameDailyStats;
   free: GameModeStats;
+  tag_it: GameTypeStats;
+  chain_it: GameTypeStats;
+}
+
+// =============================================================================
+// Game mode ("Chain It")
+// =============================================================================
+
+export type GameType = "tag_it" | "chain_it";
+
+export interface ChainFilm {
+  film_id: number;
+  title: string;
+  year: number | null;
+  poster_url: string | null;
+}
+
+export interface ChainOrigin extends ChainFilm {
+  tags: Record<string, string[]>;
+}
+
+export interface ChainAlreadyPlayed {
+  id: number;
+  chain_length: number | null;
+  lives_remaining: number;
+  jokers_used: number;
+  stars: number;
+  tag_sequence: ChainStep[] | null;
+  completed: boolean;
+  played_at: string | null;
+  origin_film_id: number | null;
+  target_film_id: number | null;
+}
+
+export interface ChainSetupResponse {
+  origin: ChainOrigin;
+  target: ChainFilm;
+  pool_size: number;
+  mode: "daily" | "free";
+  already_played?: ChainAlreadyPlayed | null;
+}
+
+export interface ChainCheckTagResult {
+  correct: boolean;
+}
+
+export interface ChainGetFilmsResult {
+  films: GameFilm[];
+  pool_size: number;
+  target_visible: boolean;
+}
+
+export interface ChainGetTagsResult {
+  tags: Record<string, string[]>;
+}
+
+export interface ChainRevealTagResult {
+  dimension: string | null;
+  tag: string | null;
+}
+
+export interface ChainStep {
+  step: number;
+  film_id: number;
+  film_title: string;
+  dimension: string;
+  tag: string;
+  correct: boolean;
+}
+
+export interface ChainResultData {
+  mode: "daily" | "free";
+  origin_film_id: number;
+  target_film_id: number;
+  chain_length: number;
+  lives_remaining: number;
+  jokers_used: number;
+  stars: number;
+  tag_sequence: ChainStep[];
+  completed: boolean;
+}
+
+export interface GameHistoryFilm {
+  film_id: number;
+  title: string;
+  poster_url: string | null;
+}
+
+export interface GameHistoryItem {
+  id: number;
+  game_type: GameType;
+  mode: "daily" | "free";
+  played_at: string | null;
+  stars: number;
+  completed: boolean;
+  tags_used: number;
+  chain_length: number | null;
+  lives_remaining: number;
+  jokers_used: number;
+  film: GameHistoryFilm | null;
+  origin_film: GameHistoryFilm | null;
+  target_film: GameHistoryFilm | null;
+}
+
+export interface PaginatedGameHistory {
+  items: GameHistoryItem[];
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
 }
 
 export const ARRAY_FILTER_KEYS = [

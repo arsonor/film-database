@@ -1,4 +1,10 @@
 import type {
+  ChainCheckTagResult,
+  ChainGetFilmsResult,
+  ChainGetTagsResult,
+  ChainRevealTagResult,
+  ChainResultData,
+  ChainSetupResponse,
   DashboardStats,
   EnrichmentPreview,
   FilmByCountry,
@@ -12,8 +18,10 @@ import type {
   GameSetupResponse,
   GameStats,
   GameTag,
+  GameType,
   GeographySearchResult,
   PaginatedFilms,
+  PaginatedGameHistory,
   PersonRole,
   PersonSearchResult,
   PersonTagsResponse,
@@ -607,12 +615,15 @@ export async function useJokerSynopsis(filmId: number): Promise<{ synopsis: stri
   return res.json();
 }
 
-export async function saveGameResult(data: GameResultData): Promise<{ saved: boolean; id: number }> {
+export async function saveGameResult(
+  data: GameResultData,
+  gameType: GameType = "tag_it",
+): Promise<{ saved: boolean; id: number }> {
   const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/game/result`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...auth },
-    body: JSON.stringify(data),
+    body: JSON.stringify({ ...data, game_type: gameType }),
   });
   if (!res.ok) {
     const detail = await res.text();
@@ -625,6 +636,148 @@ export async function fetchGameStats(): Promise<GameStats> {
   const auth = await getAuthHeaders();
   const res = await fetch(`${BASE}/game/stats`, { headers: auth });
   if (!res.ok) throw new ApiError(res.status, "stats failed");
+  return res.json();
+}
+
+export async function fetchGameHistory(
+  gameType?: GameType,
+  page = 1,
+  perPage = 20,
+): Promise<PaginatedGameHistory> {
+  const auth = await getAuthHeaders();
+  const sp = new URLSearchParams({ page: String(page), per_page: String(perPage) });
+  if (gameType) sp.set("game_type", gameType);
+  const res = await fetch(`${BASE}/game/history?${sp}`, { headers: auth });
+  if (!res.ok) throw new ApiError(res.status, "history failed");
+  return res.json();
+}
+
+// -----------------------------------------------------------------------------
+// Chain It
+// -----------------------------------------------------------------------------
+
+export async function fetchChainDaily(): Promise<ChainSetupResponse> {
+  return fetchJson<ChainSetupResponse>(`${BASE}/game/chain/daily`);
+}
+
+export async function fetchChainRandom(
+  filters: GamePoolFilters,
+  difficulty: "easy" | "medium" | "hard" = "medium",
+): Promise<ChainSetupResponse> {
+  const sp = new URLSearchParams();
+  if (filters.year_min != null) sp.set("year_min", String(filters.year_min));
+  if (filters.year_max != null) sp.set("year_max", String(filters.year_max));
+  if (filters.language) sp.set("language", filters.language);
+  sp.set("difficulty", difficulty);
+  const res = await fetch(`${BASE}/game/chain/random?${sp}`);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {}
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function chainCheckTag(
+  targetFilmId: number,
+  dimension: string,
+  value: string,
+): Promise<ChainCheckTagResult> {
+  const res = await fetch(`${BASE}/game/chain/check-tag`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_film_id: targetFilmId, dimension, value }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "check-tag failed");
+  return res.json();
+}
+
+export async function chainGetFilms(
+  tags: GameTag[],
+  excludeFilmIds: number[],
+  targetFilmId: number,
+  poolFilters?: GamePoolFilters,
+  randomize = false,
+  difficulty: "easy" | "medium" | "hard" = "medium",
+): Promise<ChainGetFilmsResult> {
+  const res = await fetch(`${BASE}/game/chain/get-films`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tags,
+      exclude_film_ids: excludeFilmIds,
+      target_film_id: targetFilmId,
+      pool_filters: poolFilters ?? null,
+      random: randomize,
+      difficulty,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "get-films failed");
+  return res.json();
+}
+
+export async function chainGetTags(filmId: number): Promise<ChainGetTagsResult> {
+  const res = await fetch(`${BASE}/game/chain/get-tags`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ film_id: filmId }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "get-tags failed");
+  return res.json();
+}
+
+export async function chainJokerSynopsis(targetFilmId: number): Promise<{ synopsis: string | null }> {
+  const res = await fetch(`${BASE}/game/chain/joker/synopsis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_film_id: targetFilmId }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "synopsis failed");
+  return res.json();
+}
+
+export async function chainJokerRevealTag(
+  targetFilmId: number,
+  usedDimensions: string[],
+  currentFilmId?: number,
+  usedTags?: GameTag[],
+): Promise<ChainRevealTagResult> {
+  const res = await fetch(`${BASE}/game/chain/joker/reveal-tag`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target_film_id: targetFilmId,
+      current_film_id: currentFilmId,
+      used_dimensions: usedDimensions,
+      used_tags: usedTags ?? [],
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "reveal-tag failed");
+  return res.json();
+}
+
+export async function saveChainResult(
+  data: ChainResultData,
+): Promise<{ saved: boolean; id: number }> {
+  const auth = await getAuthHeaders();
+  const payload: Record<string, unknown> = {
+    ...data,
+    game_type: "chain_it",
+    film_id: data.target_film_id,
+    tags_used: data.chain_length,
+  };
+  const res = await fetch(`${BASE}/game/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...auth },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new ApiError(res.status, detail || "save failed");
+  }
   return res.json();
 }
 

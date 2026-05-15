@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Film, Home } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, BarChart3, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameSetup } from "@/components/game/GameSetup";
 import { GameBoard, type GameState } from "@/components/game/GameBoard";
@@ -9,7 +9,7 @@ import type { GameFilm, GamePoolFilters, GameSetupResponse } from "@/types/api";
 
 type Phase = "setup" | "playing" | "result";
 
-export function GamePage() {
+export function TagItPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("setup");
   const [mode, setMode] = useState<"daily" | "free">("daily");
@@ -64,16 +64,36 @@ export function GamePage() {
           onClick={() => navigate("/browse")}
           className="flex items-center gap-2 text-sm font-medium hover:text-primary"
         >
-          <Film className="h-4 w-4 text-primary" />
-          Film Database
+          <img src="/cinetag-logo/cinetag_logo.svg" alt="CineTag" className="h-5 w-5" />
+          CineTag
         </button>
         <div className="text-sm font-semibold tracking-wide">🎬 Tag It</div>
-        <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
-          <Home className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Link
+            to="/game/stats"
+            className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground sm:inline-flex"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Stats
+          </Link>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
-      {phase === "setup" && <GameSetup onStart={handleStart} />}
+      {phase === "setup" && (
+        <>
+          <div className="mx-auto flex max-w-4xl px-4 pt-4">
+            <Link
+              to="/game"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to Games
+            </Link>
+          </div>
+          <GameSetup onStart={handleStart} />
+        </>
+      )}
       {phase === "playing" && target && setup && (
         <GameBoard
           target={target}
@@ -90,7 +110,7 @@ export function GamePage() {
           victory={victory}
           mode={mode}
           onPlayAgain={handlePlayAgain}
-          onHome={() => navigate("/browse")}
+          onHome={() => navigate("/game")}
         />
       )}
     </div>

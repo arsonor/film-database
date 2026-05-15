@@ -643,17 +643,24 @@ CREATE INDEX IF NOT EXISTS idx_user_list_film_film ON user_list_film(film_id);
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS daily_challenge (
-    challenge_date DATE PRIMARY KEY,
+    challenge_date DATE NOT NULL,
+    game_type TEXT NOT NULL DEFAULT 'tag_it',
     film_id INTEGER NOT NULL REFERENCES film(film_id),
+    target_film_id INTEGER REFERENCES film(film_id),
     decoy1_film_id INTEGER REFERENCES film(film_id),
     decoy2_film_id INTEGER REFERENCES film(film_id),
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    PRIMARY KEY (challenge_date, game_type)
 );
 
 CREATE TABLE IF NOT EXISTS game_result (
     id SERIAL PRIMARY KEY,
     user_id UUID REFERENCES user_profile(id) ON DELETE CASCADE,
+    game_type TEXT NOT NULL DEFAULT 'tag_it',
     film_id INTEGER NOT NULL REFERENCES film(film_id),
+    origin_film_id INTEGER REFERENCES film(film_id),
+    target_film_id INTEGER REFERENCES film(film_id),
+    chain_length INTEGER,
     mode TEXT NOT NULL CHECK (mode IN ('daily', 'free')),
     challenge_date DATE,
     tags_used INTEGER NOT NULL,
@@ -668,9 +675,10 @@ CREATE TABLE IF NOT EXISTS game_result (
 CREATE INDEX IF NOT EXISTS idx_game_result_user ON game_result(user_id);
 CREATE INDEX IF NOT EXISTS idx_game_result_daily ON game_result(challenge_date);
 CREATE INDEX IF NOT EXISTS idx_game_result_user_mode ON game_result(user_id, mode);
+CREATE INDEX IF NOT EXISTS idx_game_result_game_type ON game_result(game_type);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_game_result_user_daily_unique
-    ON game_result(user_id, challenge_date) WHERE mode = 'daily';
+    ON game_result(user_id, challenge_date, game_type) WHERE mode = 'daily';
 
 -- =============================================================================
 -- END OF SCHEMA

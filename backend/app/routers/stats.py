@@ -1216,10 +1216,10 @@ async def get_dashboard(user: UserInfo | None = Depends(get_current_user)):
     tier = user.tier if user else "anonymous"
 
     show_financials = tier in ("free", "pro", "admin")
-    show_people = tier in ("pro", "admin")
-    show_taxonomy = tier in ("pro", "admin")
-    show_geography = tier in ("pro", "admin")
-    show_personal = user is not None and tier in ("pro", "admin")
+    show_people = tier in ("free", "pro", "admin")
+    show_taxonomy = tier in ("free", "pro", "admin")
+    show_geography = tier in ("free", "pro", "admin")
+    show_personal = user is not None and tier in ("free", "pro", "admin")
 
     tasks = [_build_quick()]
     if show_financials:

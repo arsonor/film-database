@@ -1,0 +1,108 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BarChart3, Home } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChainSetup } from "@/components/game/ChainSetup";
+import { ChainBoard, type ChainBoardState } from "@/components/game/ChainBoard";
+import { ChainResult } from "@/components/game/ChainResult";
+import type { ChainFilm, ChainOrigin, ChainSetupResponse, GamePoolFilters } from "@/types/api";
+
+type Phase = "setup" | "playing" | "result";
+
+export function ChainItPage() {
+  const navigate = useNavigate();
+  const [phase, setPhase] = useState<Phase>("setup");
+  const [mode, setMode] = useState<"daily" | "free">("daily");
+  const [origin, setOrigin] = useState<ChainOrigin | null>(null);
+  const [target, setTarget] = useState<ChainFilm | null>(null);
+  const [poolFilters, setPoolFilters] = useState<GamePoolFilters | undefined>();
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [finalState, setFinalState] = useState<ChainBoardState | null>(null);
+  const [victory, setVictory] = useState(false);
+
+  useEffect(() => {
+    if (phase === "result") window.scrollTo({ top: 0, behavior: "auto" });
+  }, [phase]);
+
+  function handleStart(
+    m: "daily" | "free",
+    s: ChainSetupResponse,
+    pf?: GamePoolFilters,
+    diff?: "easy" | "medium" | "hard",
+  ) {
+    setMode(m);
+    setOrigin(s.origin);
+    setTarget(s.target);
+    setPoolFilters(pf);
+    setDifficulty(diff ?? "medium");
+    setPhase("playing");
+  }
+
+  function handleVictory(state: ChainBoardState) {
+    setFinalState(state);
+    setVictory(true);
+    setPhase("result");
+  }
+
+  function handleGameOver(state: ChainBoardState) {
+    setFinalState(state);
+    setVictory(false);
+    setPhase("result");
+  }
+
+  function handlePlayAgain() {
+    setPhase("setup");
+    setOrigin(null);
+    setTarget(null);
+    setFinalState(null);
+  }
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur">
+        <button
+          onClick={() => navigate("/browse")}
+          className="flex items-center gap-2 text-sm font-medium hover:text-primary"
+        >
+          <img src="/cinetag-logo/cinetag_logo.svg" alt="CineTag" className="h-5 w-5" />
+          CineTag
+        </button>
+        <div className="text-sm font-semibold tracking-wide">🔗 Chain It</div>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => navigate("/game/stats")}
+            className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground sm:inline-flex"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Stats
+          </button>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {phase === "setup" && <ChainSetup onStart={handleStart} />}
+      {phase === "playing" && origin && target && (
+        <ChainBoard
+          origin={origin}
+          target={target}
+          poolFilters={poolFilters}
+          difficulty={difficulty}
+          onVictory={handleVictory}
+          onGameOver={handleGameOver}
+        />
+      )}
+      {phase === "result" && origin && target && finalState && (
+        <ChainResult
+          origin={origin}
+          target={target}
+          state={finalState}
+          victory={victory}
+          mode={mode}
+          onPlayAgain={handlePlayAgain}
+          onHome={() => navigate("/game")}
+        />
+      )}
+    </div>
+  );
+}

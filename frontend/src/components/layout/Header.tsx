@@ -5,7 +5,6 @@ import {
   ArrowUpAZ,
   BarChart3,
   BookMarked,
-  Film,
   Filter,
   Gamepad2,
   LogIn,
@@ -116,8 +115,8 @@ export function Header({
           </Button>
         )}
         <div className="flex items-center gap-2">
-          <Film className="h-5 w-5 text-primary" />
-          <h1 className="hidden text-lg font-semibold sm:block">Film Database</h1>
+          <img src="/cinetag-logo/cinetag_logo.svg" alt="CineTag" className="h-7 w-7" />
+          <h1 className="hidden text-lg font-semibold sm:block">CineTag</h1>
         </div>
         {totalFilms !== null && (
           <span className="hidden rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground sm:inline-flex">
@@ -152,7 +151,7 @@ export function Header({
           variant="ghost"
           size="sm"
           onClick={() => navigate("/game")}
-          title="Tag It — daily game"
+          title="Games — Tag It & Chain It"
           className="gap-1.5 font-semibold text-primary hover:text-primary"
         >
           <Gamepad2 className="h-4 w-4" />
