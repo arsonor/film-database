@@ -9,6 +9,7 @@ import { CollectionPage } from "@/pages/CollectionPage";
 import { ChainItPage } from "@/pages/ChainItPage";
 import { GameHubPage } from "@/pages/GameHubPage";
 import { GameStatsPage } from "@/pages/GameStatsPage";
+import { GuessItPage } from "@/pages/GuessItPage";
 import { TagItPage } from "@/pages/TagItPage";
 import { StatsPage } from "@/pages/StatsPage";
 import { TaxonomyAdminPage } from "@/pages/TaxonomyAdminPage";
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/game" element={<GameHubPage />} />
             <Route path="/game/tag-it" element={<TagItPage />} />
             <Route path="/game/chain-it" element={<ChainItPage />} />
+            <Route path="/game/guess-it" element={<GuessItPage />} />
             <Route path="/game/stats" element={<GameStatsPage />} />
             <Route path="/admin/taxonomy" element={<TaxonomyAdminPage />} />
             <Route path="/auth" element={<AuthPage />} />

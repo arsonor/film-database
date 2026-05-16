@@ -20,6 +20,10 @@ import type {
   GameTag,
   GameType,
   GeographySearchResult,
+  GuessEarlyGuessResult,
+  GuessRemoveResult,
+  GuessRevealTagResult,
+  GuessSetupResponse,
   PaginatedFilms,
   PaginatedGameHistory,
   PersonRole,
@@ -756,6 +760,109 @@ export async function chainJokerRevealTag(
     }),
   });
   if (!res.ok) throw new ApiError(res.status, "reveal-tag failed");
+  return res.json();
+}
+
+// -----------------------------------------------------------------------------
+// Guess It
+// -----------------------------------------------------------------------------
+
+export async function fetchGuessDaily(): Promise<GuessSetupResponse> {
+  return fetchJson<GuessSetupResponse>(`${BASE}/game/guess/daily`);
+}
+
+export async function fetchGuessRandom(
+  filters: GamePoolFilters,
+  difficulty: "easy" | "medium" | "hard" = "medium",
+): Promise<GuessSetupResponse> {
+  const sp = new URLSearchParams();
+  if (filters.year_min != null) sp.set("year_min", String(filters.year_min));
+  if (filters.year_max != null) sp.set("year_max", String(filters.year_max));
+  if (filters.language) sp.set("language", filters.language);
+  sp.set("difficulty", difficulty);
+  const res = await fetch(`${BASE}/game/guess/random?${sp}`);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {}
+    throw new ApiError(res.status, detail);
+  }
+  return res.json();
+}
+
+export async function guessRevealTag(
+  targetFilmId: number,
+  revealedTags: GameTag[],
+  remainingFilmIds: number[],
+  difficulty: "easy" | "medium" | "hard" = "medium",
+): Promise<GuessRevealTagResult> {
+  const res = await fetch(`${BASE}/game/guess/reveal-tag`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target_film_id: targetFilmId,
+      revealed_tags: revealedTags,
+      remaining_film_ids: remainingFilmIds,
+      difficulty,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "reveal-tag failed");
+  return res.json();
+}
+
+export async function guessRemoveFilm(
+  targetFilmId: number,
+  filmIdToRemove: number,
+  revealedTags: GameTag[],
+): Promise<GuessRemoveResult> {
+  const res = await fetch(`${BASE}/game/guess/remove`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      target_film_id: targetFilmId,
+      film_id_to_remove: filmIdToRemove,
+      revealed_tags: revealedTags,
+    }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "remove failed");
+  return res.json();
+}
+
+export async function guessEarlyGuess(
+  targetFilmId: number,
+  guessedFilmId: number,
+): Promise<GuessEarlyGuessResult> {
+  const res = await fetch(`${BASE}/game/guess/early-guess`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_film_id: targetFilmId, guessed_film_id: guessedFilmId }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "early-guess failed");
+  return res.json();
+}
+
+export async function guessJokerSynopsis(
+  remainingFilmIds: number[],
+  usedFilmIds: number[] = [],
+): Promise<{ film_id: number | null; synopsis: string | null }> {
+  const res = await fetch(`${BASE}/game/guess/joker/synopsis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ remaining_film_ids: remainingFilmIds, used_film_ids: usedFilmIds }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "synopsis failed");
+  return res.json();
+}
+
+export async function guessJokerDecade(targetFilmId: number): Promise<{ decade: string | null }> {
+  const res = await fetch(`${BASE}/game/guess/joker/decade`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ target_film_id: targetFilmId }),
+  });
+  if (!res.ok) throw new ApiError(res.status, "decade failed");
   return res.json();
 }
 

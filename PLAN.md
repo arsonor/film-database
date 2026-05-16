@@ -37,14 +37,11 @@
 | 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | ✅ DONE | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
 | 18 | Game mode — "Tag It" | ✅ DONE | Daily + free play, narrow down films by tags, 3 lives, jokers, shareable scores |
 | 19 | Game mode — "Chain It" + Game Hub + Stats page | ✅ DONE | Chain films through shared tags, game selection hub, unified stats + history |
+| 20 | Game mode — "Guess It" | ✅ DONE | Eliminate films from a smart list by revealing tags, 3 lives, early guess risk/reward |
 
 ---
 
-## Steps 1–11: Core Build (completed)
-
-*(see git history for step details)*
-
-## Step 12–17d: Feature Development (completed)
+## Steps 1–17d: Core Build + Features (completed)
 
 *(see git history for step details)*
 
@@ -58,85 +55,86 @@
 
 ## Step 19: Game Mode — "Chain It" + Game Hub + Stats Page
 
+*(see git history for details)*
+
+---
+
+## Step 20: Game Mode — "Guess It"
+
 ### Goal
-1. Build a second game: "Chain It" — connect two distant films by building a chain through shared tags.
-2. Restructure `/game` into a Game Hub with game selection.
-3. Create a unified Game Stats page with per-game stats and game history.
+Build a third game: "Guess It" — deduce a hidden film by eliminating decoys from a curated list as tags are progressively revealed. Tests film knowledge through elimination and deduction.
 
-### Chain It — Game Concept
+### Game Concept
 
-**Setup**: The system picks an origin film and a target film. They must share at least 1 tag (so the game is winnable) but have low similarity (so it's not trivial). The player sees both films (poster + title + year) but only the origin's tags are visible. The target's tags are hidden.
+**Setup**: The program picks a hidden target film. It generates a list of 12 films: the target + 11 decoys selected across a gradient of similarity (some very similar, some loosely related). The player sees all 12 as a poster grid but doesn't know which is the target.
 
 **Each round**:
-1. Player sees the current film's tags (all 9 dimensions). Pick ONE tag you believe the target also has.
-2. If correct: tag is accumulated into the chain. The system displays a list of films matching ALL accumulated tags (sorted by popularity, excluding target + current film + all previous chain films).
-3. If wrong: life lost, tag crossed out, not applied. Try another tag from the same film.
-4. Player picks a film from the displayed list. That film becomes the new "current film," its tags are revealed.
-5. Pick another tag (not already accumulated), and so on.
-6. The target film is hidden from the display list until the matching pool (minus chain films) drops to ≤ 10 films. Then the target starts appearing in the list.
-7. **Win**: player clicks the target film when it appears in the list.
+1. Player clicks "Reveal tag" → the program reveals one of the target's tags (chosen to maximize elimination potential: fewest remaining decoys share it).
+2. The player removes films they believe do NOT match the revealed tags.
+3. **Correct removal** (film does NOT match all revealed tags): film removed, no penalty.
+4. **Wrong removal** (film DOES match all revealed tags but isn't target): film shakes, snaps back, "This film matches all revealed tags — it stays!", lose 1 life.
+5. **Removing the target**: immediate game over.
+6. **Early guess**: click a film + "This is the target!" — correct = win, wrong = game over.
 
-**Lives**: 3 (same as Tag It). Wrong tag = lose 1 life. 0 lives = game over.
+**Win condition**: Last film standing, or correct early guess.
 
-**Jokers** (3 per round):
-- **"Synopsis"** — show the target film's synopsis
-- **"Reveal tag"** — reveal one random tag of the target film (from a dimension not yet used in the chain)
-- **"Shuffle"** — re-randomize the displayed film list (show different films from the same pool)
+**Lives**: 3. Lost on wrong removal.
 
-**Scoring**: Based on chain length (number of intermediate films, not counting origin and target) + lives remaining:
+**Scoring**:
 
-| Chain length | 3 lives | 2 lives | 1 life |
+| Tags revealed | 3 lives | 2 lives | 1 life |
 |---|---|---|---|
-| 2–3 films | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| 4–5 films | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| 6+ films | ⭐⭐⭐ | ⭐⭐ | ⭐ |
+| 1–2 tags | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 3–4 tags | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| 5+ tags | ⭐⭐⭐ | ⭐⭐ | ⭐ |
 
-**Display list size**: Show up to 20 films from the matching pool, sorted by popularity (weighted_score). Shuffle joker re-randomizes from the full pool.
+**Jokers** (3): Synopsis, Decade reveal, Director reveal.
 
-**Two modes**: Daily challenge (fixed origin+target pair for everyone) + Free play (random pair, with optional decade/language pool filters).
-
-**Shareable result**:
+**Shareable**:
 ```
-🔗 CineTag Chain #17
-🎬 Toy Story → Megalopolis → Close Encounters → Annihilation → Solaris → 2001 → Stalker
-📏 5 steps | ❤️❤️🖤 | ⭐⭐⭐⭐
-
+🔍 CineTag Guess It #31
+🎯 Guessed in 3 tags (8 eliminated)
+❤️❤️🖤 ⭐⭐⭐⭐
 https://cinetag.eu/game
 ```
 
-### Pair Selection Algorithm
+### Decoy Selection
 
-Both films must have poster + summary + ≥5 tag dimensions. Must share ≥1 common tag. Must have low similarity (not in each other's top-50 similar, or ≤3 shared tags total).
+11 decoys from the similarity recommender (Step 16b), gradient:
+- 3 very similar (rank 1–10, share 5+ tags)
+- 4 moderately similar (rank 11–30, share 2–4 tags)
+- 4 loosely related (rank 31–50 or random, share 0–1 tags)
 
-### Database Changes (Migration 023)
+### Tag Reveal Order
 
-Add `game_type` + `target_film_id` columns to `daily_challenge`, recreate PK as `(challenge_date, game_type)`. Add `game_type` + `chain_length` + `origin_film_id` + `target_film_id` to `game_result`. Update unique index.
+Reveal the target tag shared by the fewest remaining decoys → maximizes elimination.
 
-### Backend: New Chain Endpoints
+### Database (Migration 024)
 
-- `GET /game/chain/daily` — origin + target pair + origin's tags
-- `GET /game/chain/random` — random pair with optional pool filters
-- `POST /game/chain/check-tag` — verify if a tag exists on the target
-- `POST /game/chain/get-films` — matching films for accumulated tags (target hidden until pool ≤ 10)
-- `POST /game/chain/get-tags` — all tags for a film
-- `POST /game/chain/joker/synopsis`, `joker/reveal-tag`
-- `GET /game/history` — paginated game history with film details
+Add `decoy_film_ids INTEGER[]` to `daily_challenge`. No new tables.
 
-### Frontend: Route Restructure
+### Backend: New endpoints in `game.py`
 
-- `/game` → GameHubPage (game selection)
-- `/game/tag-it` → TagItPage (renamed)
-- `/game/chain-it` → ChainItPage (new)
-- `/game/stats` → GameStatsPage (new, unified stats + history)
+- `GET /game/guess/daily` — grid of 12 + target_film_id + already_played
+- `GET /game/guess/random` — with pool filters
+- `POST /game/guess/reveal-tag` — best next tag based on remaining films
+- `POST /game/guess/remove` — validate removal (correct/wrong/is_target)
+- `POST /game/guess/early-guess` — validate guess
+- `POST /game/guess/joker/synopsis`, `joker/decade`, `joker/director`
+
+### Frontend
+
+- `/game/guess-it` → GuessItPage (Setup → Playing → Result)
+- 4 new components: GuessSetup, GuessBoard, GuessResult, FilmGridCell
+- Update GameHubPage (3rd card), GameStatsPage (3rd tab), App.tsx (route)
 
 ### Files Modified
-- `database/migrations/023_chain_it.sql`
-- `backend/app/routers/game.py` — chain endpoints + game_type + history
-- `frontend/src/pages/GameHubPage.tsx` — new
-- `frontend/src/pages/TagItPage.tsx` — renamed
-- `frontend/src/pages/ChainItPage.tsx` — new
-- `frontend/src/pages/GameStatsPage.tsx` — new
-- `frontend/src/components/game/Chain*.tsx` — 5 new components
-- `frontend/src/api/client.ts` + `types/api.ts` — chain types + API functions
-- `frontend/src/App.tsx` — new routes
-- `frontend/src/components/layout/Header.tsx` — link to hub
+- `database/migrations/024_guess_it.sql`
+- `backend/app/routers/game.py`
+- `frontend/src/pages/GuessItPage.tsx` — new
+- `frontend/src/pages/GameHubPage.tsx` — 3rd card
+- `frontend/src/pages/GameStatsPage.tsx` — 3rd tab
+- `frontend/src/components/game/Guess*.tsx` — 3 new
+- `frontend/src/components/game/FilmGridCell.tsx` — new
+- `frontend/src/api/client.ts` + `types/api.ts`
+- `frontend/src/App.tsx`

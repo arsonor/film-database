@@ -2,30 +2,15 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Calendar, Loader2, Lock, LogIn, Play, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
-import { fetchChainDaily, fetchChainRandom, fetchTaxonomy } from "@/api/client";
-import type { ChainSetupResponse, GamePoolFilters } from "@/types/api";
+import { fetchChainDaily, fetchChainRandom } from "@/api/client";
+import type { ChainSetupResponse } from "@/types/api";
 import { cn } from "@/lib/utils";
-
-const DECADES = [
-  { label: "All", min: null, max: null },
-  { label: "1960s", min: 1960, max: 1969 },
-  { label: "1970s", min: 1970, max: 1979 },
-  { label: "1980s", min: 1980, max: 1989 },
-  { label: "1990s", min: 1990, max: 1999 },
-  { label: "2000s", min: 2000, max: 2009 },
-  { label: "2010s", min: 2010, max: 2019 },
-  { label: "2020s", min: 2020, max: 2029 },
-] as const;
 
 interface ChainSetupProps {
   onStart: (
     mode: "daily" | "free",
     setup: ChainSetupResponse,
-    poolFilters?: GamePoolFilters,
     difficulty?: "easy" | "medium" | "hard",
   ) => void;
 }
@@ -34,19 +19,10 @@ export function ChainSetup({ onStart }: ChainSetupProps) {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [mode, setMode] = useState<"daily" | "free">("daily");
-  const [decadeIdx, setDecadeIdx] = useState(0);
-  const [language, setLanguage] = useState("");
-  const [languages, setLanguages] = useState<{ name: string; code: string }[]>([]);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [setup, setSetup] = useState<ChainSetupResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchTaxonomy("languages").then((t) => {
-      setLanguages(t.items.slice(0, 30).map((i) => ({ name: i.name, code: i.name })));
-    }).catch(() => {});
-  }, []);
 
   useEffect(() => {
     if (mode !== "daily") return;
@@ -120,12 +96,7 @@ export function ChainSetup({ onStart }: ChainSetupProps) {
           return;
         }
       }
-      const filters: GamePoolFilters = {};
-      const d = DECADES[decadeIdx];
-      if (d?.min != null) filters.year_min = d.min;
-      if (d?.max != null) filters.year_max = d.max;
-      if (language) filters.language = language;
-      const s = mode === "daily" ? await fetchChainDaily() : await fetchChainRandom(filters, difficulty);
+      const s = mode === "daily" ? await fetchChainDaily() : await fetchChainRandom({}, difficulty);
       setSetup(s);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load pair");
@@ -136,14 +107,7 @@ export function ChainSetup({ onStart }: ChainSetupProps) {
 
   function handleStart() {
     if (!setup || setup.already_played) return;
-    const filters: GamePoolFilters = {};
-    const d = DECADES[decadeIdx];
-    if (mode === "free") {
-      if (d?.min != null) filters.year_min = d.min;
-      if (d?.max != null) filters.year_max = d.max;
-      if (language) filters.language = language;
-    }
-    onStart(mode, setup, mode === "free" ? filters : undefined, mode === "free" ? difficulty : "medium");
+    onStart(mode, setup, mode === "free" ? difficulty : "medium");
   }
 
   return (
@@ -213,35 +177,6 @@ export function ChainSetup({ onStart }: ChainSetupProps) {
                 {d}
               </button>
             ))}
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-          <div className="flex flex-wrap gap-1">
-            {DECADES.map((d, i) => (
-              <button
-                key={d.label}
-                onClick={() => setDecadeIdx(i)}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-xs font-medium",
-                  decadeIdx === i
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-          <Select value={language || "any"} onValueChange={(v) => setLanguage(v === "any" ? "" : v)}>
-            <SelectTrigger className="h-9 w-44 text-xs">
-              <SelectValue placeholder="Any language" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="any">Any language</SelectItem>
-              {languages.map((l) => (
-                <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           </div>
         </div>
       )}

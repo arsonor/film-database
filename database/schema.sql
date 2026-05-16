@@ -649,6 +649,7 @@ CREATE TABLE IF NOT EXISTS daily_challenge (
     target_film_id INTEGER REFERENCES film(film_id),
     decoy1_film_id INTEGER REFERENCES film(film_id),
     decoy2_film_id INTEGER REFERENCES film(film_id),
+    decoy_film_ids INTEGER[],
     created_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (challenge_date, game_type)
 );
@@ -669,6 +670,8 @@ CREATE TABLE IF NOT EXISTS game_result (
     stars INTEGER NOT NULL CHECK (stars >= 0 AND stars <= 5),
     tag_sequence JSONB,
     completed BOOLEAN DEFAULT TRUE,
+    difficulty TEXT,
+    pool_filters JSONB,
     played_at TIMESTAMP DEFAULT NOW()
 );
 

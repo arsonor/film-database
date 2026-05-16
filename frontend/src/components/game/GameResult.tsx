@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { fetchFilmDetail, saveGameResult } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import type { FilmDetail, GameFilm } from "@/types/api";
+import type { FilmDetail, GameFilm, GamePoolFilters } from "@/types/api";
 import { DIMENSION_LABELS, DIMENSION_SQUARES, GAME_DIMENSIONS, type GameDimension } from "./dimensions";
+import { describeFilters } from "./shareCaption";
 import type { GameState } from "./GameBoard";
 
 interface GameResultProps {
@@ -13,6 +14,7 @@ interface GameResultProps {
   state: GameState;
   victory: boolean;
   mode: "daily" | "free";
+  poolFilters?: GamePoolFilters;
   onPlayAgain: () => void;
   onHome: () => void;
 }
@@ -24,7 +26,7 @@ function computeStars(tagsUsed: number, lives: number, victory: boolean): number
   return tier[3 - lives] ?? 1;
 }
 
-export function GameResult({ target, state, victory, mode, onPlayAgain, onHome }: GameResultProps) {
+export function GameResult({ target, state, victory, mode, poolFilters, onPlayAgain, onHome }: GameResultProps) {
   const { isAuthenticated } = useAuth();
   const correctTags = state.played.filter((t) => t.correct);
   const tagsUsed = correctTags.length;
@@ -49,10 +51,13 @@ export function GameResult({ target, state, victory, mode, onPlayAgain, onHome }
     .map((t) => DIMENSION_SQUARES[t.dimension as GameDimension] ?? "⬛")
     .join("");
   const lifelinesLine = `💡 ${jokersUsed}/3 lifelines used`;
+  // Tag It free play exposes only language/year filters (no difficulty knob today).
+  const filtersLine = mode === "free" ? describeFilters(null, poolFilters) : "";
+  const filtersBlock = filtersLine ? `\n${filtersLine}` : "";
   const shareText =
     mode === "daily"
       ? `🎬 Tag It Daily #${dayNumber}\n🎯 ${victory ? `Found in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}\nhttps://cinetag.eu/game`
-      : `🎬 Tag It — Free Play\n🎯 ${victory ? `Found "${target.title}" in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}\nhttps://cinetag.eu/game`;
+      : `🎬 Tag It — Free Play\n🎯 ${victory ? `Found "${target.title}" in ${tagsUsed} tags` : "Failed"}\n${heartsLine}\n${starsLine}\n${lifelinesLine}\n${dimSquaresLine}${filtersBlock}\nhttps://cinetag.eu/game`;
 
   // Save result exactly once per mount. useRef survives React strict-mode
   // double-invocation (state guards don't, because both closures capture saved=false).
@@ -94,6 +99,7 @@ export function GameResult({ target, state, victory, mode, onPlayAgain, onHome }
         correct: t.correct,
       })),
       completed: victory,
+      pool_filters: mode === "free" ? poolFilters ?? null : null,
     };
     console.log("[Tag It] saving result", payload);
     saveGameResult(payload)

@@ -561,6 +561,8 @@ export interface GameResultData {
   stars: number;
   tag_sequence: { dimension: string; value: string; remaining: number; correct: boolean }[];
   completed: boolean;
+  difficulty?: "easy" | "medium" | "hard" | null;
+  pool_filters?: GamePoolFilters | null;
 }
 
 export interface GameModeStats {
@@ -586,13 +588,48 @@ export interface GameStats {
   free: GameModeStats;
   tag_it: GameTypeStats;
   chain_it: GameTypeStats;
+  guess_it: GameTypeStats;
+}
+
+// =============================================================================
+// Game mode ("Guess It")
+// =============================================================================
+
+export interface GuessSetupResponse {
+  grid: GameFilm[];
+  target_film_id: number;
+  mode: "daily" | "free";
+  already_played?: AlreadyPlayedDaily | null;
+}
+
+export interface GuessRevealTagResult {
+  dimension: string | null;
+  tag: string | null;
+  display: string | null;
+}
+
+export interface GuessRemoveResult {
+  correct: boolean;
+  is_target: boolean;
+}
+
+export interface GuessEarlyGuessResult {
+  correct: boolean;
+}
+
+export interface GuessAction {
+  action: "reveal" | "remove" | "wrong_remove" | "guess";
+  dimension?: string;
+  tag?: string;
+  film_id?: number;
+  film_title?: string;
 }
 
 // =============================================================================
 // Game mode ("Chain It")
 // =============================================================================
 
-export type GameType = "tag_it" | "chain_it";
+export type GameType = "tag_it" | "chain_it" | "guess_it";
 
 export interface ChainFilm {
   film_id: number;
@@ -664,6 +701,8 @@ export interface ChainResultData {
   stars: number;
   tag_sequence: ChainStep[];
   completed: boolean;
+  difficulty?: "easy" | "medium" | "hard" | null;
+  pool_filters?: GamePoolFilters | null;
 }
 
 export interface GameHistoryFilm {
@@ -677,6 +716,7 @@ export interface GameHistoryItem {
   game_type: GameType;
   mode: "daily" | "free";
   played_at: string | null;
+  challenge_date: string | null;
   stars: number;
   completed: boolean;
   tags_used: number;
@@ -686,6 +726,9 @@ export interface GameHistoryItem {
   film: GameHistoryFilm | null;
   origin_film: GameHistoryFilm | null;
   target_film: GameHistoryFilm | null;
+  difficulty: "easy" | "medium" | "hard" | null;
+  pool_filters: { year_min?: number; year_max?: number; language?: string } | null;
+  tag_sequence: unknown;
 }
 
 export interface PaginatedGameHistory {

@@ -109,6 +109,7 @@ export function TagItPage() {
           state={finalState}
           victory={victory}
           mode={mode}
+          poolFilters={poolFilters}
           onPlayAgain={handlePlayAgain}
           onHome={() => navigate("/game")}
         />

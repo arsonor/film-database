@@ -2,21 +2,23 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChainSetup } from "@/components/game/ChainSetup";
-import { ChainBoard, type ChainBoardState } from "@/components/game/ChainBoard";
-import { ChainResult } from "@/components/game/ChainResult";
-import type { ChainFilm, ChainOrigin, ChainSetupResponse } from "@/types/api";
+import { GuessSetup } from "@/components/game/GuessSetup";
+import { GuessBoard, type GuessBoardState } from "@/components/game/GuessBoard";
+import { GuessResult } from "@/components/game/GuessResult";
+import type { GameFilm, GamePoolFilters, GuessSetupResponse } from "@/types/api";
 
 type Phase = "setup" | "playing" | "result";
 
-export function ChainItPage() {
+export function GuessItPage() {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("setup");
   const [mode, setMode] = useState<"daily" | "free">("daily");
-  const [origin, setOrigin] = useState<ChainOrigin | null>(null);
-  const [target, setTarget] = useState<ChainFilm | null>(null);
+  const [grid, setGrid] = useState<GameFilm[]>([]);
+  const [targetFilmId, setTargetFilmId] = useState<number>(0);
+  const [poolFilters, setPoolFilters] = useState<GamePoolFilters | undefined>();
+  const [decadeLocked, setDecadeLocked] = useState(false);
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
-  const [finalState, setFinalState] = useState<ChainBoardState | null>(null);
+  const [finalState, setFinalState] = useState<GuessBoardState | null>(null);
   const [victory, setVictory] = useState(false);
 
   useEffect(() => {
@@ -25,33 +27,28 @@ export function ChainItPage() {
 
   function handleStart(
     m: "daily" | "free",
-    s: ChainSetupResponse,
+    s: GuessSetupResponse,
+    pf?: GamePoolFilters,
     diff?: "easy" | "medium" | "hard",
+    decLocked?: boolean,
   ) {
     setMode(m);
-    setOrigin(s.origin);
-    setTarget(s.target);
+    setGrid(s.grid);
+    setTargetFilmId(s.target_film_id);
+    setPoolFilters(pf);
     setDifficulty(diff ?? "medium");
+    setDecadeLocked(!!decLocked);
     setPhase("playing");
   }
 
-  function handleVictory(state: ChainBoardState) {
-    setFinalState(state);
-    setVictory(true);
-    setPhase("result");
+  function handleVictory(state: GuessBoardState) {
+    setFinalState(state); setVictory(true); setPhase("result");
   }
-
-  function handleGameOver(state: ChainBoardState) {
-    setFinalState(state);
-    setVictory(false);
-    setPhase("result");
+  function handleGameOver(state: GuessBoardState) {
+    setFinalState(state); setVictory(false); setPhase("result");
   }
-
   function handlePlayAgain() {
-    setPhase("setup");
-    setOrigin(null);
-    setTarget(null);
-    setFinalState(null);
+    setPhase("setup"); setGrid([]); setTargetFilmId(0); setFinalState(null);
   }
 
   return (
@@ -64,7 +61,7 @@ export function ChainItPage() {
           <img src="/cinetag-logo/cinetag_logo.svg" alt="CineTag" className="h-5 w-5" />
           CineTag
         </button>
-        <div className="text-sm font-semibold tracking-wide">🔗 Chain It</div>
+        <div className="text-sm font-semibold tracking-wide">🔍 Guess It</div>
         <div className="flex items-center gap-1">
           <button
             onClick={() => navigate("/game/stats")}
@@ -78,24 +75,26 @@ export function ChainItPage() {
         </div>
       </header>
 
-      {phase === "setup" && <ChainSetup onStart={handleStart} />}
-      {phase === "playing" && origin && target && (
-        <ChainBoard
-          origin={origin}
-          target={target}
+      {phase === "setup" && <GuessSetup onStart={handleStart} />}
+      {phase === "playing" && grid.length > 0 && (
+        <GuessBoard
+          grid={grid}
+          targetFilmId={targetFilmId}
+          decadeLocked={decadeLocked}
           difficulty={difficulty}
           onVictory={handleVictory}
           onGameOver={handleGameOver}
         />
       )}
-      {phase === "result" && origin && target && finalState && (
-        <ChainResult
-          origin={origin}
-          target={target}
+      {phase === "result" && finalState && (
+        <GuessResult
+          grid={grid}
+          targetFilmId={targetFilmId}
           state={finalState}
           victory={victory}
           mode={mode}
           difficulty={difficulty}
+          poolFilters={poolFilters}
           onPlayAgain={handlePlayAgain}
           onHome={() => navigate("/game")}
         />

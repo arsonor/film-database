@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { BarChart3, Home, Link2, Target } from "lucide-react";
+import { BarChart3, Home, Link2, Search, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 
@@ -47,20 +47,31 @@ export function GameHubPage() {
           CineTag
         </button>
         <div className="text-sm font-semibold tracking-wide">🎮 Games</div>
-        <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
-          <Home className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {isAuthenticated && (
+            <button
+              onClick={() => navigate("/game/stats")}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+              title="Stats & History"
+            >
+              <BarChart3 className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Stats & History</span>
+            </button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => navigate("/browse")}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       <main className="mx-auto flex max-w-5xl flex-col items-center gap-8 px-4 py-10">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Choose your game</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Two ways to test your cinema knowledge. Daily challenges and free play.
+            Three ways to test your cinema knowledge. Daily challenges and free play.
           </p>
         </div>
 
-        <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
           <GameCard
             icon={Target}
             title="Tag It"
@@ -79,16 +90,17 @@ export function GameHubPage() {
             onPlay={() => navigate("/game/chain-it")}
             accent="border-amber-500/40 hover:border-amber-500"
           />
+          <GameCard
+            icon={Search}
+            title="Guess It"
+            emoji="🔍"
+            tagline="Eliminate films as tags are revealed"
+            description="Find the hidden film by removing decoys one by one. Wrong removals cost lives. 3 lives, 3 lifelines."
+            onPlay={() => navigate("/game/guess-it")}
+            accent="border-emerald-500/40 hover:border-emerald-500"
+          />
         </div>
 
-        {isAuthenticated && (
-          <button
-            onClick={() => navigate("/game/stats")}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
-            <BarChart3 className="h-4 w-4" /> My Stats & History →
-          </button>
-        )}
       </main>
     </div>
   );

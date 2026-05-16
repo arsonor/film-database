@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { saveChainResult } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
-import type { ChainFilm, ChainOrigin } from "@/types/api";
+import type { ChainFilm, ChainOrigin, GamePoolFilters } from "@/types/api";
+import { describeFilters } from "./shareCaption";
 import type { ChainBoardState } from "./ChainBoard";
 
 function computeStars(chainLen: number, lives: number, victory: boolean): number {
@@ -19,11 +20,13 @@ interface ChainResultProps {
   state: ChainBoardState;
   victory: boolean;
   mode: "daily" | "free";
+  difficulty?: "easy" | "medium" | "hard";
+  poolFilters?: GamePoolFilters;
   onPlayAgain: () => void;
   onHome: () => void;
 }
 
-export function ChainResult({ origin, target, state, victory, mode, onPlayAgain, onHome }: ChainResultProps) {
+export function ChainResult({ origin, target, state, victory, mode, difficulty, poolFilters, onPlayAgain, onHome }: ChainResultProps) {
   const { isAuthenticated } = useAuth();
   const chainLen = state.steps.length;
   const stars = computeStars(chainLen, state.lives, victory);
@@ -41,9 +44,11 @@ export function ChainResult({ origin, target, state, victory, mode, onPlayAgain,
   const hearts = "❤️".repeat(state.lives) + "🖤".repeat(3 - state.lives);
   const starsLine = stars > 0 ? "⭐".repeat(stars) : "💀";
   const chainTitles = [origin.title, ...state.steps.map((s) => s.film.title), ...(victory ? [target.title] : [])];
+  const filtersLine = mode === "free" ? describeFilters(difficulty ?? null, poolFilters) : "";
+  const filtersBlock = filtersLine ? `\n${filtersLine}` : "";
   const shareText = mode === "daily"
     ? `🔗 CineTag Chain #${dayNumber}\n🎬 ${chainTitles.join(" → ")}\n📏 ${chainLen} steps | ${hearts} | ${starsLine}\nhttps://cinetag.eu/game`
-    : `🔗 CineTag Chain — Free Play\n🎬 ${chainTitles.join(" → ")}\n📏 ${chainLen} steps | ${hearts} | ${starsLine}\nhttps://cinetag.eu/game`;
+    : `🔗 CineTag Chain — Free Play\n🎬 ${chainTitles.join(" → ")}\n📏 ${chainLen} steps | ${hearts} | ${starsLine}${filtersBlock}\nhttps://cinetag.eu/game`;
 
   useEffect(() => {
     if (saveRef.current) return;
@@ -79,6 +84,8 @@ export function ChainResult({ origin, target, state, victory, mode, onPlayAgain,
       stars,
       tag_sequence: state.sequence,
       completed: victory,
+      difficulty: mode === "free" ? difficulty ?? null : null,
+      pool_filters: mode === "free" ? poolFilters ?? null : null,
     }).catch((e) => console.error("[Chain It] save failed", e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

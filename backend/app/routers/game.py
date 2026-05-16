@@ -464,7 +464,7 @@ async def save_result(
         raise HTTPException(status_code=400, detail="film_id required")
 
     game_type = body.get("game_type") or "tag_it"
-    if game_type not in ("tag_it", "chain_it"):
+    if game_type not in ("tag_it", "chain_it", "guess_it"):
         raise HTTPException(status_code=400, detail="invalid game_type")
 
     tags_used = int(body.get("tags_used") or 0)
@@ -476,6 +476,8 @@ async def save_result(
     chain_length = body.get("chain_length")
     origin_film_id = body.get("origin_film_id")
     target_film_id = body.get("target_film_id")
+    difficulty = body.get("difficulty")
+    pool_filters = body.get("pool_filters")
 
     if mode == "daily":
         r = await db.execute(
@@ -494,9 +496,11 @@ async def save_result(
         insert_sql = f"""
             INSERT INTO game_result (user_id, game_type, film_id, origin_film_id, target_film_id,
                                      chain_length, mode, challenge_date, tags_used,
-                                     lives_remaining, jokers_used, stars, tag_sequence, completed)
+                                     lives_remaining, jokers_used, stars, tag_sequence, completed,
+                                     difficulty, pool_filters)
             VALUES (:uid, :gt, :fid, :ofid, :tfid, :cl, :mode, {date_expr},
-                    :tu, :lr, :ju, :st, CAST(:seq AS JSONB), :comp)
+                    :tu, :lr, :ju, :st, CAST(:seq AS JSONB), :comp,
+                    :diff, CAST(:pf AS JSONB))
             RETURNING id
         """
         params = {
@@ -506,6 +510,8 @@ async def save_result(
             "tu": tags_used, "lr": lives_remaining, "ju": jokers_used, "st": stars,
             "seq": json.dumps(tag_sequence) if tag_sequence is not None else None,
             "comp": completed,
+            "diff": difficulty,
+            "pf": json.dumps(pool_filters) if pool_filters else None,
         }
         r = await db.execute(text(insert_sql), params)
         rid = r.scalar_one()
@@ -598,6 +604,7 @@ async def game_stats(
     result = {
         "tag_it": {"daily": _empty_mode_block(), "free": _empty_mode_block()},
         "chain_it": {"daily": _empty_mode_block(), "free": _empty_mode_block()},
+        "guess_it": {"daily": _empty_mode_block(), "free": _empty_mode_block()},
     }
     for row in r.fetchall():
         gt, mode = row[0], row[1]
@@ -611,7 +618,7 @@ async def game_stats(
             "best_tags": row[6],
         }
 
-    for gt in ("tag_it", "chain_it"):
+    for gt in ("tag_it", "chain_it", "guess_it"):
         cs, ms = await _compute_streak(db, user.id, gt)
         result[gt]["daily"]["current_streak"] = cs
         result[gt]["daily"]["max_streak"] = ms
@@ -635,7 +642,7 @@ async def game_history(
     user: UserInfo = Depends(require_authenticated),
     db: AsyncSession = Depends(get_db),
 ):
-    if game_type and game_type not in ("tag_it", "chain_it"):
+    if game_type and game_type not in ("tag_it", "chain_it", "guess_it"):
         raise HTTPException(status_code=400, detail="invalid game_type")
 
     where = ["user_id = :uid"]
@@ -657,7 +664,8 @@ async def game_history(
                gr.tags_used, gr.chain_length, gr.lives_remaining, gr.jokers_used,
                gr.film_id, fp.original_title, fp.poster_url,
                gr.origin_film_id, fo.original_title, fo.poster_url,
-               gr.target_film_id, ft.original_title, ft.poster_url
+               gr.target_film_id, ft.original_title, ft.poster_url,
+               gr.difficulty, gr.pool_filters, gr.challenge_date, gr.tag_sequence
         FROM game_result gr
         LEFT JOIN film fp ON fp.film_id = gr.film_id
         LEFT JOIN film fo ON fo.film_id = gr.origin_film_id
@@ -690,6 +698,10 @@ async def game_history(
             "film": f(row[10], row[11], row[12]),
             "origin_film": f(row[13], row[14], row[15]),
             "target_film": f(row[16], row[17], row[18]),
+            "difficulty": row[19],
+            "pool_filters": row[20],
+            "challenge_date": row[21].isoformat() if row[21] else None,
+            "tag_sequence": row[22],
         })
 
     total_pages = (total + per_page - 1) // per_page if total else 0
@@ -1083,3 +1095,374 @@ async def chain_joker_reveal_tag(body: dict = Body(...), db: AsyncSession = Depe
         return {"dimension": None, "tag": None, "in_current": False}
     dim, tag = random.choice(candidates)
     return {"dimension": dim, "tag": tag, "in_current": False}
+
+
+# =============================================================================
+# Guess It — helpers & endpoints
+# =============================================================================
+
+
+_GUESS_DIM_LABELS = {
+    "categories": "Genre",
+    "themes": "Theme",
+    "atmospheres": "Atmosphere",
+    "characters": "Characters",
+    "motivations": "Motivation",
+    "messages": "Message",
+    "cinema_types": "Cinema type",
+    "time_periods": "Time period",
+    "place_contexts": "Place",
+}
+
+
+async def _build_guess_grid(
+    db: AsyncSession,
+    target_film_id: int,
+    pool_filters: dict | None = None,
+    difficulty: str = "medium",
+) -> list[int]:
+    """Build an 11-decoy list (target excluded) at varying similarity.
+
+    Difficulty controls the mix:
+      easy   → mostly loosely-related films (rank 30-100 + random popular)
+      medium → 3 close / 4 mid / 4 loose
+      hard   → mostly highly-similar films (rank 1-15)
+    Pool filters (year/language) restrict every candidate.
+    """
+    from backend.app.services.recommender import get_similar_films
+
+    similar = await get_similar_films(db, target_film_id, limit=100, tier="admin")
+    similar_ids = [s["film_id"] for s in similar if s["film_id"] != target_film_id]
+
+    # Filter similar_ids by pool_filters if any.
+    if pool_filters and similar_ids:
+        params: dict = {"ids": similar_ids}
+        where = ["film_id = ANY(:ids)"]
+        pf_clauses = _apply_pool_filters(pool_filters, params)
+        where.extend(pf_clauses)
+        r = await db.execute(
+            text(f"SELECT film_id FROM film WHERE {' AND '.join(where)}"),
+            params,
+        )
+        allowed = {row[0] for row in r.fetchall()}
+        similar_ids = [fid for fid in similar_ids if fid in allowed]
+
+    decoys: list[int] = []
+
+    if difficulty == "hard":
+        # Previously "medium" — balanced 3/4/4 gradient.
+        top_pool = similar_ids[:10]
+        if top_pool:
+            decoys.extend(random.sample(top_pool, min(3, len(top_pool))))
+        mid_pool = [fid for fid in similar_ids[10:30] if fid not in decoys]
+        if mid_pool:
+            decoys.extend(random.sample(mid_pool, min(4, len(mid_pool))))
+        low_pool = [fid for fid in similar_ids[30:60] if fid not in decoys]
+        if low_pool:
+            decoys.extend(random.sample(low_pool, min(4, len(low_pool))))
+    elif difficulty == "easy":
+        # Mostly loosely-related, no very-similar decoys → easier to eliminate.
+        low_pool = [fid for fid in similar_ids[30:100]]
+        if low_pool:
+            decoys.extend(random.sample(low_pool, min(7, len(low_pool))))
+        mid_pool = [fid for fid in similar_ids[15:30] if fid not in decoys]
+        if mid_pool:
+            decoys.extend(random.sample(mid_pool, min(11 - len(decoys), len(mid_pool))))
+    else:  # medium — softer than before: 1 close / 3 mid / 7 loose
+        top_pool = similar_ids[:10]
+        if top_pool:
+            decoys.extend(random.sample(top_pool, min(1, len(top_pool))))
+        mid_pool = [fid for fid in similar_ids[10:30] if fid not in decoys]
+        if mid_pool:
+            decoys.extend(random.sample(mid_pool, min(3, len(mid_pool))))
+        low_pool = [fid for fid in similar_ids[30:100] if fid not in decoys]
+        if low_pool:
+            decoys.extend(random.sample(low_pool, min(11 - len(decoys), len(low_pool))))
+
+    if len(decoys) < 11:
+        existing = set(decoys + [target_film_id])
+        fill_params: dict = {"excl": list(existing), "n": 11 - len(decoys)}
+        fill_where = ["poster_url IS NOT NULL", "film_id <> ALL(:excl)"]
+        fill_where.extend(_apply_pool_filters(pool_filters, fill_params))
+        order = "weighted_score DESC NULLS LAST, RANDOM()" if difficulty == "easy" else "RANDOM()"
+        r = await db.execute(
+            text(f"""SELECT film_id FROM film
+                     WHERE {' AND '.join(fill_where)}
+                     ORDER BY {order} LIMIT :n"""),
+            fill_params,
+        )
+        decoys.extend([row[0] for row in r.fetchall()])
+
+    return decoys[:11]
+
+
+def _deterministic_shuffle(items: list[int], seed: str) -> list[int]:
+    rnd = random.Random(seed)
+    out = list(items)
+    rnd.shuffle(out)
+    return out
+
+
+@router.get("/game/guess/daily")
+async def guess_daily(
+    db: AsyncSession = Depends(get_db),
+    user: UserInfo | None = Depends(get_current_user),
+):
+    r = await db.execute(
+        text("""SELECT film_id, decoy_film_ids FROM daily_challenge
+                WHERE challenge_date = CURRENT_DATE AND game_type = 'guess_it'"""),
+    )
+    row = r.fetchone()
+    if row is None:
+        target_id = await _pick_eligible_film(db)
+        if target_id is None:
+            raise HTTPException(status_code=500, detail="No eligible film found")
+        decoys = await _build_guess_grid(db, target_id)
+        await db.execute(
+            text("""INSERT INTO daily_challenge (challenge_date, game_type, film_id, decoy_film_ids)
+                    VALUES (CURRENT_DATE, 'guess_it', :f, :d)
+                    ON CONFLICT (challenge_date, game_type) DO NOTHING"""),
+            {"f": target_id, "d": decoys},
+        )
+        await db.commit()
+    else:
+        target_id, decoys = row[0], list(row[1] or [])
+
+    grid_ids = _deterministic_shuffle([target_id] + decoys, f"guess-{target_id}-daily")
+    films = await _fetch_films(db, grid_ids)
+
+    already_played = None
+    if user:
+        ar = await db.execute(
+            text("""SELECT film_id, tags_used, lives_remaining, jokers_used, stars,
+                           tag_sequence, completed, played_at
+                    FROM game_result
+                    WHERE user_id = :uid AND mode = 'daily'
+                      AND challenge_date = CURRENT_DATE AND game_type = 'guess_it'
+                    LIMIT 1"""),
+            {"uid": user.id},
+        )
+        ar_row = ar.fetchone()
+        if ar_row:
+            already_played = {
+                "film_id": ar_row[0],
+                "tags_used": ar_row[1],
+                "lives_remaining": ar_row[2],
+                "jokers_used": ar_row[3],
+                "stars": ar_row[4],
+                "tag_sequence": ar_row[5],
+                "completed": ar_row[6],
+                "played_at": ar_row[7].isoformat() if ar_row[7] else None,
+            }
+
+    return {
+        "grid": films,
+        "target_film_id": target_id,
+        "mode": "daily",
+        "already_played": already_played,
+    }
+
+
+@router.get("/game/guess/random")
+async def guess_random(
+    year_min: int | None = Query(None),
+    year_max: int | None = Query(None),
+    language: str | None = Query(None),
+    difficulty: str = Query("medium"),
+    db: AsyncSession = Depends(get_db),
+):
+    if difficulty not in ("easy", "medium", "hard"):
+        difficulty = "medium"
+    params: dict = {}
+    where = ["f.poster_url IS NOT NULL", "f.summary IS NOT NULL"]
+    pool_filters: dict = {}
+    if year_min is not None:
+        pool_filters["year_min"] = year_min
+    if year_max is not None:
+        pool_filters["year_max"] = year_max
+    if language:
+        pool_filters["language"] = language
+    where.extend(_apply_pool_filters(pool_filters, params, alias="f"))
+
+    dim_unions = " UNION ALL ".join([
+        f"SELECT DISTINCT film_id FROM {jt}" for (jt, _, _, _, _) in DIMENSION_TABLE_MAP.values()
+    ])
+    where_sql = " AND ".join(where)
+    pick_sql = f"""
+        WITH dim_films AS (
+            SELECT film_id, COUNT(*) AS n_dims FROM (
+                {dim_unions}
+            ) u GROUP BY film_id
+        )
+        SELECT f.film_id
+        FROM film f
+        JOIN dim_films d ON d.film_id = f.film_id
+        WHERE d.n_dims >= 5 AND {where_sql}
+        ORDER BY RANDOM() LIMIT 1
+    """
+    r = await db.execute(text(pick_sql), params)
+    row = r.fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="No eligible film in this pool")
+    target_id = row[0]
+
+    decoys = await _build_guess_grid(db, target_id, pool_filters, difficulty=difficulty)
+    grid_ids = [target_id] + decoys
+    random.shuffle(grid_ids)
+    films = await _fetch_films(db, grid_ids)
+    return {"grid": films, "target_film_id": target_id, "mode": "free"}
+
+
+async def _film_has_tag(db: AsyncSession, film_id: int, dim: str, value: str) -> bool:
+    if dim not in DIMENSION_TABLE_MAP:
+        return False
+    jt, jfk, tt, tpk, tn = DIMENSION_TABLE_MAP[dim]
+    r = await db.execute(
+        text(
+            f"SELECT 1 FROM {jt} j JOIN {tt} t ON j.{jfk} = t.{tpk} "
+            f"WHERE j.film_id = :fid AND t.{tn} = :v LIMIT 1"
+        ),
+        {"fid": film_id, "v": value},
+    )
+    return r.fetchone() is not None
+
+
+@router.post("/game/guess/reveal-tag")
+async def guess_reveal_tag(body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    target_film_id = body.get("target_film_id")
+    revealed_tags = body.get("revealed_tags") or []
+    remaining_film_ids = body.get("remaining_film_ids") or []
+    difficulty = body.get("difficulty") or "medium"
+    if difficulty not in ("easy", "medium", "hard"):
+        difficulty = "medium"
+    if not target_film_id:
+        raise HTTPException(status_code=400, detail="target_film_id required")
+
+    target_tags = await _fetch_film_tags(db, target_film_id)
+    revealed_set = {(t.get("dimension"), t.get("value")) for t in revealed_tags}
+    revealed_dims = {t.get("dimension") for t in revealed_tags}
+
+    # Build candidate tags from target (skip already revealed and pseudo-dims like geography)
+    candidates: list[tuple[str, str]] = []
+    for dim, vals in target_tags.items():
+        if dim not in DIMENSION_TABLE_MAP:
+            continue
+        for tag in vals:
+            if (dim, tag) in revealed_set:
+                continue
+            candidates.append((dim, tag))
+
+    if not candidates:
+        return {"dimension": None, "tag": None, "display": None}
+
+    # For each candidate, count how many remaining decoys share that tag with the target.
+    # Difficulty tunes which count we prefer:
+    #   easy   → low count (highly discriminative: many decoys can be eliminated)
+    #   medium → middling count (≈ N/2; balanced)
+    #   hard   → high count (most decoys also have it; few eliminations, much ambiguity)
+    decoy_ids = [fid for fid in remaining_film_ids if fid != target_film_id]
+    n = max(1, len(decoy_ids))
+
+    scored: list[tuple[str, str, int]] = []
+    for dim, tag in candidates:
+        if not decoy_ids:
+            count = 0
+        else:
+            jt, jfk, tt, tpk, tn = DIMENSION_TABLE_MAP[dim]
+            r = await db.execute(
+                text(
+                    f"SELECT COUNT(DISTINCT j.film_id) FROM {jt} j "
+                    f"JOIN {tt} t ON j.{jfk} = t.{tpk} "
+                    f"WHERE t.{tn} = :v AND j.film_id = ANY(:ids)"
+                ),
+                {"v": tag, "ids": decoy_ids},
+            )
+            count = r.scalar_one() or 0
+        scored.append((dim, tag, count))
+
+    if not scored:
+        return {"dimension": None, "tag": None, "display": None}
+
+    if difficulty == "easy":
+        # Lowest count → highly discriminative.
+        key_fn = lambda x: (x[2], 0 if x[0] not in revealed_dims else 1, random.random())
+    elif difficulty == "hard":
+        # Balanced — about half the decoys share the tag (was the previous "medium").
+        target_count = max(1, n // 2)
+        key_fn = lambda x: (abs(x[2] - target_count), 0 if x[0] not in revealed_dims else 1, random.random())
+    else:
+        # Medium — softer than before: target ≈ N/3, so most decoys still don't have the tag
+        # and can be safely eliminated.
+        target_count = max(1, n // 3)
+        key_fn = lambda x: (abs(x[2] - target_count), 0 if x[0] not in revealed_dims else 1, random.random())
+
+    scored.sort(key=key_fn)
+    dim, tag, _ = scored[0]
+    label = _GUESS_DIM_LABELS.get(dim, dim)
+    return {"dimension": dim, "tag": tag, "display": f"{label}: {tag}"}
+
+
+@router.post("/game/guess/remove")
+async def guess_remove(body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    target_film_id = body.get("target_film_id")
+    film_id_to_remove = body.get("film_id_to_remove")
+    revealed_tags = body.get("revealed_tags") or []
+    if not target_film_id or not film_id_to_remove:
+        raise HTTPException(status_code=400, detail="film ids required")
+
+    if film_id_to_remove == target_film_id:
+        return {"correct": False, "is_target": True}
+
+    # Film "matches all revealed tags" → wrong removal.
+    matches_all = True
+    for t in revealed_tags:
+        dim = t.get("dimension")
+        val = t.get("value")
+        if not dim or not val:
+            continue
+        if not await _film_has_tag(db, film_id_to_remove, dim, val):
+            matches_all = False
+            break
+
+    if matches_all and revealed_tags:
+        return {"correct": False, "is_target": False}
+    return {"correct": True, "is_target": False}
+
+
+@router.post("/game/guess/early-guess")
+async def guess_early(body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    target_film_id = body.get("target_film_id")
+    guessed_film_id = body.get("guessed_film_id")
+    if not target_film_id or not guessed_film_id:
+        raise HTTPException(status_code=400, detail="film ids required")
+    return {"correct": target_film_id == guessed_film_id}
+
+
+@router.post("/game/guess/joker/synopsis")
+async def guess_joker_synopsis(body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    """Reveal the synopsis of a random remaining film (may or may not be target).
+
+    Body: {remaining_film_ids: [int], used_film_ids: [int]}
+    """
+    remaining = body.get("remaining_film_ids") or []
+    used = set(body.get("used_film_ids") or [])
+    pool = [fid for fid in remaining if fid not in used]
+    if not pool:
+        return {"film_id": None, "synopsis": None}
+    fid = random.choice(pool)
+    r = await db.execute(text("SELECT summary FROM film WHERE film_id = :fid"), {"fid": fid})
+    row = r.fetchone()
+    return {"film_id": fid, "synopsis": row[0] if row else None}
+
+
+@router.post("/game/guess/joker/decade")
+async def guess_joker_decade(body: dict = Body(...), db: AsyncSession = Depends(get_db)):
+    target_film_id = body.get("target_film_id")
+    if not target_film_id:
+        raise HTTPException(status_code=400, detail="target_film_id required")
+    r = await db.execute(text("SELECT first_release_date FROM film WHERE film_id = :fid"), {"fid": target_film_id})
+    row = r.fetchone()
+    y = _year_from_date(row[0]) if row else None
+    if y is None:
+        return {"decade": None}
+    return {"decade": f"{(y // 10) * 10}s"}

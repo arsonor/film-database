@@ -2,58 +2,37 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Loader2, Lock, LogIn, Play, Shuffle, Star, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
-import { fetchDailyChallenge, fetchGameStats, fetchRandomFilms, fetchTaxonomy } from "@/api/client";
+import { fetchDailyChallenge, fetchRandomFilms, fetchTaxonomy } from "@/api/client";
 import type {
-  AlreadyPlayedDaily, GameFilm, GamePoolFilters, GameSetupResponse, GameStats,
+  AlreadyPlayedDaily, GameFilm, GamePoolFilters, GameSetupResponse,
 } from "@/types/api";
 import { cn } from "@/lib/utils";
+import {
+  buildPoolFilters, DecadeRangePicker, LanguagePicker, NO_RANGE, type DecadeRange,
+} from "./freePlayFilters";
 
 interface GameSetupProps {
   onStart: (mode: "daily" | "free", setup: GameSetupResponse, target: GameFilm, poolFilters?: GamePoolFilters) => void;
 }
 
-const DECADES = [
-  { label: "All", min: null, max: null },
-  { label: "1950s", min: 1950, max: 1959 },
-  { label: "1960s", min: 1960, max: 1969 },
-  { label: "1970s", min: 1970, max: 1979 },
-  { label: "1980s", min: 1980, max: 1989 },
-  { label: "1990s", min: 1990, max: 1999 },
-  { label: "2000s", min: 2000, max: 2009 },
-  { label: "2010s", min: 2010, max: 2019 },
-  { label: "2020s", min: 2020, max: 2029 },
-] as const;
-
 export function GameSetup({ onStart }: GameSetupProps) {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [mode, setMode] = useState<"daily" | "free">("daily");
-  const [decadeIdx, setDecadeIdx] = useState(0);
+  const [decadeRange, setDecadeRange] = useState<DecadeRange>(NO_RANGE);
   const [language, setLanguage] = useState<string>("");
-  const [languages, setLanguages] = useState<{ name: string; code: string }[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
   const [setup, setSetup] = useState<GameSetupResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alreadyPlayed, setAlreadyPlayed] = useState<AlreadyPlayedDaily | null>(null);
-  const [stats, setStats] = useState<GameStats | null>(null);
 
   useEffect(() => {
     fetchTaxonomy("languages").then((t) => {
-      setLanguages(t.items.slice(0, 30).map((i) => ({ name: i.name, code: i.name })));
+      setLanguages(t.items.map((i) => i.name));
     }).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchGameStats().then(setStats).catch(() => {});
-    } else {
-      setStats(null);
-    }
-  }, [isAuthenticated]);
 
   // On mount: if the user already played today's daily, show the panel immediately.
   // Anonymous → localStorage; Authenticated → backend already_played.
@@ -91,14 +70,8 @@ export function GameSetup({ onStart }: GameSetupProps) {
 
   const poolFilters: GamePoolFilters | undefined = useMemo(() => {
     if (mode !== "free") return undefined;
-    const d = DECADES[decadeIdx];
-    const f: GamePoolFilters = {};
-    if (!d) return f;
-    if (d.min != null) f.year_min = d.min;
-    if (d.max != null) f.year_max = d.max;
-    if (language) f.language = language;
-    return f;
-  }, [mode, decadeIdx, language]);
+    return buildPoolFilters(decadeRange, language);
+  }, [mode, decadeRange, language]);
 
   function checkLocalDaily(): AlreadyPlayedDaily | null {
     try {
@@ -167,46 +140,6 @@ export function GameSetup({ onStart }: GameSetupProps) {
         </p>
       </div>
 
-      {/* Stats — two clean blocks: Daily / Free */}
-      {isAuthenticated && stats && (stats.daily.games > 0 || stats.free.games > 0) && (
-        <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
-          {stats.daily.games > 0 && (
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" /> Daily
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat label="Played" value={stats.daily.games} />
-                <Stat label="Wins" value={stats.daily.wins} />
-                <Stat label="Avg ⭐" value={stats.daily.avg_stars.toFixed(1)} />
-                <Stat label="Best ⭐" value={stats.daily.best_stars} />
-                <Stat label="Best tags" value={stats.daily.best_tags ?? "—"} />
-                <Stat label="Streak" value={`🔥 ${stats.daily.current_streak}`} />
-              </div>
-              {stats.daily.max_streak > stats.daily.current_streak && (
-                <div className="mt-2 text-center text-[10px] text-muted-foreground">
-                  Best streak: 🏆 {stats.daily.max_streak}
-                </div>
-              )}
-            </div>
-          )}
-          {stats.free.games > 0 && (
-            <div className="rounded-lg border border-border bg-muted/20 p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <Shuffle className="h-3.5 w-3.5" /> Free play
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <Stat label="Played" value={stats.free.games} />
-                <Stat label="Wins" value={stats.free.wins} />
-                <Stat label="Avg ⭐" value={stats.free.avg_stars.toFixed(1)} />
-                <Stat label="Best ⭐" value={stats.free.best_stars} />
-                <Stat label="Best tags" value={stats.free.best_tags ?? "—"} />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="flex rounded-md border border-border bg-muted/30 p-1">
         <button
           onClick={() => {
@@ -246,34 +179,9 @@ export function GameSetup({ onStart }: GameSetupProps) {
       )}
 
       {mode === "free" && isAuthenticated && (
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <div className="flex flex-wrap gap-1">
-            {DECADES.map((d, i) => (
-              <button
-                key={d.label}
-                onClick={() => setDecadeIdx(i)}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-xs font-medium",
-                  decadeIdx === i
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-          <Select value={language || "any"} onValueChange={(v) => setLanguage(v === "any" ? "" : v)}>
-            <SelectTrigger className="h-9 w-44 text-xs">
-              <SelectValue placeholder="Any language" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="any">Any language</SelectItem>
-              {languages.map((l) => (
-                <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col items-center gap-3">
+          <DecadeRangePicker range={decadeRange} onChange={setDecadeRange} />
+          <LanguagePicker value={language} available={languages} onChange={setLanguage} />
         </div>
       )}
 
@@ -352,11 +260,3 @@ export function GameSetup({ onStart }: GameSetupProps) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div>
-      <div className="text-lg font-bold tabular-nums">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-    </div>
-  );
-}
