@@ -203,8 +203,17 @@ CREATE TABLE IF NOT EXISTS category (
     UNIQUE (category_name, historic_subcategory_name)
 );
 
-COMMENT ON TABLE category IS 'Film genres/categories (Action, Drama, etc.) with optional historical subcategories';
-COMMENT ON COLUMN category.historic_subcategory_name IS 'Subcategory for Historical films: biopic, western, peplum, etc.';
+-- Taxonomy v2 makes every Genre tag a flat row (historic_subcategory_name NULL).
+-- The table-level UNIQUE above uses NULLS DISTINCT semantics, so ('war', NULL)
+-- would not conflict with an existing ('war', NULL) row and ON CONFLICT would
+-- never fire. This partial index gives those rows a real conflict target and
+-- keeps seed_taxonomy.sql idempotent.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_category_name_no_subcategory
+    ON category (category_name)
+    WHERE historic_subcategory_name IS NULL;
+
+COMMENT ON TABLE category IS 'Film genres/categories: 12 main genres (sort_order < 200) plus sub-genres (sort_order >= 200)';
+COMMENT ON COLUMN category.historic_subcategory_name IS 'DEPRECATED (Taxonomy v2): legacy composite subcategory, always NULL — sub-genres are flat rows';
 
 -- Film-Category junction table
 CREATE TABLE IF NOT EXISTS film_genre (
@@ -411,6 +420,9 @@ CREATE INDEX IF NOT EXISTS idx_film_atmosphere_atmosphere_id ON film_atmosphere(
 
 -- =============================================================================
 -- CLASSIFICATION: MOTIVATIONS & RELATIONS
+-- DEPRECATED (emptied in migration 026, dropped in a later step)
+-- Dissolved into category (Genre) and theme_context (Theme) by Taxonomy v2.
+-- Kept as empty tables so the recommender, dashboard and games keep running.
 -- =============================================================================
 
 -- Character motivations and relationships
@@ -420,7 +432,7 @@ CREATE TABLE IF NOT EXISTS motivation_relation (
     sort_order INTEGER DEFAULT 999
 );
 
-COMMENT ON TABLE motivation_relation IS 'Character motivations and interpersonal dynamics (vengeance, friendship, jealousy, etc.)';
+COMMENT ON TABLE motivation_relation IS 'DEPRECATED (emptied in migration 026, dropped in a later step) - character motivations and interpersonal dynamics';
 
 -- Film-Motivation junction table
 CREATE TABLE IF NOT EXISTS film_motivation (
@@ -431,13 +443,16 @@ CREATE TABLE IF NOT EXISTS film_motivation (
     FOREIGN KEY (motivation_id) REFERENCES motivation_relation(motivation_id) ON DELETE CASCADE
 );
 
-COMMENT ON TABLE film_motivation IS 'Junction table linking films to character motivations';
+COMMENT ON TABLE film_motivation IS 'DEPRECATED (emptied in migration 026, dropped in a later step) - junction table linking films to character motivations';
 
 CREATE INDEX IF NOT EXISTS idx_film_motivation_film_id ON film_motivation(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_motivation_motivation_id ON film_motivation(motivation_id);
 
 -- =============================================================================
 -- CLASSIFICATION: MESSAGE CONVEYED
+-- DEPRECATED (emptied in migration 026, dropped in a later step)
+-- Dissolved into category (Genre), theme_context (Theme) and atmosphere by
+-- Taxonomy v2. Kept as empty tables so the dashboard and games keep running.
 -- =============================================================================
 
 -- Film's message or narrative approach
@@ -447,7 +462,7 @@ CREATE TABLE IF NOT EXISTS message_conveyed (
     sort_order INTEGER DEFAULT 999
 );
 
-COMMENT ON TABLE message_conveyed IS 'The message or narrative tone of the film (satirical, philosophical, nostalgic, etc.)';
+COMMENT ON TABLE message_conveyed IS 'DEPRECATED (emptied in migration 026, dropped in a later step) - the message or narrative tone of the film';
 
 -- Film-Message junction table
 CREATE TABLE IF NOT EXISTS film_message (
@@ -458,7 +473,7 @@ CREATE TABLE IF NOT EXISTS film_message (
     FOREIGN KEY (message_id) REFERENCES message_conveyed(message_id) ON DELETE CASCADE
 );
 
-COMMENT ON TABLE film_message IS 'Junction table linking films to their conveyed messages';
+COMMENT ON TABLE film_message IS 'DEPRECATED (emptied in migration 026, dropped in a later step) - junction table linking films to their conveyed messages';
 
 CREATE INDEX IF NOT EXISTS idx_film_message_film_id ON film_message(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_message_message_id ON film_message(message_id);

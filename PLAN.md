@@ -33,108 +33,73 @@
 | 16c | Recommender: SimilarFilmsCarousel UI | ✅ DONE | Replace placeholder, "Why?" tooltips, tier-gated 3/6/12 results |
 | 17a | Stats Dashboard — Quick / Financials / People / Taxonomy (MVP) | ✅ DONE | New /stats page, 4 tabs, tier-gated, single bulk endpoint |
 | 17b | Production-country + franchise data prep, sidebar overhaul, Top 20 franchises | ✅ DONE | tmdb_collection + film_production_country tables, backfill scripts, sidebar reorg, exact franchise filter |
-| 17c | Stats Dashboard — Taxonomy enhancements (% heatmap fix + 2 new heatmaps + per-person tags + cross-tab) | ✅ DONE | 5 sections: Categories % heatmap, cinema-movements heatmap, messages % heatmap, person filmography tag breakdown, atmosphere×category cross-tab |
-| 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | ✅ DONE | Production-country choropleth, country click → top films panel, set-place treemap (continent→country→city), country count stat card |
+| 17c | Stats Dashboard — Taxonomy enhancements | ✅ DONE | Heatmaps, per-person tags, cross-tabs |
+| 17d | Stats Dashboard — Geography tab (world map + set-place treemap) | ✅ DONE | Choropleth, country click panel, treemap, country count card |
 | 18 | Game mode — "Tag It" | ✅ DONE | Daily + free play, narrow down films by tags, 3 lives, jokers, shareable scores |
 | 19 | Game mode — "Chain It" + Game Hub + Stats page | ✅ DONE | Chain films through shared tags, game selection hub, unified stats + history |
 | 20 | Game mode — "Guess It" | ✅ DONE | Eliminate films from a smart list by revealing tags, 3 lives, early guess risk/reward |
+| 21a | Taxonomy v2 — DB migration + seed rewrite | ✅ DONE | Migration 026 applied locally: 9 dims → 7, 326 tags, 118 456 associations preserved |
+| 21b | Taxonomy v2 — Backend | 🔜 NEXT | taxonomy_config + enricher rewrite, routers, schemas, tier config, review_tag, export_taxonomy |
+| 21c | Taxonomy v2 — Frontend | ⬜ TODO | Sidebar with named sub-dimension groups, Film page taxonomy section, Add Film review |
+| 22 | Taxonomy v2 — Deferred surfaces | ⬜ TODO | Recommender weights, dashboard Taxonomy tab, 3 games, drop motivation/message tables |
 
 ---
 
-## Steps 1–17d: Core Build + Features (completed)
+## Steps 1–20: Core Build + Features (completed)
 
 *(see git history for step details)*
 
 ---
 
-## Step 18: Game Mode — "Tag It"
-
-*(see git history for details)*
-
----
-
-## Step 19: Game Mode — "Chain It" + Game Hub + Stats Page
-
-*(see git history for details)*
-
----
-
-## Step 20: Game Mode — "Guess It"
+## Step 21: Taxonomy v2 — 7 Dimensions
 
 ### Goal
-Build a third game: "Guess It" — deduce a hidden film by eliminating decoys from a curated list as tags are progressively revealed. Tests film knowledge through elimination and deduction.
 
-### Game Concept
+Implement the new taxonomy defined in the project document `Taxonomy dimensions & tags.txt` (source of truth, doc at the root of the project). The 9 dimensions become 7 (Motivations and Messages are dissolved into Genre, Theme and Atmosphere), tags are renamed/moved/merged/added, and every remaining dimension gains **named sub-dimensions** whose labels and tag ordering must be preserved and displayed. All existing tag↔film associations (4048 films) must be preserved through the migration.
 
-**Setup**: The program picks a hidden target film. It generates a list of 12 films: the target + 11 decoys selected across a gradient of similarity (some very similar, some loosely related). The player sees all 12 as a poster grid but doesn't know which is the target.
+The 7 dimensions (singular naming, in this display order): **Genre, Theme, Time Period, Place, Atmosphere, Character, Cinema Type**.
 
-**Each round**:
-1. Player clicks "Reveal tag" → the program reveals one of the target's tags (chosen to maximize elimination potential: fewest remaining decoys share it).
-2. The player removes films they believe do NOT match the revealed tags.
-3. **Correct removal** (film does NOT match all revealed tags): film removed, no penalty.
-4. **Wrong removal** (film DOES match all revealed tags but isn't target): film shakes, snaps back, "This film matches all revealed tags — it stays!", lose 1 life.
-5. **Removing the target**: immediate game over.
-6. **Early guess**: click a film + "This is the target!" — correct = win, wrong = game over.
+### Key design decisions
 
-**Win condition**: Last film standing, or correct early guess.
+1. **Genre sub-genres are flat rows in `category`** with `historic_subcategory_name = NULL` (the legacy composite mechanism stays in the code but inert). Main genres occupy sort_order block 100–199; sub-genre groups occupy blocks 200–899. "Is a main genre" = `sort_order < 200`. Film cards and the detail-page hero show main genres only; the Genre taxonomy section shows everything.
+2. **Sub-dimension names are encoded via sort_order blocks** (one block of 100 per group, consistent with the existing `Math.floor(sort_order/100)` separator logic) **plus a static label map**: new frontend module `frontend/src/lib/taxonomyGroups.ts` mapping `dimension → [{ block, label, parent? }]`. `FilterSection` renders these labels as group headers in the sidebar. No schema change needed for labels.
+3. **`motivation_relation` / `message_conveyed` tables are emptied but NOT dropped** in Step 21. The recommender, dashboard and games still reference them; keeping empty tables lets those features degrade gracefully (empty contributions) until Step 22 updates them and drops the tables.
+4. **Junction data migration** uses the pattern: ensure target row exists → `INSERT INTO target_junction SELECT ... ON CONFLICT DO NOTHING` → delete source lookup row (cascade cleans the source junction). Merged tags (mafia + organized crime → mafia/organized crime; odyssey + quest → odyssey/quest; dreamlike + surreal → dreamlike/surreal; message political → theme political) naturally deduplicate via ON CONFLICT.
+5. **Enricher**: `taxonomy_config.py` is fully rewritten (7 dimensions, main vs sub genre lists, reference examples re-tagged), and the prompt gains the explicit Time Period year-range table from the new document.
 
-**Lives**: 3. Lost on wrong removal.
+### Scope split
 
-**Scoring**:
+- **21a — Database**: `database/migrations/026_taxonomy_v2.sql` (renames, moves, merges, new tags, sort_order rewrite, tag_description updates), full rewrite of `seed_taxonomy.sql`, verification script `database/verify_taxonomy_v2.sql`. Run locally first; sync to Supabase only after 21b is deployed-ready.
+- **21b — Backend**: `taxonomy_config.py`, `claude_enricher.py`, `routers/taxonomy.py`, `routers/films.py`, `schemas/film.py`, `tier_config.py`, `scripts/review_tag.py`, `database/tags_definition.md`, plus `scripts/export_taxonomy.py` (see note below).
+- **21c — Frontend**: `types/api.ts`, `lib/utils.ts`, new `lib/taxonomyGroups.ts`, `lib/tierAccess.ts`, `FilterSection.tsx`, `FilmDetailPage.tsx`, `AddFilmPage.tsx` (+ generic components that adjust automatically via `ARRAY_FILTER_KEYS`).
 
-| Tags revealed | 3 lives | 2 lives | 1 life |
-|---|---|---|---|
-| 1–2 tags | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| 3–4 tags | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| 5+ tags | ⭐⭐⭐ | ⭐⭐ | ⭐ |
+### Explicitly deferred to Step 22 (must not break in Step 21)
 
-**Jokers** (3): Synopsis, Decade reveal, Director reveal.
+- `services/recommender.py` (still queries film_motivation/film_message → empty, contributes 0 to similarity)
+- `routers/stats.py` + dashboard Taxonomy tab (message heatmaps go empty)
+- `routers/game.py` + `components/game/dimensions.ts` (motivations/messages dimensions return no tags; games run on the 7 live dimensions)
+- Dropping `motivation_relation`, `message_conveyed`, `film_motivation`, `film_message`
+- Re-tuning tier sort_order gates after real usage (21b ships a first calibration)
 
-**Shareable**:
-```
-🔍 CineTag Guess It #31
-🎯 Guessed in 3 tags (8 eliminated)
-❤️❤️🖤 ⭐⭐⭐⭐
-https://cinetag.eu/game
-```
+### 21a outcome (applied 2026-08-11, local DB only)
 
-### Decoy Selection
+- `database/migrations/026_taxonomy_v2.sql` ran in one transaction; all in-migration assertions passed.
+- Final tag counts: Genre 55, Theme 96, Time Period 22, Place 29, Atmosphere 25, Character 59, Cinema Type 40 (326 total). The counts quoted in the Step 21a prompt (category 62, character 48) were estimates; these are the recomputed values and the ones 21b/21c must target.
+- Associations: 119 756 film↔tag pairs before → 118 456 after, reconciling exactly (−442 discarded `world-saving` rows, −858 merge-overlap deduplications for mafia/organized crime, odyssey/quest, dreamlike/surreal and the two `political` tags).
+- `motivation_relation` / `message_conveyed` / `film_motivation` / `film_message` are empty but present.
+- Added a partial unique index `uq_category_name_no_subcategory ON category(category_name) WHERE historic_subcategory_name IS NULL` (in the migration and in `schema.sql`). Without it the table-level `UNIQUE (category_name, historic_subcategory_name)` uses NULLS DISTINCT semantics, so `ON CONFLICT` never fires for flat Genre rows and re-running the seed would duplicate all 55 of them.
+- **`scripts/export_taxonomy.py` is now stale**: it still emits `motivation_relation` / `message_conveyed` seed sections, the old `ON CONFLICT (category_name, historic_subcategory_name)` target, and a `taxonomy_config.py` shape (`VALID_MOTIVATIONS`, `VALID_MESSAGES`, no main/sub genre split) that 21b replaces. Running it before 21b updates it would clobber both hand-written files. Fix it as part of 21b.
 
-11 decoys from the similarity recommender (Step 16b), gradient:
-- 3 very similar (rank 1–10, share 5+ tags)
-- 4 moderately similar (rank 11–30, share 2–4 tags)
-- 4 loosely related (rank 31–50 or random, share 0–1 tags)
+### Risks / notes
 
-### Tag Reveal Order
+- Old bookmarked Browse URLs containing `motivations=` / `messages=` params are silently ignored (parser is key-driven) — acceptable.
+- "Refine in Browse" (recommender, deferred) may emit motivations/messages URL params until Step 22; they are ignored by the new filter state — no crash.
+- `/api/stats` `top_categories` and the list endpoint's category badges must restrict to `sort_order < 200` or sub-genres pollute the counts/cards.
+- Order of migration statements matters (renames before moves where names overlap; 'political' merge is junction-migrate + delete, not rename).
+- Deployment sequence: migrate local DB → 21b → 21c → full local test → `sync_to_supabase.ps1` + deploy backend/frontend together (old backend tolerates the new DB, so a short deploy gap is safe).
 
-Reveal the target tag shared by the fewest remaining decoys → maximizes elimination.
+---
 
-### Database (Migration 024)
+## Step 22: Taxonomy v2 — Deferred Surfaces (recommender, dashboard, games)
 
-Add `decoy_film_ids INTEGER[]` to `daily_challenge`. No new tables.
-
-### Backend: New endpoints in `game.py`
-
-- `GET /game/guess/daily` — grid of 12 + target_film_id + already_played
-- `GET /game/guess/random` — with pool filters
-- `POST /game/guess/reveal-tag` — best next tag based on remaining films
-- `POST /game/guess/remove` — validate removal (correct/wrong/is_target)
-- `POST /game/guess/early-guess` — validate guess
-- `POST /game/guess/joker/synopsis`, `joker/decade`, `joker/director`
-
-### Frontend
-
-- `/game/guess-it` → GuessItPage (Setup → Playing → Result)
-- 4 new components: GuessSetup, GuessBoard, GuessResult, FilmGridCell
-- Update GameHubPage (3rd card), GameStatsPage (3rd tab), App.tsx (route)
-
-### Files Modified
-- `database/migrations/024_guess_it.sql`
-- `backend/app/routers/game.py`
-- `frontend/src/pages/GuessItPage.tsx` — new
-- `frontend/src/pages/GameHubPage.tsx` — 3rd card
-- `frontend/src/pages/GameStatsPage.tsx` — 3rd tab
-- `frontend/src/components/game/Guess*.tsx` — 3 new
-- `frontend/src/components/game/FilmGridCell.tsx` — new
-- `frontend/src/api/client.ts` + `types/api.ts`
-- `frontend/src/App.tsx`
+*(to be planned after Step 21 is validated)*
