@@ -1,39 +1,98 @@
 
-## **THEMES**
+## **GENRE**
 
-**social** vs **societal** — social concerns interpersonal relations within a community, class dynamics, or living conditions (e.g. poverty, exclusion, neighborhood life). Societal is broader: it addresses how society functions as a system — institutions, norms, cultural shifts, systemic issues.
-
-**class struggle** — specifically about tension or conflict between social classes. Not simply "poor characters" (see Characters: **poor/marginal**), but when the divide between classes is a driving force of the narrative.
+Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Science-Fiction, Fantasy, Horror, Musical, Documentary) are always assigned — at least one per film. The tags below are sub-genres: use them only when they clearly define the film.
 
 **tragedy** — in the classical, Greek sense: a narrative driven by fate, inevitability, or a fatal flaw leading to downfall. Not simply "a sad film."
 
-**apocalypse** — covers pre-apocalyptic, apocalyptic, and post-apocalyptic scenarios. The world is ending, about to end, or has already ended.
+**parodic** vs **satirical** — parodic imitates and exaggerates a specific genre, film, or style for comic effect. Satirical uses humor to critique real-world society, institutions, or human behavior.
+
+**absurdist** — the film uses logical nonsense, paradox, or the inherent meaninglessness of existence as its comedic or philosophical lens. Distinct from **whimsical/zany**, which is lighter and more playful.
 
 **psychological** — the film's central subject is the inner mental life of a character: their psyche, mental processes, perceptions, or psychological deterioration. The psychological dimension must be what the film is fundamentally about, not simply present. A thriller with tense moments is not psychological. A drama where characters feel emotions is not psychological. Apply only when exploring the mind itself is the film's primary purpose.
-
-**death** — a central theme the film meditates on or builds around, not simply an event that occurs. A character dying in act three of an action film doesn't make death a theme. A film where mortality, grief, the meaning of death, or the process of dying is what the film is wrestling with qualifies.
-
-**transformation** — used when the film deliberately shows a significant and radical change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation.
-
-**illness** — physical or mental illness as a significant theme in the narrative. Not when a character happens to be ill as a minor plot point.
-
-**time passing** — when the passage of time itself is a deliberate subject of the film, often spanning years or decades. The film makes you feel time elapsing.
 
 **investigation** vs **crime** — investigation means the narrative is structured around solving or uncovering something (a detective, journalist, or character actively investigating). Crime is broader: crime is present as a central theme without necessarily following an investigation structure.
 
 **heist** — a planned robbery or elaborate scheme drives the plot. Distinct from general crime by its focus on planning, execution, and team coordination.
 
-**organized fraud** — large-scale, systematic financial or institutional deception. Distinct from **heist** (which involves physical theft) and from **corruption** (which implies abuse of institutional power).
+**mafia/organized crime** — the film is built around a structured criminal organization: its hierarchy, codes, business and wars. Distinct from the Character **gangster** (an individual embedded in that culture) and from **crime** (which is broader and can be individual). <!-- TODO Martin: merged tag (mafia + organized crime) — confirm wording -->
 
 **chase/escape** — dynamic action sequence or adventure journey where one party (the protagonist) flees from another (the pursuer, such as law enforcement, a villain, or danger) with the primary goal of survival, evasion, or achieving a high-stakes objective.
 
-**sect** — a closed, manipulative group with cult-like dynamics. Not religion in general (see **religion**).
+**odyssey/quest** — the narrative is structured as a long journey or a pursuit of a goal: the characters travel, search or strive toward something, and that journey is the film's spine. Distinct from **road movie** (Place), which is about the physical displacement itself. <!-- TODO Martin: merged tag (odyssey + quest) — confirm wording -->
+
+**apocalypse** — covers pre-apocalyptic, apocalyptic, and post-apocalyptic scenarios. The world is ending, about to end, or has already ended.
+
+**fait divers/true incident** — a specific real-life incident, case, or news story — typically a crime, scandal, trial, accident, or unusual event.
+
+**costume drama** — a film where historical setting, costumes, and production design are central to the experience. The period trappings are not just backdrop but a core part of the film's identity and appeal.
+
+**swashbuckler** — adventure films centered on sword-fighting heroes in historical or romanticized settings, typically involving dashing protagonists, daring rescues, and flamboyant action. Rooted in the Errol Flynn era but extends to any film embracing that spirit.
+
+**wu xia pian** — Chinese martial arts genre rooted in the literary tradition of wuxia (literally "martial heroes"). Characterized by swordplay, chivalric codes, and often wire-assisted choreography set in ancient or mythical China.
+
+**revisionist/alternate history** — the film deliberately reinterprets, subverts, or reimagines historical events or genre conventions.
 
 **tales and legends** — narratives rooted in mythology, folklore, fairy tales, or legendary stories. Distinct from **supernatural** (which is about unexplained phenomena in a more realistic setting).
 
-**whimsical/zany** — a playful, fanciful, logic-defying spirit. The film bends or ignores rules of reality in a lighthearted or imaginative way, without the intellectual/philosophical intent of **absurdist** (see Messages).
+**whimsical/zany** — a playful, fanciful, logic-defying spirit. The film bends or ignores rules of reality in a lighthearted or imaginative way, without the intellectual/philosophical intent of **absurdist**.
 
-**dream** vs **dreamlike** (Messages) — the Theme dream is for a film that prominently feature dreams, dreaming, dream-like sequences or dream logic as a notable element, key theme or narrative device. The Message **dreamlike** describes a film whose overall artistic expression feels dream-like in texture, regardless of whether actual dreams appear in the plot.
+**slasher** — horror subgenre centered on a killer (often masked or anonymous) systematically murdering victims, usually young people, in graphic and suspenseful sequences. Distinct from **serial killer**, which is about the investigation or psychology of a killer.
+
+**docufiction** — blends documentary and fiction techniques, dramatizing real events or situations with a documentary feel. Or uses documentary format as a comedic or satirical device applied to entirely fictional subjects.
+
+
+## **THEMES**
+
+**social** vs **societal** — social concerns interpersonal relations within a community, class dynamics, or living conditions (e.g. poverty, exclusion, neighborhood life). Societal is broader: it addresses how society functions as a system — institutions, norms, cultural shifts, systemic issues.
+
+**generational** — the film is deeply representative of a specific generation's identity, lifestyle, struggles, or cultural moment.
+
+**sect** — a closed, manipulative group with cult-like dynamics. Not religion in general (see **religion**).
+
+**humanist** — the film is explicitly making a statement about human compassion, dignity, or the value of every individual life. It's not enough for the film to be "warm" or "about people." The humanist/human dignity message must be what the viewer takes away as the film's core statement.
+
+**anti establishment** — the film challenges or criticizes institutional power, authority, or the status quo.
+
+**traditionalist/way of life** — the film valorizes or depicts with reverence a particular cultural tradition, lifestyle, or set of values, often rural, ancestral, or community-based.
+
+**philosophical** vs **metaphysical** — a philosophical film explicitly engages with philosophical questions or ideas as part of its narrative or dialogue. Characters discuss meaning, the film poses ethical dilemmas as its subject, or the structure itself embodies a philosophical argument. Metaphysical goes further: it questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world.
+
+**love** — love as a driving force in the broadest sense: romantic, parental, fraternal, platonic. When a character's actions are motivated by deep emotional attachment to another. Distinct from the Genre **Romance** (which defines the film's genre).
+
+**communication** — the act of communicating (or failing to communicate) is itself the dramatic engine. Misunderstandings, language barriers, the struggle to connect or express oneself.
+
+**manipulation** — a character deliberately controls, deceives, or psychologically exploits others to achieve their goals. Distinct from **lie** (which is a single act of deception) — manipulation is sustained, strategic, and often involves power dynamics.
+
+**perversion** — desire that transgresses social norms or moral boundaries, taken to a dark or disturbing extreme. Distinct from **sex** (which is desire as a neutral or positive driving force) and from **steamy** (Atmosphere, which is about erotic mood). Perversion implies that motivation itself is troubling, deviant, or destructive.
+
+**class/culture clash** — specifically about tension or conflict between social classes or cultures. Not simply "poor characters" (see Characters: **poor/marginal**), but when the divide between them is a driving force of the narrative.
+
+**fight** — applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
+
+**trafficking/fraud** — large-scale, systematic financial or institutional deception. Distinct from **heist** (Genre, which involves physical theft) and from **corruption** (which implies abuse of institutional power). <!-- TODO Martin: renamed from "organized fraud" — does the definition need to cover trafficking too? -->
+
+**illness** — physical or mental illness as a significant theme in the narrative. Not when a character happens to be ill as a minor plot point.
+
+**death** — a central theme the film meditates on or builds around, not simply an event that occurs. A character dying in act three of an action film doesn't make death a theme. A film where mortality, grief, the meaning of death, or the process of dying is what the film is wrestling with qualifies.
+
+**grief/mourning** — the process of living with a loss: bereavement, absence, and its aftermath. Distinct from **death**, which is about mortality as a subject.
+
+**obsession** — a pathological, consuming fixation that distorts a character's behavior and judgment. Not dedication, not passion, not strong motivation — but a compulsion that takes over and damages the character or those around them.
+
+**greed/ambition** — the pursuit of wealth, status, or power as a personal drive. When "wanting more" is what propels the character forward.
+
+**sacrifice** — a character deliberately gives up something vital (safety, love, life) for another person or cause. Distinct from **honor/duty** (which is about obligation) — sacrifice is about the cost willingly paid.
+
+**honor/duty** — a character acts out of obligation, moral code, or loyalty to a principle larger than self-interest.
+
+**emancipation** — a character's process of freeing themselves from control, constraint, or dependence. Also covers apprenticeship and coming-of-age growth when the core arc is about gaining autonomy.
+
+**transformation** — used when the film deliberately shows a significant and radical change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation.
+
+**time passing** — when the passage of time itself is a deliberate subject of the film, often spanning years or decades. The film makes you feel time elapsing.
+
+**dream** vs **dreamlike/surreal** (Atmosphere) — the Theme dream is for a film that prominently features dreams, dreaming, dream-like sequences or dream logic as a notable element, key theme or narrative device. The Atmosphere **dreamlike/surreal** describes a film whose overall artistic expression feels dream-like in texture, regardless of whether actual dreams appear in the plot.
 
 **game** vs **gambling** — game covers games as a narrative element (board games, video games, deadly games, competition games. Gambling specifically involves wagering and betting stakes (poker, casino, horse racing).
 
@@ -44,19 +103,19 @@
 
 **contemporary** — The film is set approximately between 2020 and 2029. Apply ONLY when the setting is clearly in this specific decade through explicit dates, contemporary technology (smartphones, social media, post-COVID references), or unmistakable current-era markers. Do NOT apply simply because the film was released recently.
 
-**early 21st** — The film is set approximately between 2000 and 2019. Key indicators: early smartphone era, post-9/11 references, 2000s–2010s technology and culture. A film released in 2005 that appears set in its own time belongs here. A film released in 2005 depicting the 1970s does NOT.
+**2000-2010's** — The film is set approximately between 2000 and 2019. Key indicators: early smartphone era, post-9/11 references, 2000s–2010s technology and culture. A film released in 2005 that appears set in its own time belongs here. A film released in 2005 depicting the 1970s does NOT.
 
-**end 20th** — The film is set approximately between 1975 and 1999, covering mainly the 1980s and 1990s decades. Key indicators: analog-to-digital transition, Cold War ending, VHS/early internet era, distinctive 80s/90s fashion and music.
+**1980-90's** — The film is set approximately between 1980 and 1999. Key indicators: analog-to-digital transition, Cold War ending, VHS/early internet era, distinctive 80s/90s fashion and music.
 
-**20th post-war** — The film is set approximately between 1945 and 1975, the post-WW2 boom era. Key indicators: post-war reconstruction, economic prosperity, baby boom culture, Vietnam era, civil rights movements, 1950s–1970s aesthetics.
+**1950-60-70's** — The film is set approximately between 1946 and 1979, the post-WW2 boom era. Key indicators: post-war reconstruction, economic prosperity, baby boom culture, Vietnam era, civil rights movements, 1950s–1970s aesthetics.
 
 **WW2** — The film is set during World War II, approximately 1939–1945.
 
-**interwar** — The film is set approximately between 1918 and 1939, covering the 1920s and 1930s decades. Key indicators: Jazz Age, Prohibition, Great Depression, rise of fascism, Art Deco aesthetics.
+**1920-30's** — The film is set approximately between 1919 and 1938, covering the 1920s and 1930s decades. Key indicators: Jazz Age, Prohibition, Great Depression, rise of fascism, Art Deco aesthetics.
 
 **WW1** — The film is set during World War I, approximately 1914–1918.
 
-**early 20th** — The film is set approximately between 1900 and 1914. Key indicators: Belle Époque, early industrialization, pre-war society, Edwardian era.
+**1900-1910's** — The film is set approximately between 1900 and 1913. Key indicators: Belle Époque, early industrialization, pre-war society, Edwardian era.
 
 **19th** — The film is set during the 19th century, approximately 1800–1899. Includes Napoleonic era, Victorian era, American Civil War, Industrial Revolution, colonial expansion.
 
@@ -69,6 +128,8 @@
 **prehistoric** — The film is set before recorded civilization. Early humans, cavemen, dinosaur-era settings.
 
 **undetermined** — The time period is deliberately vague, impossible to identify, or irrelevant. Often applies to fables, allegories, abstract settings, or fantasy worlds with no real-world historical equivalent. Use this tag rather than guessing when no clear period indicators exist.
+
+**single day** / **several years** / **decades-spanning** — the stretch of time the story covers, when it is a defining trait of the film (a real-time or one-day narrative, a story following characters over years, a saga spanning decades). <!-- TODO Martin: new Time span tags — confirm wording -->
 
 
 ## **PLACE CONTEXTS**
@@ -100,13 +161,13 @@
 
 **meticulous** — the film demonstrates exceptional precision and attention to detail in its storytelling, direction, or visual composition. Everything feels deliberate, ordered, controlled.
 
-**ethereal** — light, floating, airy quality. The film feels weightless or suspended, as if existing slightly above reality. Distinct from **dreamlike** (Messages), which is about artistic intent; ethereal is a felt atmospheric quality.
+**ethereal** — light, floating, airy quality. The film feels weightless or suspended, as if existing slightly above reality. Distinct from **dreamlike/surreal**, which is about artistic intent; ethereal is a felt atmospheric quality.
 
 **hypnotic/immersive** — The film seizes the viewer's attention through cinematic technique and pulls them into an altered state of absorption. Key indicators: rhythmic editing, repetition, slow motion, droning or pulsating sound design, visual intensity, sustained tension that locks focus. The viewer feels captured, not relaxed. Apply this tag when the film — or significant sequences within it — produces a trance-like or spellbound effect.
 
 **psychedelic** — vivid, hallucinatory, sensory-overload visual or audio experience. More aggressive and disorienting than **hypnotic/immersive**.
 
-**steamy** — strong erotic charge or sexual tension pervading the atmosphere. Distinct from the Motivation **sex** (which is about sexual desire driving the plot) — steamy is about the film's temperature and mood.
+**steamy** — strong erotic charge or sexual tension pervading the atmosphere. Distinct from the Theme **sex** (which is about sexual desire driving the plot) — steamy is about the film's temperature and mood.
 
 **sordid** — the film depicts moral degradation, sleaze, depravity, or a world of seedy, ugly reality. A deliberately uncomfortable, grimy quality.
 
@@ -118,6 +179,12 @@
 
 **epic** — grand in scale, scope, or ambition. Large canvases, sweeping narratives, a sense of historical or emotional magnitude.
 
+**symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (Theme, which questions reality) and from **dreamlike/surreal** (which distorts it) — symbolic asks the viewer to decode the film's visual and narrative language.
+
+**dreamlike/surreal** — a floating, oneiric texture and/or deliberate, often jarring juxtapositions of impossible or irrational elements. The film feels dream-like regardless of whether actual dreams appear in the plot (for those, see the Theme **dream**).
+
+**poetic** — the film must have a distinctly lyrical quality in its pacing, imagery, or language that prioritizes beauty, rhythm, and emotional resonance over narrative efficiency. The storytelling feels closer to poetry than to prose — elliptical, image-driven, emotionally rather than logically structured.
+
 
 ## **CHARACTERS**
 
@@ -125,7 +192,7 @@
 
 **adult/child** — the central relationship or dynamic is between an adult and a child. Not simply "a film featuring both adults and children."
 
-**female** — used when the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
+**female lead** — used when the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
 
 **ordinary** — used only when depicting the ordinariness of a character's life is a deliberate artistic choice, not whenever ordinary people appear on screen, aren't superheroes or historical figures. The film draws meaning from the mundane.
 
@@ -145,59 +212,11 @@
 
 **vigilante** — a character who takes justice into their own hands outside the law. Distinct from **cop** or **detective** (who operate within institutions) and from **antihero** (who may not care about justice at all).
 
-**gangster** — a character embedded in organized crime culture and identity. Distinct from **mafia** (Theme), which describes the broader criminal organization as a thematic subject.
+**gangster** — a character embedded in organized crime culture and identity. Distinct from **mafia/organized crime** (Genre), which describes the broader criminal organization as a subject.
 
 **mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
 
 **vehicle** as a character or as a central narrative element.
-
-
-## **MOTIVATIONS**
-
-**love** — love as a driving force in the broadest sense: romantic, parental, fraternal, platonic. When a character's actions are motivated by deep emotional attachment to another. Distinct from the Category **Romance** (which defines the film's genre).
-
-**emancipation** — a character's process of freeing themselves from control, constraint, or dependence. Also covers apprenticeship and coming-of-age growth when the core arc is about gaining autonomy.
-
-**communication** — the act of communicating (or failing to communicate) is itself the dramatic engine. Misunderstandings, language barriers, the struggle to connect or express oneself.
-
-**honor/duty** — a character acts out of obligation, moral code, or loyalty to a principle larger than self-interest.
-
-**obsession** — a pathological, consuming fixation that distorts a character's behavior and judgment. Not dedication, not passion, not strong motivation — but a compulsion that takes over and damages the character or those around them.
-
-**manipulation** — a character deliberately controls, deceives, or psychologically exploits others to achieve their goals. Distinct from **lie** (which is a single act of deception) — manipulation is sustained, strategic, and often involves power dynamics.
-
-**sacrifice** — a character deliberately gives up something vital (safety, love, life) for another person or cause. Distinct from **honor/duty** (which is about obligation) — sacrifice is about the cost willingly paid.
-
-**greed/ambition** — the pursuit of wealth, status, or power as a personal drive. When "wanting more" is what propels the character forward.
-
-**perversion** — desire that transgresses social norms or moral boundaries, taken to a dark or disturbing extreme. Distinct from **sex** (which is desire as a neutral or positive driving force) and from **steamy** (Atmosphere, which is about erotic mood). Perversion implies that motivation itself is troubling, deviant, or destructive.
-
-**fight** — applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
-
-**world-saving** — the stakes are global or existential: the characters are trying to prevent large-scale destruction or save humanity/the world.
-
-
-## **MESSAGES**
-
-**humanist** — the film is explicitly making a statement about human compassion, dignity, or the value of every individual life. It's not enough for the film to be "warm" or "about people." The humanist/human dignity message must be what the viewer takes away as the film's core statement.
-
-**anti establishment** — the film challenges or criticizes institutional power, authority, or the status quo.
-
-**traditionalist/way of life** — the film valorizes or depicts with reverence a particular cultural tradition, lifestyle, or set of values, often rural, ancestral, or community-based.
-
-**parodic** vs **satirical** — parodic imitates and exaggerates a specific genre, film, or style for comic effect. Satirical uses humor to critique real-world society, institutions, or human behavior.
-
-**absurdist** — the film uses logical nonsense, paradox, or the inherent meaninglessness of existence as its comedic or philosophical lens. Distinct from **whimsical/zany** (Themes), which is lighter and more playful.
-
-**revisionist/alternate history** — the film deliberately reinterprets, subverts, or reimagines historical events or genre conventions.
-
-**philosophical** vs **metaphysical** — a philosophical film explicitly engages with philosophical questions or ideas as part of its narrative or dialogue. Characters discuss meaning, the film poses ethical dilemmas as its subject, or the structure itself embodies a philosophical argument. Metaphysical goes further: it questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world.
-
-**surreal** vs **dreamlike** — surreal involves deliberate, often jarring juxtapositions of impossible or irrational elements. Dreamlike is softer: the film has a floating, oneiric quality without necessarily deploying surrealist techniques.
-
-**symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (which questions reality) and from **surreal** (which distorts it) — symbolic asks the viewer to decode the film's visual and narrative language.
-
-**poetic** — the film must have a distinctly lyrical quality in its pacing, imagery, or language that prioritizes beauty, rhythm, and emotional resonance over narrative efficiency. The storytelling feels closer to poetry than to prose — elliptical, image-driven, emotionally rather than logically structured.
 
 
 ## **CINEMA TYPES**
@@ -228,34 +247,22 @@
 
 **B** — a low-budget commercial film, historically the second feature in a double bill. Fast-paced genre entertainment (horror, sci-fi, westerns) with modest production values and lesser-known casts. Not the same as "bad film" or "indie film."
 
-**generational** — the film is deeply representative of a specific generation's identity, lifestyle, struggles, or cultural moment.
-
 **popular culture** — the film explicitly references, quotes, or is steeped in elements of shared popular culture (other movies, music, brands, TV, memes). The film speaks through pop culture. Not used simply because the film itself became popular.
 
 **sequence-shot** — the film features notable use of long, unbroken takes as a defining stylistic choice. Not for films that simply have one or two long shots.
 
-**multi-sequence** — the narrative is structured in clearly distinct segments: multiple storylines, chapters, anthology-like episodes, or radically different points of view. The segmentation is a deliberate structural choice.
+**chapters/multi-sequence** — the narrative is structured in clearly distinct segments: multiple storylines, chapters, anthology-like episodes, or radically different points of view. The segmentation is a deliberate structural choice.
+
+**flashback/non linear** — the film deliberately breaks chronological order: flashbacks, flash-forwards, reordered or interleaved timelines as a structural choice, not a single brief recollection.
 
 **slow cinema** — a formal filmmaking movement characterized by extremely long takes, minimal dialogue, static camera, and deliberate pacing as artistic statement. Distinct from the Atmosphere **contemplative/meditative**, which is a feeling — slow cinema is a technique and movement.
 
 **dogma** — films following (or inspired by) the Dogme 95 manifesto: natural lighting, handheld camera, no special effects, diegetic sound only.
 
-**dialogs** — the film's writing quality, wit, or density of dialogue is a defining characteristic. The words themselves are a major reason to watch the film. Used when dialogue is exceptionally sharp, literary, or memorable — not for every film that contains conversations.
+**dialogs/punchline** — the film's writing quality, wit, or density of dialogue is a defining characteristic. The words themselves are a major reason to watch the film. Used when dialogue is exceptionally sharp, literary, or memorable — not for every film that contains conversations.
 
 **slang dialogs** — a specific subset of dialogs where the language is rooted in street speech, regional vernacular, argot, or subcultural jargon. The way characters speak is authentically tied to a particular milieu and is central to the film's texture.
-
-**fait divers/true incident** — a specific real-life incident, case, or news story — typically a crime, scandal, trial, accident, or unusual event.
-
-**costume drama** — a film where historical setting, costumes, and production design are central to the experience. The period trappings are not just backdrop but a core part of the film's identity and appeal.
-
-**swashbuckler** — adventure films centered on sword-fighting heroes in historical or romanticized settings, typically involving dashing protagonists, daring rescues, and flamboyant action. Rooted in the Errol Flynn era but extends to any film embracing that spirit.
-
-**wu xia pian** — Chinese martial arts genre rooted in the literary tradition of wuxia (literally "martial heroes"). Characterized by swordplay, chivalric codes, and often wire-assisted choreography set in ancient or mythical China.
 
 **blaxploitation** — a 1970s American film movement featuring predominantly Black casts in genre films (action, crime, horror) made primarily for Black urban audiences. Often characterized by funk/soul soundtracks, stylized antiheroes, and inner-city settings. The tag also applies to later films that consciously reference or revive the aesthetic **Period: primarily 1971–1979**.
 
 **giallo** — Italian thriller/horror genre characterized by elaborate murder sequences, stylized visuals, mystery-driven plots, and distinctive scores. Also applies to non-Italian films that adopt the giallo aesthetic **Period: primarily 1963–1985, with occasional revivals**.
-
-**slasher** — horror subgenre centered on a killer (often masked or anonymous) systematically murdering victims, usually young people, in graphic and suspenseful sequences. Distinct from **serial killer** (Theme), which is about the investigation or psychology of a killer.
-
-**docufiction** — blends documentary and fiction techniques, dramatizing real events or situations with a documentary feel. Or uses documentary format as a comedic or satirical device applied to entirely fictional subjects.

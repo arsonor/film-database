@@ -110,8 +110,8 @@ async def list_user_films(
                 SELECT fg.film_id, c.category_name
                 FROM film_genre fg
                 JOIN category c ON fg.category_id = c.category_id
-                WHERE fg.film_id = ANY(:film_ids) AND c.historic_subcategory_name IS NULL
-                ORDER BY fg.film_id, c.category_name
+                WHERE fg.film_id = ANY(:film_ids) AND c.sort_order < 200
+                ORDER BY fg.film_id, c.sort_order
             """),
             {"film_ids": film_ids},
         )
@@ -385,8 +385,8 @@ async def list_films_in_list(
             text("""
                 SELECT fg.film_id, c.category_name
                 FROM film_genre fg JOIN category c ON fg.category_id = c.category_id
-                WHERE fg.film_id = ANY(:film_ids) AND c.historic_subcategory_name IS NULL
-                ORDER BY fg.film_id, c.category_name
+                WHERE fg.film_id = ANY(:film_ids) AND c.sort_order < 200
+                ORDER BY fg.film_id, c.sort_order
             """),
             {"film_ids": film_ids},
         )

@@ -39,8 +39,8 @@
 | 19 | Game mode — "Chain It" + Game Hub + Stats page | ✅ DONE | Chain films through shared tags, game selection hub, unified stats + history |
 | 20 | Game mode — "Guess It" | ✅ DONE | Eliminate films from a smart list by revealing tags, 3 lives, early guess risk/reward |
 | 21a | Taxonomy v2 — DB migration + seed rewrite | ✅ DONE | Migration 026 applied locally: 9 dims → 7, 326 tags, 118 456 associations preserved |
-| 21b | Taxonomy v2 — Backend | 🔜 NEXT | taxonomy_config + enricher rewrite, routers, schemas, tier config, review_tag, export_taxonomy |
-| 21c | Taxonomy v2 — Frontend | ⬜ TODO | Sidebar with named sub-dimension groups, Film page taxonomy section, Add Film review |
+| 21b | Taxonomy v2 — Backend | ✅ DONE | taxonomy_config + enricher rewrite, routers, schemas, tier config, review_tag, export_taxonomy |
+| 21c | Taxonomy v2 — Frontend | 🔜 NEXT | Sidebar with named sub-dimension groups, Film page taxonomy section, Add Film review |
 | 22 | Taxonomy v2 — Deferred surfaces | ⬜ TODO | Recommender weights, dashboard Taxonomy tab, 3 games, drop motivation/message tables |
 
 ---
@@ -89,6 +89,17 @@ The 7 dimensions (singular naming, in this display order): **Genre, Theme, Time 
 - `motivation_relation` / `message_conveyed` / `film_motivation` / `film_message` are empty but present.
 - Added a partial unique index `uq_category_name_no_subcategory ON category(category_name) WHERE historic_subcategory_name IS NULL` (in the migration and in `schema.sql`). Without it the table-level `UNIQUE (category_name, historic_subcategory_name)` uses NULLS DISTINCT semantics, so `ON CONFLICT` never fires for flat Genre rows and re-running the seed would duplicate all 55 of them.
 - **`scripts/export_taxonomy.py` is now stale**: it still emits `motivation_relation` / `message_conveyed` seed sections, the old `ON CONFLICT (category_name, historic_subcategory_name)` target, and a `taxonomy_config.py` shape (`VALID_MOTIVATIONS`, `VALID_MESSAGES`, no main/sub genre split) that 21b replaces. Running it before 21b updates it would clobber both hand-written files. Fix it as part of 21b.
+
+### 21b outcome (applied 2026-08-12)
+
+- `taxonomy_config.py` rewritten: `VALID_GENRES_MAIN` (12) + `VALID_GENRES_SUB` (43) = `VALID_CATEGORIES` (55), all 7 lists verified **name-for-name and in order** against the live DB (55/40/29/22/96/59/25), motivations/messages deleted, `REFERENCE_EXAMPLES` re-tagged, plus a new `TIME_PERIOD_YEAR_RANGES` constant feeding the prompt.
+- `claude_enricher.py`: 7 dimensions only; Genre section explains main vs sub and requires ≥1 main (a validation warning logs when none is present); Time Context section carries the year-range table + Time span/Seasons guidance.
+- `films.py`: motivations/messages params, filters, detail queries and junction tuples removed; card/`top_categories` genre queries now use `c.sort_order < 200`; `dim_sort_table_map` gained `categories` and `time_periods` so the anonymous caps are enforced server-side. Detail-page tag lists now order by `sort_order` (they were alphabetical) so they match the sidebar grouping.
+- Beyond the prompt's file list (all mechanical, needed to avoid breakage): `users.py` collection cards got the same `sort_order < 200` genre fix; `claude_batch_enrichment.py` would have raised `KeyError: 'motivations'` on the new `TAXONOMY_DIMENSIONS` — its prompt/validation were updated in step; `db_inserter.py` lost its two dead validation-map entries. `scripts/review_tag.py` also got `multi-sequence` → `chapters/multi-sequence`.
+- `routers/taxonomy.py`: dissolved dimensions removed from all four sets; the `categories` add/rename branches now honour `sort_order` (previously ignored, which would have parked every new genre at the 999 default, outside the block layout).
+- `export_taxonomy.py` de-staled: 7 dimensions, correct `ON CONFLICT (category_name) WHERE historic_subcategory_name IS NULL` target, main/sub genre split, sub-dimension group comments in both generated files, and `TIME_PERIOD_YEAR_RANGES`/`REFERENCE_EXAMPLES` preserved verbatim. Its generated seed was replayed against the local DB in a rolled-back transaction: valid SQL and fully idempotent (all `INSERT 0 0`).
+- `tags_definition.md` reorganised into the 7 dimensions in display order, renames applied, moved tags relocated, `world-saving` deleted, merged stubs added. Open questions are flagged with `<!-- TODO Martin -->`: the `trafficking/fraud` wording (renamed but the definition still only covers fraud), and the undefined Time span tags / Seasons.
+- Verified live against the migrated DB: `/api/taxonomy/themes` returns 96 tags in block order; `/api/taxonomy/messages` and `/motivations` → 400; migrated tags filter correctly (`themes=love` 1549, `categories=war` 642, `themes=philosophical` 1121, `atmospheres=dreamlike/surreal` 384); detail has no motivations/messages keys and shows sub-genres; cards show main genres only; anonymous caps hold (`categories=melodrama`, `time_periods=summer`, `atmospheres=poetic` all fall back to unfiltered while `Drama`/`WW2`/`violent` filter); `/similar`, `/stats`, `/stats/dashboard` and all 6 game setup endpoints return 200.
 
 ### Risks / notes
 

@@ -59,15 +59,9 @@ async def list_films(
     atmospheres: list[str] | None = Query(None),
     atmospheres_not: list[str] | None = Query(None),
     atmospheres_mode: str | None = Query(None, pattern="^(or|and)$"),
-    messages: list[str] | None = Query(None),
-    messages_not: list[str] | None = Query(None),
-    messages_mode: str | None = Query(None, pattern="^(or|and)$"),
     characters: list[str] | None = Query(None),
     characters_not: list[str] | None = Query(None),
     characters_mode: str | None = Query(None, pattern="^(or|and)$"),
-    motivations: list[str] | None = Query(None),
-    motivations_not: list[str] | None = Query(None),
-    motivations_mode: str | None = Query(None, pattern="^(or|and)$"),
     cinema_types: list[str] | None = Query(None),
     cinema_types_not: list[str] | None = Query(None),
     cinema_types_mode: str | None = Query(None, pattern="^(or|and)$"),
@@ -105,24 +99,14 @@ async def list_films(
     allowed_dims = TIER_ALLOWED_DIMENSIONS.get(tier, TIER_ALLOWED_DIMENSIONS["anonymous"])
 
     # Silently clear disallowed dimensions
-    dim_var_map: dict[str, str] = {
-        "categories": "categories", "themes": "themes", "atmospheres": "atmospheres",
-        "messages": "messages", "characters": "characters", "motivations": "motivations",
-        "cinema_types": "cinema_types", "time_periods": "time_periods",
-        "place_contexts": "place_contexts", "studios": "studios",
-    }
     if "categories" not in allowed_dims:
         categories = None; categories_not = None
     if "themes" not in allowed_dims:
         themes = None; themes_not = None
     if "atmospheres" not in allowed_dims:
         atmospheres = None; atmospheres_not = None
-    if "messages" not in allowed_dims:
-        messages = None; messages_not = None
     if "characters" not in allowed_dims:
         characters = None; characters_not = None
-    if "motivations" not in allowed_dims:
-        motivations = None; motivations_not = None
     if "cinema_types" not in allowed_dims:
         cinema_types = None; cinema_types_not = None
     if "time_periods" not in allowed_dims:
@@ -137,9 +121,7 @@ async def list_films(
         categories_mode = "and"; categories_not = None
         themes_mode = "and"; themes_not = None
         atmospheres_mode = "and"; atmospheres_not = None
-        messages_mode = "and"; messages_not = None
         characters_mode = "and"; characters_not = None
-        motivations_mode = "and"; motivations_not = None
         cinema_types_mode = "and"; cinema_types_not = None
         time_periods_mode = "and"; time_periods_not = None
         place_contexts_mode = "and"; place_contexts_not = None
@@ -148,11 +130,12 @@ async def list_films(
     # Per-dimension sort_order filtering
     dim_sort_limits = TIER_DIMENSION_MAX_SORT_ORDER.get(tier, {})
     dim_sort_table_map = {
+        "categories": ("category", "category_name"),
         "themes": ("theme_context", "theme_name"),
+        "time_periods": ("time_context", "time_period"),
         "atmospheres": ("atmosphere", "atmosphere_name"),
         "place_contexts": ("place_context", "environment"),
         "characters": ("character_context", "context_name"),
-        "motivations": ("motivation_relation", "motivation_name"),
         "cinema_types": ("cinema_type", "technique_name"),
     }
     for dim_key, max_order in dim_sort_limits.items():
@@ -165,16 +148,18 @@ async def list_films(
             {"names": vals},
         )
         allowed = [row[0] for row in result.fetchall() if row[1] is not None and row[1] <= max_order]
-        if dim_key == "themes":
+        if dim_key == "categories":
+            categories = allowed if allowed else None
+        elif dim_key == "themes":
             themes = allowed if allowed else None
+        elif dim_key == "time_periods":
+            time_periods = allowed if allowed else None
         elif dim_key == "atmospheres":
             atmospheres = allowed if allowed else None
         elif dim_key == "place_contexts":
             place_contexts = allowed if allowed else None
         elif dim_key == "characters":
             characters = allowed if allowed else None
-        elif dim_key == "motivations":
-            motivations = allowed if allowed else None
         elif dim_key == "cinema_types":
             cinema_types = allowed if allowed else None
 
@@ -182,7 +167,7 @@ async def list_films(
     max_filters = TIER_MAX_FILTERS.get(tier)
     if max_filters is not None:
         filter_count = 0
-        for vals in [categories, themes, atmospheres, messages, characters, motivations,
+        for vals in [categories, themes, atmospheres, characters,
                      cinema_types, time_periods, place_contexts, studios]:
             if vals:
                 filter_count += len(vals)
@@ -295,9 +280,7 @@ async def list_films(
     _taxonomy_filters = [
         (themes, themes_not, themes_mode, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
         (atmospheres, atmospheres_not, atmospheres_mode, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
-        (messages, messages_not, messages_mode, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
         (characters, characters_not, characters_mode, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
-        (motivations, motivations_not, motivations_mode, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
         (cinema_types, cinema_types_not, cinema_types_mode, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         (time_periods, time_periods_not, time_periods_mode, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
         (place_contexts, place_contexts_not, place_contexts_mode, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
@@ -305,7 +288,7 @@ async def list_films(
     ]
 
     _taxonomy_dim_names = [
-        "themes", "atmospheres", "messages", "characters", "motivations",
+        "themes", "atmospheres", "characters",
         "cinema_types", "time_periods", "place_contexts", "studios",
     ]
 
@@ -575,8 +558,8 @@ async def list_films(
             SELECT fg.film_id, c.category_name
             FROM film_genre fg
             JOIN category c ON fg.category_id = c.category_id
-            WHERE fg.film_id = ANY(:film_ids) AND c.historic_subcategory_name IS NULL
-            ORDER BY fg.film_id, c.category_name
+            WHERE fg.film_id = ANY(:film_ids) AND c.sort_order < 200
+            ORDER BY fg.film_id, c.sort_order
         """
         cat_result = await db.execute(text(cat_sql), {"film_ids": film_ids})
         cat_map: dict[int, list[str]] = {}
@@ -696,7 +679,7 @@ async def get_film(
     params = {"fid": film_id}
     (
         title_rows, cat_rows, cinema_rows, theme_rows, char_rows,
-        motiv_rows, atmos_rows, msg_rows, time_rows, place_rows,
+        atmos_rows, time_rows, place_rows,
         sp_rows, crew_rows, cast_rows, studio_rows, src_rows,
         award_rows, streaming_rows, seq_rows,
     ) = await asyncio.gather(
@@ -709,10 +692,10 @@ async def get_film(
             params,
         ),
         _parallel_query(
-            "SELECT DISTINCT c.category_name, c.historic_subcategory_name "
+            "SELECT DISTINCT c.category_name, c.historic_subcategory_name, c.sort_order "
             "FROM film_genre fg "
             "JOIN category c ON fg.category_id = c.category_id "
-            "WHERE fg.film_id = :fid ORDER BY c.category_name",
+            "WHERE fg.film_id = :fid ORDER BY c.sort_order, c.category_name",
             params,
         ),
         _parallel_query(
@@ -724,7 +707,7 @@ async def get_film(
         _parallel_query(
             "SELECT tc.theme_name FROM film_theme fth "
             "JOIN theme_context tc ON fth.theme_context_id = tc.theme_context_id "
-            "WHERE fth.film_id = :fid ORDER BY tc.theme_name",
+            "WHERE fth.film_id = :fid ORDER BY tc.sort_order, tc.theme_name",
             params,
         ),
         _parallel_query(
@@ -734,33 +717,21 @@ async def get_film(
             params,
         ),
         _parallel_query(
-            "SELECT mr.motivation_name FROM film_motivation fm "
-            "JOIN motivation_relation mr ON fm.motivation_id = mr.motivation_id "
-            "WHERE fm.film_id = :fid ORDER BY mr.motivation_name",
-            params,
-        ),
-        _parallel_query(
             "SELECT a.atmosphere_name FROM film_atmosphere fa "
             "JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id "
-            "WHERE fa.film_id = :fid ORDER BY a.atmosphere_name",
-            params,
-        ),
-        _parallel_query(
-            "SELECT mc.message_name FROM film_message fmsg "
-            "JOIN message_conveyed mc ON fmsg.message_id = mc.message_id "
-            "WHERE fmsg.film_id = :fid ORDER BY mc.message_name",
+            "WHERE fa.film_id = :fid ORDER BY a.sort_order, a.atmosphere_name",
             params,
         ),
         _parallel_query(
             "SELECT tc.time_period FROM film_period fp "
             "JOIN time_context tc ON fp.time_context_id = tc.time_context_id "
-            "WHERE fp.film_id = :fid ORDER BY tc.time_period",
+            "WHERE fp.film_id = :fid ORDER BY tc.sort_order, tc.time_period",
             params,
         ),
         _parallel_query(
             "SELECT pc.environment FROM film_place fpl "
             "JOIN place_context pc ON fpl.place_context_id = pc.place_context_id "
-            "WHERE fpl.film_id = :fid ORDER BY pc.environment",
+            "WHERE fpl.film_id = :fid ORDER BY pc.sort_order, pc.environment",
             params,
         ),
         _parallel_query(
@@ -838,9 +809,10 @@ async def get_film(
     ]
 
     # Process categories — composite "Historical: biopic" for subcategories
+    # (Taxonomy v2 rows are all flat, so this only guards legacy rows)
     categories: list[str] = []
     seen_parents: set[str] = set()
-    for cat_name, sub_name in cat_rows:
+    for cat_name, sub_name, _cat_sort in cat_rows:
         if sub_name:
             categories.append(f"{cat_name}: {sub_name}")
             seen_parents.add(cat_name)
@@ -855,9 +827,7 @@ async def get_film(
     cinema_types = [r[0] for r in cinema_rows]
     themes_list = [r[0] for r in theme_rows]
     characters_list = [r[0] for r in char_rows]
-    motivations_list = [r[0] for r in motiv_rows]
     atmospheres_list = [r[0] for r in atmos_rows]
-    messages_list = [r[0] for r in msg_rows]
     time_periods_list = [r[0] for r in time_rows]
     place_contexts_list = [r[0] for r in place_rows]
     studios = [r[0] for r in studio_rows]
@@ -928,9 +898,7 @@ async def get_film(
         cinema_types=cinema_types,
         themes=themes_list,
         characters=characters_list,
-        motivations=motivations_list,
         atmospheres=atmospheres_list,
-        messages=messages_list,
         time_periods=time_periods_list,
         place_contexts=place_contexts_list,
         set_places=set_places,
@@ -1116,8 +1084,6 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
         ("themes", "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
         ("character_context", "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
         ("atmosphere", "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
-        ("motivations", "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
-        ("message", "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
         ("time_context", "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
         ("place_environment", "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
     ]
@@ -1397,9 +1363,7 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
         (update.cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         (update.themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
         (update.characters, "film_character_context", "character_context_id", "character_context", "character_context_id", "context_name"),
-        (update.motivations, "film_motivation", "motivation_id", "motivation_relation", "motivation_id", "motivation_name"),
         (update.atmospheres, "film_atmosphere", "atmosphere_id", "atmosphere", "atmosphere_id", "atmosphere_name"),
-        (update.messages, "film_message", "message_id", "message_conveyed", "message_id", "message_name"),
         (update.time_periods, "film_period", "time_context_id", "time_context", "time_context_id", "time_period"),
         (update.place_contexts, "film_place", "place_context_id", "place_context", "place_context_id", "environment"),
     ]
@@ -1687,7 +1651,7 @@ async def get_stats(
         SELECT c.category_name, COUNT(*) AS count
         FROM film_genre fg
         JOIN category c ON fg.category_id = c.category_id
-        WHERE c.historic_subcategory_name IS NULL
+        WHERE c.sort_order < 200
         GROUP BY c.category_name
         ORDER BY count DESC
         LIMIT 10

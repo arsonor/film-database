@@ -121,9 +121,7 @@ class FilmDetail(BaseModel):
     cinema_types: list[str] = []
     themes: list[str] = []
     characters: list[str] = []
-    motivations: list[str] = []
     atmospheres: list[str] = []
-    messages: list[str] = []
     time_periods: list[str] = []
     place_contexts: list[str] = []
     set_places: list[FilmSetPlaceOut] = []
@@ -204,9 +202,7 @@ class FilmUpdate(BaseModel):
     cinema_types: list[str] | None = None
     themes: list[str] | None = None
     characters: list[str] | None = None
-    motivations: list[str] | None = None
     atmospheres: list[str] | None = None
-    messages: list[str] | None = None
     time_periods: list[str] | None = None
     place_contexts: list[str] | None = None
     studios: list[str] | None = None

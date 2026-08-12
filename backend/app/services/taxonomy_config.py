@@ -1,155 +1,189 @@
 """
 Taxonomy configuration for the Film Database project.
 
-All valid taxonomy values extracted from database/seed_taxonomy.sql.
+All valid taxonomy values extracted from database/seed_taxonomy.sql (Taxonomy v2:
+7 dimensions — Genre, Theme, Time Period, Place, Atmosphere, Character, Cinema Type).
 Used by ClaudeEnricher to build prompts and validate outputs.
+
+Lists are kept in seed_taxonomy.sql order (i.e. sort_order order), with a comment
+per named sub-dimension so the prompt reads like the source document.
 """
 
 # =============================================================================
 # Valid taxonomy values — extracted from seed_taxonomy.sql
 # =============================================================================
 
-VALID_CATEGORIES = [
-    "Comedy", "Drama", "Romance", "Action", "Adventure",
-    "Thriller", "Science-Fiction", "Fantasy", "Horror", "Musical",
-    "Documentary", "Historical",
+# --- Genre -------------------------------------------------------------------
+# Main genres occupy sort_order block 100-199; everything from 200 up is a
+# sub-genre. Every film must get at least one MAIN genre.
+
+VALID_GENRES_MAIN = [
+    "Drama", "Comedy", "Romance", "Historical", "Action", "Adventure",
+    "Thriller", "Science-Fiction", "Fantasy", "Horror", "Musical", "Documentary",
 ]
 
+VALID_GENRES_SUB = [
+    # Drama / Romance (200s)
+    "melodrama", "coming of age", "slice of life", "tragedy",
+    # Comedy (300s)
+    "parodic", "satirical", "absurdist", "black comedy",
+    # Thriller / Adventure (400s)
+    "psychological", "war", "crime", "investigation", "spy", "heist",
+    "mafia/organized crime", "serial killer", "survival", "chase/escape",
+    "odyssey/quest", "disaster", "apocalypse",
+    # Historical / Justice (500s)
+    "trial/judicial chronicle", "prison", "biopic", "fait divers/true incident",
+    "western", "peplum", "swashbuckler", "costume drama", "wu xia pian",
+    "revisionist/alternate history",
+    # Sci-fi / Fantasy (600s)
+    "supernatural", "whimsical/zany", "dystopia", "tales and legends",
+    # Horror (700s)
+    "jumpscare", "slasher", "gore", "body horror", "gothic horror", "folk horror",
+    # Miscellaneous (800s)
+    "docufiction", "martial arts",
+]
+
+VALID_CATEGORIES = VALID_GENRES_MAIN + VALID_GENRES_SUB
+
 VALID_CINEMA_TYPES = [
-    # Group 1: Visual techniques & aesthetics
+    # Visual techniques (100s)
     "animation", "mixed animation", "CGI", "3D", "motion capture",
-    "black and white", "aesthetics",
-    # Group 2: Movements & eras
+    "black and white", "aesthetics", "found footage", "dogma",
+    # Industry & culture (200s)
+    "blockbuster", "art house", "B", "franchise", "popular culture",
+    # Narrative techniques > Sequencing (300s)
+    "chapters/multi-sequence", "flashback/non linear", "real time", "timelapse",
+    "slow-motion", "sequence-shot", "split screen", "musical montage",
+    # Narrative techniques > Voice & Dialogue (400s)
+    "dialogs/punchline", "slang dialogs", "few/no dialogs", "voiceover",
+    "monologue", "fourth wall break",
+    # Movements & eras (500s)
     "silent", "expressionism", "realism", "neo-realism", "noir",
-    "hollywood golden age", "new hollywood", "new wave", "neo-noir",
-    # Group 3: Industry & culture
-    "blockbuster", "art house", "franchise", "B",
-    "generational", "popular culture",
-    # Group 4: Narrative techniques
-    "sequence-shot", "found footage", "multi-sequence",
-    "slow cinema", "non linear narrative", "dogma",
-    "dialogs", "slang dialogs", "few/no dialogs", "voiceover",
-    # Group 5: Cinema sub-genres/archetypes
-    "biopic", "fait divers/true incident",
-    "western", "peplum", "swashbuckler", "costume drama",
-    "wu xia pian", "blaxploitation", "giallo", "slasher",
-    "black comedy", "docufiction",
+    "hollywood golden age", "new hollywood", "new wave", "slow cinema",
+    "neo-noir", "blaxploitation", "giallo",
 ]
 
 VALID_PLACE_ENVIRONMENTS = [
-    # Group 1: Natural environments
-    "urban", "country", "forest", "mountains", "desert", "beach",
-    "maritime", "island", "underground", "space",
-    # Group 2: Buildings & institutions
+    # Environments (100s)
+    "urban", "small town", "rural", "forest", "mountains", "desert", "beach",
+    "maritime", "island", "underground", "space", "planet",
+    # Buildings & institutions (200s)
     "building", "household/house/apartment", "company/factory",
-    "school/university", "hospital", "jail", "military", "naval", "ship",
-    # Group 3: Narrative settings
+    "school/university", "hospital", "jail", "military", "naval", "castle",
+    "hotel",
+    # Narrative settings (300s)
     "road movie", "huis clos/confined setting",
-    # Group 4: None
+    # Vehicles (400s)
+    "car/bus", "train", "airplane", "ship",
+    # None (500)
     "no particular",
 ]
 
 VALID_TIME_CONTEXTS = [
-    "future", "contemporary", "early 21st", "end 20th",
-    "20th post-war", "WW2", "interwar", "WW1", "early 20th",
-    "19th", "modern age", "medieval", "antiquity", "prehistoric",
-    "undetermined",
+    # Chronological (future -> prehistoric)
+    "future", "contemporary", "2000-2010's", "1980-90's", "1950-60-70's",
+    "WW2", "1920-30's", "WW1", "1900-1910's", "19th", "modern age",
+    "medieval", "antiquity", "prehistoric", "undetermined",
+    # Time span (100s)
+    "single day", "several years", "decades-spanning",
+    # Seasons (200s)
     "spring", "summer", "autumn", "winter",
 ]
 
+# Year ranges for the Chronological block — mirrored in the enrichment prompt.
+TIME_PERIOD_YEAR_RANGES = [
+    ("future", "2030 onward"),
+    ("contemporary", "2020-2029"),
+    ("2000-2010's", "2000-2019"),
+    ("1980-90's", "1980-1999"),
+    ("1950-60-70's", "1946-1979"),
+    ("WW2", "1939-1945"),
+    ("1920-30's", "1919-1938"),
+    ("WW1", "1914-1918"),
+    ("1900-1910's", "1900-1913"),
+    ("19th", "1800-1899"),
+    ("modern age", "1500-1799"),
+    ("medieval", "500-1500"),
+    ("antiquity", "3000 BC-500 AD"),
+    ("prehistoric", "before recorded civilization"),
+    ("undetermined", "no identifiable period"),
+]
+
 VALID_THEMES = [
-    # Group 1: Society
-    "social", "class struggle", "societal", "political",
-    "religion", "business", "journalism/media", "censorship",
-    "trial/judicial chronicle", "prison", "war", "immigration",
-    "slavery", "colonialism", "tragedy", "apocalypse", "disaster",
-    # Group 2: Personal / Psychological
-    "trauma/accident", "psychological", "identity crisis", "illness",
-    "amnesia", "death", "mourning", "addiction/drugs", "time passing",
-    "transformation",
-    # Group 3: Crime / Thriller
-    "investigation", "spy", "crime", "sex crime", "organized crime",
-    "heist", "kidnapping/hostage",
-    "police violence", "corruption", "delinquency", "organized fraud",
-    "mafia", "serial killer", "chase/escape", "terrorism",
-    "sect", "survival",
-    # Group 4: Sci-fi / Fantasy
-    "dystopia", "tales and legends", "supernatural",
-    "sorcery", "alien contact", "paranormal", "curse",
-    "time travel/loop", "virtual/parallel universe", "dream", "whimsical/zany",
-    # Group 5: Art, Sport & Entertainment
-    "art", "art: music", "art: cinema", "art: literature", "art: fashion",
+    # Society & World (100s)
+    "social", "societal", "generational", "political", "religion", "business",
+    "journalism/media", "censorship", "conspiracy", "sect", "immigration",
+    "colonialism", "slavery", "nature/wildlife", "AI/technology",
+    # Values & Reflection (200s)
+    "humanist", "feminist", "nostalgic", "ecological", "patriotic",
+    "anti establishment", "traditionalist/way of life", "philosophical",
+    "metaphysical",
+    # Human Relations > Bonds & attachments (300s)
+    "love", "friendship", "solidarity", "communication", "family/parenthood",
+    # Human Relations > Desire & transgression (400s)
+    "power", "manipulation", "sex", "adultery", "jealousy", "perversion",
+    # Human Relations > Interpersonal conflict (500s)
+    "class/culture clash", "rivalry", "fight", "rebellion/revolt", "vengeance",
+    "harassment",
+    # Human Relations > Crime & abuse of power (600s)
+    "delinquency", "police violence", "sex crime", "kidnapping/hostage",
+    "trafficking/fraud", "corruption", "terrorism",
+    # Personal / Inner conflict > Wounds & burdens (700s)
+    "trauma/accident", "identity crisis", "illness", "amnesia", "death",
+    "grief/mourning", "addiction/drugs", "loneliness", "guilt",
+    # Personal / Inner conflict > Drives & arcs (800s)
+    "obsession", "greed/ambition", "doubt/dilemma", "lie", "sacrifice",
+    "honor/duty", "emancipation", "redemption", "transformation",
+    "time passing", "dream",
+    # Art, Sport & Entertainment > Art (900s)
+    "art", "art: music/dance", "art: cinema", "art: literature", "art: fashion",
     "art: painting", "art: sculpture", "art: theatre", "art: radio",
-    "art: architecture", "martial arts",
-    "sport", "sport: individual", "sport: collective",
-    "sport: tournament", "sport: motor",
-    "party", "game", "gambling",
-    # Group 6: Miscellaneous
-    "nature", "AI/technology", "food/cooking",
+    "art: architecture",
+    # Art, Sport & Entertainment > Sport (1000s)
+    "sport", "sport: individual", "sport: collective", "sport: tournament",
+    "sport: motor",
+    # Art, Sport & Entertainment > Entertainment (1100s)
+    "food/cooking", "party", "game", "gambling", "contest",
+    # Face to the unknown (1200s)
+    "sorcery", "alien contact", "paranormal", "curse", "time travel/loop",
+    "virtual/parallel universe", "invasion", "exploration",
 ]
 
 VALID_CHARACTERS = [
-    # Group 1: Group structure
+    # Group structure (100s)
     "solitary", "tandem", "trio", "couple", "relatives", "generations",
     "buddies", "team/group/gang", "ensemble cast",
-    # Group 2: Age & identity
-    "childhood", "teenager", "elderly", "adult/child", "female", "LGBT",
-    "interracial",
-    # Group 3: Social status & traits
+    # Age & identity (200s)
+    "childhood", "teenager", "elderly", "adult/child", "female lead",
+    "male ensemble", "LGBT", "interracial",
+    # Social status & traits (300s)
     "ordinary", "poor/marginal", "wealthy", "genius", "simpleton/fool",
-    "loser", "star/celebrity", "disturbed/madness",
-    "disabled", "outcast/misfit", "prostitute", "psychopath",
-    # Group 4: Narrative devices
+    "loser", "star/celebrity", "disturbed/madness", "disabled",
+    "outcast/misfit", "sex worker", "psychopath",
+    # Narrative devices (400s)
     "double", "cross-dressing", "unreliable narrator",
-    # Group 5: Archetypes — human
-    "super hero", "antihero", "cop", "detective", "vigilante",
-    "gangster", "soldier", "femme fatale", "samurai", "pirate", "viking",
-    "scientist/researcher", "mentor",
-    # Group 6: Non-human & creatures
-    "animal/wildlife", "monster/terrestrial creature", "evil", "witch",
-    "ghost/spirit", "vampire", "zombie", "alien", "android", "vehicle",
+    # Archetypes — human (500s)
+    "super hero", "chosen one", "antihero", "scientist/researcher", "mentor",
+    "cop", "detective", "secret agent", "vigilante", "gangster", "soldier",
+    "warrior", "knight", "samurai", "pirate", "viking", "witch/wizard",
+    "femme fatale",
+    # Non-human & creatures (600s)
+    "animal", "monster/terrestrial creature", "devil", "ghost/spirit",
+    "vampire", "zombie", "alien", "android/robot", "vehicle",
 ]
 
 VALID_ATMOSPHERES = [
-    # Group 1: Light/Joyful
+    # Light / Joyful (100s)
     "family-friendly", "feel good", "crazy/nutty", "delicate/intimate",
+    # Dark / Extreme (200s)
+    "depressive/sad", "violent", "disturbing", "steamy", "sordid",
+    # Pace, Tension & Scale (300s)
+    "epic", "edge of your seat", "mysterious", "oppressive", "claustrophobic",
     "contemplative/meditative",
-    # Group 2: Tension
-    "mysterious", "oppressive", "claustrophobic",
-    # Group 3: Attention
-    "meticulous", "ethereal", "hypnotic/immersive", "psychedelic",
-    # Group 4: Dark/Extreme
-    "depressive/sad", "violent", "disturbing", "steamy", "gore", "sordid",
-    # Group 5: Scale & Tone
-    "cityscape", "pastoral", "gritty/realistic", "epic",
-]
-
-VALID_MOTIVATIONS = [
-    # Group 1: Positive bonds
-    "love", "friendship", "solidarity", "communication",
-    "emancipation", "redemption", "honor/duty",
-    # Group 2: Inner conflict
-    "obsession", "doubt/dilemma", "lie", "manipulation", "sacrifice",
-    # Group 3: Desire & transgression
-    "greed/ambition", "sex", "adultery", "jealousy", "harassment",
-    "perversion",
-    # Group 4: Conflict & struggle
-    "power", "rivalry", "fight", "rebellion/revolt", "vengeance",
-    # Group 5: Epic quests
-    "odyssey", "quest", "world-saving", "invasion",
-]
-
-VALID_MESSAGES = [
-    # Group 1: Values & ideology
-    "humanist", "feminist", "ecological", "political",
-    "anti establishment", "nostalgic", "patriotic",
-    "traditionalist/way of life",
-    # Group 2: Comedy & satire
-    "parodic", "satirical", "absurdist", "revisionist/alternate history",
-    # Group 3: Reflection
-    "philosophical", "metaphysical",
-    # Group 4: Artistic expression
-    "dreamlike", "surreal", "symbolic", "poetic",
+    # Artistic Directing (400s)
+    "cityscape", "pastoral", "gritty/realistic", "meticulous",
+    "hypnotic/immersive", "psychedelic", "ethereal", "symbolic",
+    "dreamlike/surreal", "poetic",
 ]
 
 VALID_SOURCE_TYPES = [
@@ -169,13 +203,11 @@ TAXONOMY_DIMENSIONS = {
     "themes": VALID_THEMES,
     "character_context": VALID_CHARACTERS,
     "atmosphere": VALID_ATMOSPHERES,
-    "motivations": VALID_MOTIVATIONS,
-    "message": VALID_MESSAGES,
 }
 
 # =============================================================================
-# Reference film examples — validated classifications from CLAUDE.md
-# Used as few-shot examples in the enrichment prompt
+# Reference film examples — validated classifications from CLAUDE.md,
+# re-tagged under Taxonomy v2. Used as few-shot examples in the prompt.
 # =============================================================================
 
 REFERENCE_EXAMPLES = {
@@ -183,21 +215,23 @@ REFERENCE_EXAMPLES = {
         "title": "2001: A Space Odyssey",
         "year": 1968,
         "enrichment": {
-            "categories": ["Science-Fiction", "Drama", "Adventure"],
+            "categories": ["Science-Fiction", "Drama", "Adventure", "odyssey/quest"],
             "cinema_type": ["blockbuster", "art house", "slow cinema", "new hollywood", "aesthetics"],
-            "time_context": ["prehistoric", "20th post-war", "future"],
+            "time_context": ["prehistoric", "1950-60-70's", "future", "decades-spanning"],
             "geography": [
                 {"continent": "Africa", "country": "Kenya", "state_city": None, "place_type": "diegetic"},
             ],
             "place_environment": ["space", "desert"],
             "themes": [
-                "alien contact", "AI/technology", "death",
-                "time passing", "transformation",
+                "alien contact", "AI/technology", "death", "time passing",
+                "transformation", "philosophical", "metaphysical", "power",
+                "doubt/dilemma", "exploration",
             ],
-            "character_context": ["solitary", "tandem", "android", "alien"],
-            "atmosphere": ["contemplative/meditative", "oppressive", "mysterious", "disturbing", "psychedelic"],
-            "motivations": ["quest", "odyssey", "power", "doubt/dilemma"],
-            "message": ["philosophical", "metaphysical", "symbolic", "surreal"],
+            "character_context": ["solitary", "tandem", "android/robot", "alien", "scientist/researcher"],
+            "atmosphere": [
+                "contemplative/meditative", "oppressive", "mysterious", "disturbing",
+                "psychedelic", "symbolic", "dreamlike/surreal", "epic",
+            ],
             "source": {
                 "type": "novel",
                 "title": "The Sentinel",
@@ -219,8 +253,6 @@ REFERENCE_EXAMPLES = {
                 "themes": 0.9,
                 "character_context": 0.85,
                 "atmosphere": 0.9,
-                "motivations": 0.85,
-                "message": 0.9,
                 "source": 0.8,
                 "awards": 0.95,
             },
@@ -231,24 +263,22 @@ REFERENCE_EXAMPLES = {
         "title": "La Haine",
         "year": 1995,
         "enrichment": {
-            "categories": ["Drama", "Thriller"],
-            "cinema_type": ["art house", "black and white", "realism", "generational", "slang dialogs"],
-            "time_context": ["end 20th"],
+            "categories": ["Drama", "Thriller", "tragedy"],
+            "cinema_type": ["art house", "black and white", "realism", "slang dialogs"],
+            "time_context": ["1980-90's", "single day"],
             "geography": [
                 {"continent": "Europe", "country": "France", "state_city": "Île-de-France", "place_type": "diegetic"},
                 {"continent": "Europe", "country": "France", "state_city": "Paris", "place_type": "diegetic"},
             ],
             "place_environment": ["urban", "building"],
             "themes": [
-                "social", "societal", "political", "delinquency",
-                "tragedy", "death", "police violence", "immigration", "trauma/accident",
+                "social", "societal", "generational", "political", "delinquency",
+                "death", "police violence", "immigration", "trauma/accident",
+                "friendship", "solidarity", "rebellion/revolt", "vengeance",
+                "fight", "humanist", "philosophical",
             ],
             "character_context": ["trio", "buddies", "interracial", "poor/marginal", "teenager", "cop"],
-            "atmosphere": ["violent", "oppressive", "depressive/sad", "gritty/realistic"],
-            "motivations": [
-                "friendship", "solidarity", "rebellion/revolt", "vengeance", "fight",
-            ],
-            "message": ["political", "humanist", "philosophical"],
+            "atmosphere": ["violent", "oppressive", "depressive/sad", "gritty/realistic", "cityscape"],
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -269,8 +299,6 @@ REFERENCE_EXAMPLES = {
                 "themes": 0.9,
                 "character_context": 0.95,
                 "atmosphere": 0.9,
-                "motivations": 0.9,
-                "message": 0.9,
                 "source": 0.95,
                 "awards": 0.95,
             },
@@ -281,25 +309,28 @@ REFERENCE_EXAMPLES = {
         "title": "Mulholland Drive",
         "year": 2001,
         "enrichment": {
-            "categories": ["Drama", "Thriller"],
-            "cinema_type": ["art house", "non linear narrative", "aesthetics", "neo-noir"],
-            "time_context": ["early 21st"],
+            "categories": [
+                "Drama", "Thriller", "psychological", "crime", "investigation",
+                "mafia/organized crime",
+            ],
+            "cinema_type": ["art house", "flashback/non linear", "aesthetics", "neo-noir"],
+            "time_context": ["2000-2010's"],
             "geography": [
                 {"continent": "North America", "country": "United States", "state_city": "Los Angeles", "place_type": "diegetic"},
                 {"continent": "North America", "country": "United States", "state_city": "Hollywood", "place_type": "diegetic"},
             ],
             "place_environment": ["urban"],
             "themes": [
-                "psychological", "dream", "art: cinema", "crime",
-                "investigation", "identity crisis", "amnesia", "trauma/accident", "mafia",
+                "dream", "art: cinema", "identity crisis", "amnesia",
+                "trauma/accident", "love", "obsession", "jealousy",
+                "manipulation", "lie", "sex", "adultery", "vengeance",
+                "metaphysical",
             ],
-            "character_context": ["tandem", "couple", "female", "double", "LGBT", "star/celebrity"],
-            "atmosphere": ["mysterious", "steamy", "disturbing", "oppressive", "hypnotic/immersive"],
-            "motivations": [
-                "love", "obsession", "jealousy", "manipulation",
-                "lie", "sex", "adultery", "vengeance",
+            "character_context": ["tandem", "couple", "female lead", "double", "LGBT", "star/celebrity"],
+            "atmosphere": [
+                "mysterious", "steamy", "disturbing", "oppressive",
+                "hypnotic/immersive", "symbolic", "dreamlike/surreal",
             ],
-            "message": ["surreal", "dreamlike", "symbolic", "metaphysical"],
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -318,8 +349,6 @@ REFERENCE_EXAMPLES = {
                 "themes": 0.9,
                 "character_context": 0.9,
                 "atmosphere": 0.9,
-                "motivations": 0.85,
-                "message": 0.95,
                 "source": 0.95,
                 "awards": 0.95,
             },

@@ -43,8 +43,6 @@ DIMENSION_MAP = {
     "themes": ("theme_context", "theme_context_id", "theme_name", "film_theme", "theme_context_id"),
     "characters": ("character_context", "character_context_id", "context_name", "film_character_context", "character_context_id"),
     "atmospheres": ("atmosphere", "atmosphere_id", "atmosphere_name", "film_atmosphere", "atmosphere_id"),
-    "messages": ("message_conveyed", "message_id", "message_name", "film_message", "message_id"),
-    "motivations": ("motivation_relation", "motivation_id", "motivation_name", "film_motivation", "motivation_id"),
     "time_periods": ("time_context", "time_context_id", "time_period", "film_period", "time_context_id"),
     "place_contexts": ("place_context", "place_context_id", "environment", "film_place", "place_context_id"),
     "streaming_platforms": ("stream_platform", "platform_id", "platform_name", "film_exploitation", "platform_id"),
@@ -58,7 +56,7 @@ HIERARCHICAL_DIMENSIONS = {"themes", "categories"}
 # Dimensions with sort_order columns for custom display ordering
 SORTED_DIMENSIONS = {
     "themes", "time_periods", "characters", "cinema_types",
-    "atmospheres", "motivations", "place_contexts", "messages", "categories",
+    "atmospheres", "place_contexts", "categories",
 }
 
 # Special dimensions not in DIMENSION_MAP
@@ -72,8 +70,6 @@ FREQ_DIMENSIONS = {
     "themes": ("theme_context", "theme_name", "film_theme", "theme_context_id"),
     "characters": ("character_context", "context_name", "film_character_context", "character_context_id"),
     "atmospheres": ("atmosphere", "atmosphere_name", "film_atmosphere", "atmosphere_id"),
-    "messages": ("message_conveyed", "message_name", "film_message", "message_id"),
-    "motivations": ("motivation_relation", "motivation_name", "film_motivation", "motivation_id"),
     "time_periods": ("time_context", "time_period", "film_period", "time_context_id"),
     "place_contexts": ("place_context", "environment", "film_place", "place_context_id"),
 }
@@ -291,7 +287,7 @@ async def get_taxonomy(dimension: str, db: AsyncSession = Depends(get_db)):
 # Dimensions that can be managed (excludes studios, streaming, person_jobs, languages)
 MANAGEABLE_DIMENSIONS = {
     "categories", "cinema_types", "themes", "characters",
-    "atmospheres", "messages", "motivations", "time_periods", "place_contexts",
+    "atmospheres", "time_periods", "place_contexts",
 }
 
 
@@ -325,19 +321,26 @@ async def add_taxonomy_value(
         else:
             cat_name, sub_name = body.name, None
 
+        # Taxonomy v2: Genre rows are flat and ordered by sort_order blocks
+        # (100s = main genres, 200+ = sub-genres), so a new value needs one.
+        cat_sort = body.sort_order
+        if cat_sort is None:
+            r = await db.execute(text("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM category"))
+            cat_sort = r.scalar_one()
+
         try:
             result = await db.execute(
                 text("""
-                    INSERT INTO category (category_name, historic_subcategory_name)
-                    VALUES (:cat, :sub)
+                    INSERT INTO category (category_name, historic_subcategory_name, sort_order)
+                    VALUES (:cat, :sub, :sort)
                     RETURNING category_id
                 """),
-                {"cat": cat_name, "sub": sub_name},
+                {"cat": cat_name, "sub": sub_name, "sort": cat_sort},
             )
             new_id = result.scalar_one()
             await db.commit()
             invalidate_freq_cache()
-            return TaxonomyItem(id=new_id, name=body.name, film_count=0)
+            return TaxonomyItem(id=new_id, name=body.name, film_count=0, sort_order=cat_sort)
         except Exception as e:
             await db.rollback()
             if "duplicate" in str(e).lower() or "unique" in str(e).lower():
@@ -393,12 +396,14 @@ async def rename_taxonomy_value(
         else:
             cat_name, sub_name = body.name, None
 
+        set_parts = ["category_name = :cat", "historic_subcategory_name = :sub"]
+        params = {"cat": cat_name, "sub": sub_name, "id": item_id}
+        if body.sort_order is not None:
+            set_parts.append("sort_order = :sort")
+            params["sort"] = body.sort_order
         result = await db.execute(
-            text("""
-                UPDATE category SET category_name = :cat, historic_subcategory_name = :sub
-                WHERE category_id = :id RETURNING category_id
-            """),
-            {"cat": cat_name, "sub": sub_name, "id": item_id},
+            text(f"UPDATE category SET {', '.join(set_parts)} WHERE category_id = :id RETURNING category_id"),
+            params,
         )
     else:
         set_parts = [f"{name_col} = :name"]

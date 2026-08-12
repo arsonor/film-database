@@ -36,6 +36,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 from app.services.taxonomy_config import (  # noqa: E402
     REFERENCE_EXAMPLES,
     TAXONOMY_DIMENSIONS,
+    TIME_PERIOD_YEAR_RANGES,
+    VALID_GENRES_MAIN,
+    VALID_GENRES_SUB,
     VALID_SOURCE_TYPES,
 )
 
@@ -69,19 +72,23 @@ BATCH_STATE_PATH = DATA_DIR / "batch_state.json"
 def build_system_prompt() -> str:
     """Build the full system prompt with taxonomy + examples (cacheable)."""
     dims = TAXONOMY_DIMENSIONS
+    year_table = " · ".join(f"{tag} {years}" for tag, years in TIME_PERIOD_YEAR_RANGES)
 
     taxonomy_section = f"""## Taxonomy Dimensions — Use ONLY these values (or prefix new ones with [NEW])
 
-### Categories (pick all that apply)
-Valid: {', '.join(dims['categories'])}
+### Genre (the "categories" key — main genres + sub-genres, all in one list)
+Main genres: {', '.join(VALID_GENRES_MAIN)}
+Sub-genres: {', '.join(VALID_GENRES_SUB)}
+IMPORTANT: assign at least ONE main genre. Add sub-genres only when they clearly define the film; zero sub-genres is a valid answer.
 
-### Cinema Type (techniques, movements, sub-genres, and cultural eras)
+### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)
 Valid: {', '.join(dims['cinema_type'])}
-Note: Use "Collection" for films that are part of a major franchise (sequels, prequels, shared universe).
+Note: Use "franchise" for films that are part of a major franchise (sequels, prequels, shared universe).
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
-IMPORTANT: For films released after 2000 set in their present day, use ONLY "contemporary". Do NOT add "end 20th".
+Chronological tags map to these year ranges: {year_table}
+IMPORTANT: tag the years the STORY takes place in, not the release year. Optionally add a Time span tag (single day / several years / decades-spanning) and a Season when either is a defining trait.
 
 ### Place Context — Geography
 Provide as: continent > country > state/city
@@ -99,15 +106,8 @@ IMPORTANT: Each theme must be a defining aspect of the film. "death" = death is 
 Valid: {', '.join(dims['character_context'])}
 Note: Include "couple" when a romantic relationship is central to the story.
 
-### Atmosphere (pick all that apply)
+### Atmosphere (mood, tone and artistic directing — pick all that apply)
 Valid: {', '.join(dims['atmosphere'])}
-
-### Motivations & Relations (pick all that apply)
-Valid: {', '.join(dims['motivations'])}
-Note: "fight" = physical combat/action scenes are significant in the film.
-
-### Message Conveyed (pick all that apply)
-Valid: {', '.join(dims['message'])}
 
 ### Source / Origin
 Type (one of): {', '.join(VALID_SOURCE_TYPES)}
@@ -152,8 +152,6 @@ Respond with ONLY this JSON structure:
   "themes": ["..."],
   "character_context": ["..."],
   "atmosphere": ["..."],
-  "motivations": ["..."],
-  "message": ["..."],
   "source": {
     "type": "...",
     "title": "..." or null,
@@ -172,8 +170,6 @@ Respond with ONLY this JSON structure:
     "themes": 0.0-1.0,
     "character_context": 0.0-1.0,
     "atmosphere": 0.0-1.0,
-    "motivations": 0.0-1.0,
-    "message": 0.0-1.0,
     "source": 0.0-1.0,
     "awards": 0.0-1.0
   },
@@ -193,8 +189,8 @@ Tag selection philosophy — tags must characterize the film as a whole:
 - Each tag should represent a DEFINING or SIGNIFICANT aspect of the film, not an incidental detail.
 - Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
 Ex: For themes like "death": only tag if death is a CENTRAL theme or narrative thread, not merely because a character dies incidentally.
-- For motivations: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
-- For cinema_type: include "Collection" if the film is part of a major franchise with sequels/prequels.
+- For themes: "fight" applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
+- For cinema_type: include "franchise" if the film is part of a major franchise with sequels/prequels.
 
 Source rules:
 - Identify if based on a novel, true story, play, original screenplay, etc.
@@ -267,7 +263,7 @@ def validate_enrichment(enrichment: dict) -> dict:
     list_dims = [
         "categories", "cinema_type", "time_context",
         "place_environment", "themes", "character_context",
-        "atmosphere", "motivations", "message",
+        "atmosphere",
     ]
 
     for dim in list_dims:

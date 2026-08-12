@@ -896,8 +896,6 @@ class DBInserter:
             "themes": "themes",
             "character_context": "character_context",
             "atmosphere": "atmosphere",
-            "motivations": "motivations",
-            "message": "message",
         }
 
         for dim, enr_key in dim_to_enrichment_key.items():

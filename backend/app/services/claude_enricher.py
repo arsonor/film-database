@@ -2,8 +2,8 @@
 Claude AI enrichment service for the Film Database project.
 
 Uses the Anthropic Claude API to classify films into the full custom taxonomy
-(atmosphere, message, motivations, characters, cultural movement, etc.)
-based on TMDB metadata.
+(the 7 dimensions of Taxonomy v2: Genre, Theme, Time Period, Place, Atmosphere,
+Character, Cinema Type) based on TMDB metadata.
 """
 
 import asyncio
@@ -17,6 +17,9 @@ import anthropic
 from .taxonomy_config import (
     REFERENCE_EXAMPLES,
     TAXONOMY_DIMENSIONS,
+    TIME_PERIOD_YEAR_RANGES,
+    VALID_GENRES_MAIN,
+    VALID_GENRES_SUB,
     VALID_SOURCE_TYPES,
 )
 
@@ -28,6 +31,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 ENRICHMENT_SYSTEM_PROMPT = """You are a film classification expert. Given metadata about a film, you classify it into a precise custom taxonomy. You must be accurate, thorough, and use your deep knowledge of cinema.
+
+The taxonomy has 7 dimensions: Genre (main genres + sub-genres), Theme, Time Context, Place (geography + environment), Atmosphere, Character and Cinema Type.
 
 Core principles:
 - ONLY use values from the provided valid value lists unless no existing value fits, in which case prefix new suggestions with [NEW].
@@ -61,6 +66,7 @@ class ClaudeEnricher:
             dim: set(values) for dim, values in TAXONOMY_DIMENSIONS.items()
         }
         self.valid_source_types = set(VALID_SOURCE_TYPES)
+        self.main_genres = set(VALID_GENRES_MAIN)
         self.tag_definitions = self._load_tag_definitions()
 
     # -------------------------------------------------------------------------
@@ -316,8 +322,6 @@ Respond with ONLY this JSON structure:
   "themes": ["..."],
   "character_context": ["..."],
   "atmosphere": ["..."],
-  "motivations": ["..."],
-  "message": ["..."],
   "source": {{
     "type": "...",
     "title": "..." or null,
@@ -336,8 +340,6 @@ Respond with ONLY this JSON structure:
     "themes": 0.0-1.0,
     "character_context": 0.0-1.0,
     "atmosphere": 0.0-1.0,
-    "motivations": 0.0-1.0,
-    "message": 0.0-1.0,
     "source": 0.0-1.0,
     "awards": 0.0-1.0
   }},
@@ -349,17 +351,31 @@ Respond with ONLY this JSON structure:
     def _build_taxonomy_section(self) -> str:
         """Build the taxonomy dimension section of the prompt."""
         dims = TAXONOMY_DIMENSIONS
+        year_table = " · ".join(f"{tag} {years}" for tag, years in TIME_PERIOD_YEAR_RANGES)
 
         section = f"""## Taxonomy Dimensions — Use ONLY these values (or prefix new ones with [NEW])
 
-### Categories (pick all that apply)
-Valid: {', '.join(dims['categories'])}
+### Genre (the "categories" key — main genres + sub-genres, all in one list)
+Main genres: {', '.join(VALID_GENRES_MAIN)}
+Sub-genres: {', '.join(VALID_GENRES_SUB)}
+Rules:
+- Assign at least ONE main genre — always. Usually one to three.
+- Add sub-genres ONLY when they clearly define the film (a war film gets "war",
+  a courtroom drama gets "trial/judicial chronicle"). A single scene or a minor
+  plot element is not enough. Zero sub-genres is a perfectly valid answer.
+- Put main genres and sub-genres together in the same "categories" list.
 
-### Cinema Type (includes techniques, movements, sub-genres, and cultural eras)
+### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)
 Valid: {', '.join(dims['cinema_type'])}
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
+Chronological tags map to these year ranges: {year_table}
+Pick the chronological tag(s) covering the years the story takes place in — not
+the release year. A film may span several periods (flashbacks, epics).
+Optionally add a Time span tag (single day / several years / decades-spanning)
+when the stretch of time covered is a defining trait, and a Season
+(spring / summer / autumn / winter) when the season matters to the film.
 
 ### Place Context — Geography
 Provide as: continent > country > state/city
@@ -374,14 +390,8 @@ Valid: {', '.join(dims['themes'])}
 ### Characters (group structure, contexts, and archetypes — pick all that apply)
 Valid: {', '.join(dims['character_context'])}
 
-### Atmosphere (pick all that apply)
+### Atmosphere (mood, tone and artistic directing — pick all that apply)
 Valid: {', '.join(dims['atmosphere'])}
-
-### Motivations & Relations (pick all that apply)
-Valid: {', '.join(dims['motivations'])}
-
-### Message Conveyed (pick all that apply)
-Valid: {', '.join(dims['message'])}
 
 ### Source / Origin
 Type (one of): {', '.join(VALID_SOURCE_TYPES)}
@@ -442,7 +452,7 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
         list_dims = [
             "categories", "cinema_type", "time_context",
             "place_environment", "themes", "character_context",
-            "atmosphere", "motivations", "message",
+            "atmosphere",
         ]
 
         for dim in list_dims:
@@ -532,6 +542,10 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
             if not enrichment.get(dim):
                 logger.warning("Required dimension '%s' is empty after validation", dim)
 
+        # Every film should carry at least one MAIN genre (sub-genres alone are not enough)
+        if not any(c in self.main_genres for c in enrichment.get("categories", [])):
+            logger.warning("No main genre in categories: %s", enrichment.get("categories"))
+
         return enrichment
 
     def _empty_enrichment(self) -> dict:
@@ -545,8 +559,6 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
             "themes": [],
             "character_context": [],
             "atmosphere": [],
-            "motivations": [],
-            "message": [],
             "source": {"type": None, "title": None, "author": None},
             "awards": [],
             "confidence": {
@@ -558,8 +570,6 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
                 "themes": 0.0,
                 "character_context": 0.0,
                 "atmosphere": 0.0,
-                "motivations": 0.0,
-                "message": 0.0,
                 "source": 0.0,
                 "awards": 0.0,
             },
