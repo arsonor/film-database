@@ -382,9 +382,7 @@ function ReviewScreen({
   const [cinemaTypes, setCinemaTypes] = useState(getEnrichmentList("cinema_type"));
   const [themes, setThemes] = useState(getEnrichmentList("themes"));
   const [characters, setCharacters] = useState(getEnrichmentList("character_context"));
-  const [motivations, setMotivations] = useState(getEnrichmentList("motivations"));
   const [atmospheres, setAtmospheres] = useState(getEnrichmentList("atmosphere"));
-  const [messages, setMessages] = useState(getEnrichmentList("message"));
   const [timePeriods, setTimePeriods] = useState(getEnrichmentList("time_context"));
   const [placeContexts, setPlaceContexts] = useState(getEnrichmentList("place_environment"));
   const [streamingPlatforms, setStreamingPlatforms] = useState(preview.streaming_platforms);
@@ -396,9 +394,7 @@ function ReviewScreen({
       cinema_type: cinemaTypes,
       themes,
       character_context: characters,
-      motivations,
       atmosphere: atmospheres,
-      message: messages,
       time_context: timePeriods,
       place_environment: placeContexts,
     };
@@ -414,8 +410,7 @@ function ReviewScreen({
     setTimeout(onSave, 0);
   }, [
     preview, setPreview, onSave,
-    categories, cinemaTypes, themes, characters,
-    motivations, atmospheres, messages,
+    categories, cinemaTypes, themes, characters, atmospheres,
     timePeriods, placeContexts, streamingPlatforms, enrichment,
   ]);
 
@@ -533,13 +528,13 @@ function ReviewScreen({
           <h3 className="mb-4 text-xl font-bold">Classification</h3>
           <div className="grid gap-6 sm:grid-cols-2">
             <InlineTagEditor
-              label="Categories"
+              label="Genre"
               dimension="categories"
               values={categories}
               onChange={setCategories}
             />
             <InlineTagEditor
-              label="Cinema"
+              label="Cinema Type"
               dimension="cinema_types"
               values={cinemaTypes}
               onChange={setCinemaTypes}
@@ -551,34 +546,22 @@ function ReviewScreen({
           <h3 className="mb-4 text-xl font-bold">Context & Themes</h3>
           <div className="grid gap-6 sm:grid-cols-2">
             <InlineTagEditor
-              label="Themes"
+              label="Theme"
               dimension="themes"
               values={themes}
               onChange={setThemes}
             />
             <InlineTagEditor
-              label="Characters"
+              label="Character"
               dimension="characters"
               values={characters}
               onChange={setCharacters}
             />
             <InlineTagEditor
-              label="Motivations"
-              dimension="motivations"
-              values={motivations}
-              onChange={setMotivations}
-            />
-            <InlineTagEditor
-              label="Atmospheres"
+              label="Atmosphere"
               dimension="atmospheres"
               values={atmospheres}
               onChange={setAtmospheres}
-            />
-            <InlineTagEditor
-              label="Messages"
-              dimension="messages"
-              values={messages}
-              onChange={setMessages}
             />
           </div>
         </section>
@@ -589,13 +572,13 @@ function ReviewScreen({
           <h3 className="mb-4 text-xl font-bold">Setting</h3>
           <div className="grid gap-6 sm:grid-cols-2">
             <InlineTagEditor
-              label="Time Periods"
+              label="Time Period"
               dimension="time_periods"
               values={timePeriods}
               onChange={setTimePeriods}
             />
             <InlineTagEditor
-              label="Place Contexts"
+              label="Place"
               dimension="place_contexts"
               values={placeContexts}
               onChange={setPlaceContexts}

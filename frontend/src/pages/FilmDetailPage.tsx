@@ -28,6 +28,8 @@ import { EditableSourceSection } from "@/components/films/EditableSourceSection"
 import { RelatedFilmsSection } from "@/components/films/RelatedFilmsSection";
 import { SimilarFilmsCarousel } from "@/components/films/SimilarFilmsCarousel";
 import { SectionHeading } from "@/components/films/SectionHeading";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { isMainGenre } from "@/lib/taxonomyGroups";
 import type { CrewMember } from "@/types/api";
 import {
   dimensionLabel,
@@ -45,6 +47,13 @@ export function FilmDetailPage() {
   const { isAdmin, isAuthenticated, tier } = useAuth();
   const queryClient = useQueryClient();
   const { film, loading, error, refetch } = useFilmDetail(filmId);
+  // Shared, cached across the app — gives each tag its sort_order so the
+  // taxonomy section can group tags under their sub-dimension names.
+  const { taxonomies } = useTaxonomy();
+
+  // Film cards and the hero show main genres only; the Genre section below
+  // shows everything, sub-genres included.
+  const mainGenres = film ? film.categories.filter(isMainGenre) : [];
 
   const handleStatusChange = useCallback(async (updated: Record<string, unknown>) => {
     if (!film) return;
@@ -223,9 +232,9 @@ export function FilmDetailPage() {
                   </>
                 )}
               </div>
-              {film.categories.length > 0 && (
+              {mainGenres.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {film.categories.map((cat) => (
+                  {mainGenres.map((cat) => (
                     <Badge key={cat} className="text-xs">{cat}</Badge>
                   ))}
                 </div>
@@ -358,9 +367,9 @@ export function FilmDetailPage() {
               </>
             )}
           </div>
-          {film.categories.length > 0 && (
+          {mainGenres.length > 0 && (
             <div className="flex flex-wrap justify-center gap-1.5">
-              {film.categories.map((cat) => (
+              {mainGenres.map((cat) => (
                 <Badge key={cat} className="text-xs">{cat}</Badge>
               ))}
             </div>
@@ -466,6 +475,7 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="time_periods"
               currentValues={film.time_periods}
+              taxonomyItems={taxonomies["time_periods"]}
               onSaved={handleSaved}
               readOnly={!isAdmin}
             />
@@ -473,6 +483,7 @@ export function FilmDetailPage() {
               filmId={film.film_id}
               dimension="place_contexts"
               currentValues={film.place_contexts}
+              taxonomyItems={taxonomies["place_contexts"]}
               onSaved={handleSaved}
               readOnly={!isAdmin}
             />
@@ -483,55 +494,42 @@ export function FilmDetailPage() {
               readOnly={!isAdmin}
             />
           </div>
-          <div className="mt-6 space-y-4">
-            <div>
-              <EditableTagSection
-                filmId={film.film_id}
-                dimension="categories"
-                currentValues={film.categories}
-                onSaved={handleSaved}
-                readOnly={!isAdmin}
-              />
-            </div>
+          <div className="mt-6 space-y-6">
             {isAuthenticated ? (
               <>
+                {/* Genre + Theme carry the most tags — give them half the width each */}
                 <div className="grid gap-6 sm:grid-cols-2">
+                  <EditableTagSection
+                    filmId={film.film_id}
+                    dimension="categories"
+                    currentValues={film.categories}
+                    taxonomyItems={taxonomies["categories"]}
+                    onSaved={handleSaved}
+                    readOnly={!isAdmin}
+                  />
                   <EditableTagSection
                     filmId={film.film_id}
                     dimension="themes"
                     currentValues={film.themes}
+                    taxonomyItems={taxonomies["themes"]}
                     onSaved={handleSaved}
                     readOnly={!isAdmin}
                   />
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   <EditableTagSection
                     filmId={film.film_id}
                     dimension="atmospheres"
                     currentValues={film.atmospheres}
+                    taxonomyItems={taxonomies["atmospheres"]}
                     onSaved={handleSaved}
                     readOnly={!isAdmin}
                   />
-                </div>
-                <div className="grid gap-6 sm:grid-cols-2">
                   <EditableTagSection
                     filmId={film.film_id}
                     dimension="characters"
                     currentValues={film.characters}
-                    onSaved={handleSaved}
-                    readOnly={!isAdmin}
-                  />
-                  <EditableTagSection
-                    filmId={film.film_id}
-                    dimension="motivations"
-                    currentValues={film.motivations}
-                    onSaved={handleSaved}
-                    readOnly={!isAdmin}
-                  />
-                </div>
-                <div className="grid gap-6 sm:grid-cols-2">
-                  <EditableTagSection
-                    filmId={film.film_id}
-                    dimension="messages"
-                    currentValues={film.messages}
+                    taxonomyItems={taxonomies["characters"]}
                     onSaved={handleSaved}
                     readOnly={!isAdmin}
                   />
@@ -539,15 +537,24 @@ export function FilmDetailPage() {
                     filmId={film.film_id}
                     dimension="cinema_types"
                     currentValues={film.cinema_types}
+                    taxonomyItems={taxonomies["cinema_types"]}
                     onSaved={handleSaved}
                     readOnly={!isAdmin}
                   />
                 </div>
               </>
             ) : (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-4">
+                <EditableTagSection
+                  filmId={film.film_id}
+                  dimension="categories"
+                  currentValues={film.categories}
+                  taxonomyItems={taxonomies["categories"]}
+                  onSaved={handleSaved}
+                  readOnly={!isAdmin}
+                />
                 <p className="text-sm text-muted-foreground">
-                  6 more dimensions available —{" "}
+                  4 more dimensions available —{" "}
                   <button
                     onClick={() => navigate("/auth")}
                     className="font-medium text-primary hover:underline"
@@ -561,8 +568,6 @@ export function FilmDetailPage() {
                     ["themes", film.themes],
                     ["atmospheres", film.atmospheres],
                     ["characters", film.characters],
-                    ["motivations", film.motivations],
-                    ["messages", film.messages],
                     ["cinema_types", film.cinema_types],
                   ] as [string, string[]][]).map(([dim, values]) => (
                     <span

@@ -110,9 +110,7 @@ export interface FilmDetail {
   cinema_types: string[];
   themes: string[];
   characters: string[];
-  motivations: string[];
   atmospheres: string[];
-  messages: string[];
   time_periods: string[];
   place_contexts: string[];
   set_places: FilmSetPlace[];
@@ -197,8 +195,6 @@ export interface FilterState {
   themes: TagFilter;
   atmospheres: TagFilter;
   characters: TagFilter;
-  motivations: TagFilter;
-  messages: TagFilter;
   cinema_types: TagFilter;
   time_periods: TagFilter;
   place_contexts: TagFilter;
@@ -225,8 +221,6 @@ export const TAXONOMY_DIMENSIONS = [
   "place_contexts",
   "atmospheres",
   "characters",
-  "motivations",
-  "messages",
   "cinema_types",
 ] as const;
 
@@ -238,8 +232,6 @@ export const DEFAULT_FILTER_STATE: FilterState = {
   themes: { ...EMPTY_TAG_FILTER },
   atmospheres: { ...EMPTY_TAG_FILTER },
   characters: { ...EMPTY_TAG_FILTER },
-  motivations: { ...EMPTY_TAG_FILTER },
-  messages: { ...EMPTY_TAG_FILTER },
   cinema_types: { ...EMPTY_TAG_FILTER },
   time_periods: { ...EMPTY_TAG_FILTER },
   place_contexts: { ...EMPTY_TAG_FILTER },
@@ -742,13 +734,11 @@ export interface PaginatedGameHistory {
 export const ARRAY_FILTER_KEYS = [
   "categories",
   "themes",
-  "atmospheres",
-  "characters",
-  "motivations",
-  "messages",
-  "cinema_types",
   "time_periods",
   "place_contexts",
+  "atmospheres",
+  "characters",
+  "cinema_types",
   "studios",
 ] as const;
 

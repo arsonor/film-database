@@ -41,15 +41,13 @@ export function tmdbImageUrl(path: string | null, size = "w500"): string | null 
 
 export function dimensionLabel(dimension: string): string {
   const labels: Record<string, string> = {
-    categories: "Genres",
-    themes: "Themes",
-    atmospheres: "Atmospheres",
-    characters: "Characters",
-    motivations: "Motivations",
-    messages: "Messages",
-    cinema_types: "Cinema Types",
-    time_periods: "Time Periods",
-    place_contexts: "Place Contexts",
+    categories: "Genre",
+    themes: "Theme",
+    atmospheres: "Atmosphere",
+    characters: "Character",
+    cinema_types: "Cinema Type",
+    time_periods: "Time Period",
+    place_contexts: "Place",
     studios: "Studios",
   };
   return labels[dimension] ?? capitalize(dimension.replace(/_/g, " "));

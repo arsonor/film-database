@@ -66,7 +66,9 @@ export function FilterChip({ name, count, state, tooltip, onInclude, onExclude, 
       onTouchCancel={handleTouchEnd}
       title={tooltip}
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors select-none",
+        // Mobile-first: comfortable touch target; tightened back up on desktop
+        "inline-flex min-h-[38px] items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors select-none",
+        "lg:min-h-0 lg:gap-1 lg:px-2 lg:py-1 lg:text-xs",
         state === "include" &&
           "border-primary bg-primary text-primary-foreground",
         state === "exclude" &&
@@ -77,13 +79,13 @@ export function FilterChip({ name, count, state, tooltip, onInclude, onExclude, 
           "cursor-not-allowed border-border/40 bg-transparent text-muted-foreground/50 opacity-100",
       )}
     >
-      {state === "locked" && <Lock className="h-2.5 w-2.5 shrink-0" />}
-      {state === "exclude" && <Ban className="h-3 w-3 shrink-0" />}
+      {state === "locked" && <Lock className="h-3 w-3 shrink-0 lg:h-2.5 lg:w-2.5" />}
+      {state === "exclude" && <Ban className="h-3.5 w-3.5 shrink-0 lg:h-3 lg:w-3" />}
       <span className="truncate">{name}</span>
       {count !== null && count > 0 && (
         <span
           className={cn(
-            "ml-0.5 text-[10px]",
+            "ml-0.5 text-[11px] lg:text-[10px]",
             state === "include" ? "text-primary-foreground/80" :
             state === "exclude" ? "text-red-400/60" :
             "text-muted-foreground/60",
@@ -108,13 +110,13 @@ export function FilterChip({ name, count, state, tooltip, onInclude, onExclude, 
               setInfoOpen((v) => !v);
             }}
             className={cn(
-              "-ml-0.5 rounded p-0.5 lg:hidden",
+              "-ml-1 rounded p-1.5 lg:hidden",
               state === "include"
                 ? "text-primary-foreground/60"
                 : "text-muted-foreground/40 hover:text-muted-foreground",
             )}
           >
-            <Info className="h-3 w-3" />
+            <Info className="h-4 w-4" />
           </button>
         </PopoverTrigger>
       </div>

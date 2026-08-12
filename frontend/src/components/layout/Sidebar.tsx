@@ -169,14 +169,14 @@ export function SidebarContent({
       <div className="space-y-1 p-4">
         {/* Tier message banner */}
         {tierMessage && (
-          <div className="mb-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+          <div className="mb-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-400 lg:py-2 lg:text-xs">
             {tierMessage}
           </div>
         )}
 
         {/* Year range dual slider + inputs */}
         <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">Year Range</label>
+          <label className="mb-2 block text-base font-semibold text-foreground lg:text-sm lg:font-medium">Year Range</label>
           <div className="px-1">
             <div className="mb-2 flex items-center gap-2 text-xs">
               <Input
@@ -192,7 +192,7 @@ export function SidebarContent({
                 }}
                 onBlur={() => handleYearAfterChange(yearRange)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
-                className="h-7 w-20 text-center text-xs"
+                className="h-10 w-24 text-center text-base lg:h-7 lg:w-20 lg:text-xs"
               />
               <span className="text-muted-foreground">—</span>
               <Input
@@ -208,7 +208,7 @@ export function SidebarContent({
                 }}
                 onBlur={() => handleYearAfterChange(yearRange)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleYearAfterChange(yearRange); }}
-                className="h-7 w-20 text-center text-xs"
+                className="h-10 w-24 text-center text-base lg:h-7 lg:w-20 lg:text-xs"
               />
             </div>
             <DualRangeSlider
@@ -261,18 +261,18 @@ export function SidebarContent({
 
         {/* Film Set Location autocomplete */}
         <div className={`border-b border-border pb-3 pt-2 ${locationLocked ? "opacity-40 pointer-events-none" : ""}`}>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label className="mb-2 flex items-center gap-2 text-base font-semibold text-foreground lg:text-sm lg:font-medium">
             Film Set Location
-            {locationLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+            {locationLocked && <Lock className="h-3.5 w-3.5 text-amber-500/60 lg:h-3 lg:w-3" />}
           </label>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground lg:left-2.5 lg:top-2.5 lg:h-3.5 lg:w-3.5" />
             <Input
               value={locationQuery}
               onChange={(e) => handleLocationChange(e.target.value)}
               onBlur={() => setTimeout(() => setShowLocationResults(false), 200)}
               placeholder="Search locations..."
-              className="h-8 pl-8 text-xs"
+              className="h-11 pl-9 text-base lg:h-8 lg:pl-8 lg:text-xs"
             />
             {showLocationResults && locationResults.length > 0 && (
               <div className="absolute top-full z-50 mt-1 w-full rounded-md border bg-popover shadow-md">
@@ -281,7 +281,7 @@ export function SidebarContent({
                     key={r.geography_id}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => selectLocation(r)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center justify-between px-3 py-3 text-sm hover:bg-accent hover:text-accent-foreground lg:py-2 lg:text-xs"
                   >
                     <span className="truncate">{r.label}</span>
                     <span className="ml-2 text-muted-foreground">{r.film_count}</span>
@@ -294,7 +294,7 @@ export function SidebarContent({
 
         {/* Production Country dropdown */}
         <div className="border-b border-border pb-3 pt-2">
-          <label className="mb-2 block text-sm font-medium text-foreground">
+          <label className="mb-2 block text-base font-semibold text-foreground lg:text-sm lg:font-medium">
             Production Country
           </label>
           <Select
@@ -305,7 +305,7 @@ export function SidebarContent({
               onUpdateFilters({ production_country: newVal });
             }}
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-11 text-base lg:h-8 lg:text-xs">
               <SelectValue placeholder="All countries" />
             </SelectTrigger>
             <SelectContent>
@@ -323,12 +323,12 @@ export function SidebarContent({
 
         {/* Production Studio search */}
         <div className={`border-b border-border pb-3 pt-2 ${studiosLocked ? "opacity-40 pointer-events-none" : ""}`}>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label className="mb-2 flex items-center gap-2 text-base font-semibold text-foreground lg:text-sm lg:font-medium">
             Production Studio
-            {studiosLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+            {studiosLocked && <Lock className="h-3.5 w-3.5 text-amber-500/60 lg:h-3 lg:w-3" />}
           </label>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground lg:left-2.5 lg:top-2.5 lg:h-3.5 lg:w-3.5" />
             <Input
               value={filters.studios.include.length === 1 && !studioQuery ? filters.studios.include[0]! : studioQuery}
               onChange={(e) => {
@@ -339,7 +339,7 @@ export function SidebarContent({
               onFocus={() => setShowStudioResults(true)}
               onBlur={() => setTimeout(() => setShowStudioResults(false), 200)}
               placeholder="Search studios..."
-              className="h-8 pl-8 text-xs"
+              className="h-11 pl-9 text-base lg:h-8 lg:pl-8 lg:text-xs"
             />
             {showStudioResults && filteredStudios.length > 0 && (
               <div className="absolute top-full z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
@@ -351,7 +351,7 @@ export function SidebarContent({
                       setStudioQuery("");
                       setShowStudioResults(false);
                     }}
-                    className="flex w-full items-center px-3 py-2 text-xs italic text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center px-3 py-3 text-sm italic text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:py-2 lg:text-xs"
                   >
                     Clear selection
                   </button>
@@ -366,7 +366,7 @@ export function SidebarContent({
                       setStudioQuery("");
                       setShowStudioResults(false);
                     }}
-                    className="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground"
+                    className="flex w-full items-center justify-between px-3 py-3 text-sm hover:bg-accent hover:text-accent-foreground lg:py-2 lg:text-xs"
                   >
                     <span className="truncate">{studio.name}</span>
                     <span className="ml-2 text-muted-foreground">{studio.film_count}</span>
@@ -379,9 +379,9 @@ export function SidebarContent({
 
         {/* Source dropdown (Origin / Adaptation) */}
         <div className={`border-b border-border pb-3 pt-2 ${sourceLocked ? "opacity-40 pointer-events-none" : ""}`}>
-          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
+          <label className="mb-2 flex items-center gap-2 text-base font-semibold text-foreground lg:text-sm lg:font-medium">
             Origin/Adaptation
-            {sourceLocked && <Lock className="h-3 w-3 text-amber-500/60" />}
+            {sourceLocked && <Lock className="h-3.5 w-3.5 text-amber-500/60 lg:h-3 lg:w-3" />}
           </label>
           <Select
             value={filters.source || "__all__"}
@@ -391,7 +391,7 @@ export function SidebarContent({
               onUpdateFilters({ source: newVal });
             }}
           >
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-11 text-base lg:h-8 lg:text-xs">
               <SelectValue placeholder="All sources" />
             </SelectTrigger>
             <SelectContent>

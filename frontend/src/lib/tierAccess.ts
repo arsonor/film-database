@@ -17,23 +17,27 @@ const TIER_CONFIGS: Record<TierName, TierConfig> = {
   anonymous: {
     allowedDimensions: new Set(["categories", "time_periods", "atmospheres"]),
     allowedDropdowns: new Set(["language", "location"]),
-    dimensionSortOrderMax: { atmospheres: 299 },
+    // Blocks of 100 = one sub-dimension, so these caps gate whole groups:
+    // categories 199 = main genres only, time_periods 99 = chronological only.
+    dimensionSortOrderMax: {
+      categories: 199,
+      time_periods: 99,
+      atmospheres: 299,
+    },
     maxFilters: 2,
     canUseOrNot: false,
   },
   free: {
     allowedDimensions: new Set([
-      "categories", "time_periods", "place_contexts",
-      "themes", "atmospheres", "characters",
-      "motivations", "cinema_types",
+      "categories", "themes", "time_periods", "place_contexts",
+      "atmospheres", "characters", "cinema_types",
     ]),
     allowedDropdowns: new Set(["language", "location"]),
     dimensionSortOrderMax: {
-      themes: 399,
+      themes: 699,
       atmospheres: 299,
       place_contexts: 299,
-      characters: 299,
-      motivations: 199,
+      characters: 399,
       cinema_types: 199,
     },
     maxFilters: 3,
@@ -41,9 +45,8 @@ const TIER_CONFIGS: Record<TierName, TierConfig> = {
   },
   pro: {
     allowedDimensions: new Set([
-      "categories", "themes", "atmospheres", "characters",
-      "motivations", "messages", "cinema_types",
-      "time_periods", "place_contexts", "studios",
+      "categories", "themes", "time_periods", "place_contexts",
+      "atmospheres", "characters", "cinema_types", "studios",
     ]),
     allowedDropdowns: new Set(["language", "location", "source", "studios"]),
     dimensionSortOrderMax: {},
@@ -52,9 +55,8 @@ const TIER_CONFIGS: Record<TierName, TierConfig> = {
   },
   admin: {
     allowedDimensions: new Set([
-      "categories", "themes", "atmospheres", "characters",
-      "motivations", "messages", "cinema_types",
-      "time_periods", "place_contexts", "studios",
+      "categories", "themes", "time_periods", "place_contexts",
+      "atmospheres", "characters", "cinema_types", "studios",
     ]),
     allowedDropdowns: new Set(["language", "location", "source", "studios"]),
     dimensionSortOrderMax: {},
