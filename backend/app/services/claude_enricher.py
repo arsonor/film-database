@@ -367,6 +367,10 @@ Rules:
 
 ### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)
 Valid: {', '.join(dims['cinema_type'])}
+Rules:
+- "blockbuster" and "art house" rarely co-occur; apply both only when a film was
+  produced at studio blockbuster scale AND is formally radical enough to have
+  circulated as art cinema. If in doubt, choose one.
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}

@@ -42,7 +42,7 @@
 | 21b | Taxonomy v2 — Backend | ✅ DONE | taxonomy_config + enricher rewrite, routers, schemas, tier config, review_tag, export_taxonomy |
 | 21c | Taxonomy v2 — Frontend | ✅ DONE | Collapsible sub-dimension groups in sidebar, grouped Film page taxonomy, Add Film review |
 | 22 | Taxonomy v2 — Deferred surfaces | ✅ DONE | Recommender weights, dashboard Taxonomy tab, 3 games, migration 027 drops motivation/message tables |
-| 22.1 | Taxonomy tweaks (migration 028) | ✅ DONE (local) | courtroom rename, submarine/spaceship, naval→military. **Not yet on Supabase** |
+| 22.1 | Taxonomy tweaks (migration 028) | ✅ DONE | courtroom rename, submarine/spaceship, naval→military. Local + Supabase + deployed |
 
 ---
 
@@ -242,9 +242,8 @@ dimensions, then drop the dissolved tables. Everything below is applied to the
 
 ## Step 22.1: Taxonomy tweaks — migration 028
 
-Three small taxonomy edits requested after Step 22 landed. Applied to the
-**local DB only** (2026-08-13); Supabase and Render are still on the pre-028
-state — see "Deployment" below.
+Three small taxonomy edits requested after Step 22 landed. Applied to local and
+to Supabase on 2026-08-13, with the backend redeployed in between.
 
 ### Changes
 
@@ -301,10 +300,16 @@ Environments + Buildings; Vehicles stay above it).
 - Backend boots; `/films/{id}/similar`, `/game/daily`, `/game/guess/random`
   all 200.
 
-### Deployment
+### Deployment (2026-08-13)
 
-Supabase is at post-027 and does **not** have 028 yet. To close the gap:
-`psql <supabase> -f database/migrations/028_taxonomy_tweaks.sql`, then redeploy
-the backend so `taxonomy_config.py` matches. Order is not critical here — the
-mismatch only affects enrichment validation on Add Film, not browsing, since
-the sidebar and filters read tag names from the database.
+Pushed → Render redeployed → `028_taxonomy_tweaks.sql` run against Supabase.
+That order was chosen deliberately: neither `create_film` in `films.py` nor
+`_insert_junction_by_name` in `db_inserter.py` auto-creates a missing lookup
+row (both do a name lookup and skip on miss), so a config/DB mismatch can never
+resurrect a deleted tag — the only cost of a gap is the Add Film flow silently
+dropping a tag it can't resolve. Deploying first shrank that window to nothing.
+
+Supabase after the migration reported the same BEFORE/AFTER numbers as local
+(179 / 38 / 132 → courtroom 179, military 165, place_context 30);
+`verify_taxonomy_v2.sql` all PASS; user data untouched (15 users, 1961
+`user_film_status` rows, 265 game results).

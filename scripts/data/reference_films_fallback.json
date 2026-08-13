@@ -195,21 +195,24 @@
       "categories": [
         "Science-Fiction",
         "Drama",
-        "Adventure",
-        "odyssey/quest"
+        "psychological",
+        "survival"
       ],
       "cinema_type": [
+        "aesthetics",
         "blockbuster",
         "art house",
+        "chapters/multi-sequence",
+        "timelapse",
+        "few/no dialogs",
+        "voiceover",
         "slow cinema",
-        "new hollywood",
-        "aesthetics"
+        "new hollywood"
       ],
       "time_context": [
         "prehistoric",
         "1950-60-70's",
-        "future",
-        "decades-spanning"
+        "future"
       ],
       "geography": [
         {
@@ -220,19 +223,26 @@
         }
       ],
       "place_environment": [
+        "desert",
         "space",
-        "desert"
+        "planet",
+        "spaceship"
       ],
       "themes": [
-        "alien contact",
+        "nature/wildlife",
         "AI/technology",
-        "death",
-        "time passing",
-        "transformation",
         "philosophical",
         "metaphysical",
         "power",
+        "rebellion/revolt",
+        "death",
+        "loneliness",
+        "obsession",
         "doubt/dilemma",
+        "lie",
+        "transformation",
+        "time passing",
+        "alien contact",
         "exploration"
       ],
       "character_context": [
@@ -243,14 +253,17 @@
         "scientist/researcher"
       ],
       "atmosphere": [
-        "contemplative/meditative",
-        "oppressive",
-        "mysterious",
         "disturbing",
+        "epic",
+        "mysterious",
+        "oppressive",
+        "contemplative/meditative",
+        "meticulous",
+        "hypnotic/immersive",
         "psychedelic",
+        "ethereal",
         "symbolic",
-        "dreamlike/surreal",
-        "epic"
+        "dreamlike/surreal"
       ],
       "source": {
         "type": "novel",
@@ -490,13 +503,17 @@
       "categories": [
         "Drama",
         "Thriller",
-        "tragedy"
+        "slice of life",
+        "black comedy"
       ],
       "cinema_type": [
-        "art house",
         "black and white",
+        "art house",
         "realism",
-        "slang dialogs"
+        "popular culture",
+        "dialogs/punchline",
+        "slang dialogs",
+        "monologue"
       ],
       "time_context": [
         "1980-90's",
@@ -525,33 +542,37 @@
         "societal",
         "generational",
         "political",
-        "delinquency",
-        "death",
-        "police violence",
         "immigration",
-        "trauma/accident",
+        "class/culture clash",
+        "humanist",
         "friendship",
         "solidarity",
-        "rebellion/revolt",
-        "vengeance",
         "fight",
-        "humanist",
-        "philosophical"
+        "rebellion/revolt",
+        "delinquency",
+        "police violence",
+        "trauma/accident",
+        "death",
+        "doubt/dilemma",
+        "art: music/dance"
       ],
       "character_context": [
         "trio",
         "buddies",
-        "interracial",
-        "poor/marginal",
         "teenager",
+        "male ensemble",
+        "interracial",
+        "ordinary",
+        "poor/marginal",
         "cop"
       ],
       "atmosphere": [
-        "violent",
-        "oppressive",
         "depressive/sad",
-        "gritty/realistic",
-        "cityscape"
+        "violent",
+        "disturbing",
+        "oppressive",
+        "cityscape",
+        "gritty/realistic"
       ],
       "source": {
         "type": "original screenplay",
@@ -843,14 +864,13 @@
         "Drama",
         "Thriller",
         "psychological",
-        "crime",
-        "investigation",
         "mafia/organized crime"
       ],
       "cinema_type": [
-        "art house",
-        "flashback/non linear",
         "aesthetics",
+        "art house",
+        "popular culture",
+        "flashback/non linear",
         "neo-noir"
       ],
       "time_context": [
@@ -874,34 +894,41 @@
         "urban"
       ],
       "themes": [
-        "dream",
-        "art: cinema",
+        "love",
+        "manipulation",
+        "sex",
+        "jealousy",
+        "obsession",
+        "trauma/accident",
         "identity crisis",
         "amnesia",
-        "trauma/accident",
-        "love",
-        "obsession",
-        "jealousy",
-        "manipulation",
+        "guilt",
+        "greed/ambition",
         "lie",
-        "sex",
-        "adultery",
-        "vengeance",
-        "metaphysical"
+        "loneliness",
+        "death",
+        "dream",
+        "art: cinema"
       ],
       "character_context": [
         "tandem",
         "couple",
         "female lead",
-        "double",
         "LGBT",
-        "star/celebrity"
+        "loser",
+        "star/celebrity",
+        "disturbed/madness",
+        "double",
+        "unreliable narrator"
       ],
       "atmosphere": [
-        "mysterious",
-        "steamy",
+        "depressive/sad",
         "disturbing",
+        "steamy",
+        "mysterious",
         "oppressive",
+        "cityscape",
+        "meticulous",
         "hypnotic/immersive",
         "symbolic",
         "dreamlike/surreal"

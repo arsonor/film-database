@@ -167,33 +167,33 @@ Cultural movements are no longer a separate dimension — they live in the *Move
 These serve as ground truth for the taxonomy classification pipeline. They are kept in sync with `REFERENCE_EXAMPLES` in `backend/app/services/taxonomy_config.py` (which is what the enrichment prompt actually ships) and with `scripts/data/reference_films_fallback.json`. **Tagged under Taxonomy v2** — main genres first, then sub-genres.
 
 ### 2001: A Space Odyssey (1968)
-- Genre: Science-Fiction, Drama, Adventure · odyssey/quest
-- Theme: alien contact, AI/technology, death, time passing, transformation, philosophical, metaphysical, power, doubt/dilemma, exploration
-- Time Period: prehistoric, 1950-60-70's, future, decades-spanning
-- Place: space, desert — Geography: Kenya (Africa, diegetic)
-- Atmosphere: contemplative/meditative, oppressive, mysterious, disturbing, psychedelic, symbolic, dreamlike/surreal, epic
+- Genre: Science-Fiction, Drama · psychological, survival
+- Theme: nature/wildlife, AI/technology, philosophical, metaphysical, power, rebellion/revolt, death, loneliness, obsession, doubt/dilemma, lie, transformation, time passing, alien contact, exploration
+- Time Period: prehistoric, 1950-60-70's, future
+- Place: desert, space, planet, spaceship — Geography: Kenya (Africa, diegetic)
+- Atmosphere: disturbing, epic, mysterious, oppressive, contemplative/meditative, meticulous, hypnotic/immersive, psychedelic, ethereal, symbolic, dreamlike/surreal
 - Character: solitary, tandem, android/robot (HAL 9000), alien, scientist/researcher
-- Cinema Type: blockbuster, art house, slow cinema, new hollywood, aesthetics
+- Cinema Type: aesthetics, blockbuster, art house, chapters/multi-sequence, timelapse, few/no dialogs, voiceover, slow cinema, new hollywood
 - Source: novel — *The Sentinel*, Arthur C. Clarke
 
 ### La Haine (1995)
-- Genre: Drama, Thriller · tragedy
-- Theme: social, societal, generational, political, delinquency, death, police violence, immigration, trauma/accident, friendship, solidarity, rebellion/revolt, vengeance, fight, humanist, philosophical
+- Genre: Drama, Thriller · slice of life, black comedy
+- Theme: social, societal, generational, political, immigration, class/culture clash, humanist, friendship, solidarity, fight, rebellion/revolt, delinquency, police violence, trauma/accident, death, doubt/dilemma, art: music/dance
 - Time Period: 1980-90's, single day
 - Place: urban, building — Geography: France / Île-de-France, Paris (diegetic)
-- Atmosphere: violent, oppressive, depressive/sad, gritty/realistic, cityscape
-- Character: trio, buddies, interracial, poor/marginal, teenager, cop
-- Cinema Type: art house, black and white, realism, slang dialogs
+- Atmosphere: depressive/sad, violent, disturbing, oppressive, cityscape, gritty/realistic
+- Character: trio, buddies, teenager, male ensemble, interracial, ordinary, poor/marginal, cop
+- Cinema Type: black and white, art house, realism, popular culture, dialogs/punchline, slang dialogs, monologue
 - Source: original screenplay
 
 ### Mulholland Drive (2001)
-- Genre: Drama, Thriller · psychological, crime, investigation, mafia/organized crime
-- Theme: dream, art: cinema, identity crisis, amnesia, trauma/accident, love, obsession, jealousy, manipulation, lie, sex, adultery, vengeance, metaphysical
+- Genre: Drama, Thriller · psychological, mafia/organized crime
+- Theme: love, manipulation, sex, jealousy, obsession, trauma/accident, identity crisis, amnesia, guilt, greed/ambition, lie, loneliness, death, dream, art: cinema
 - Time Period: 2000-2010's
 - Place: urban — Geography: United States / Los Angeles, Hollywood (diegetic)
-- Atmosphere: mysterious, steamy, disturbing, oppressive, hypnotic/immersive, symbolic, dreamlike/surreal
-- Character: tandem, couple, female lead, double, LGBT, star/celebrity
-- Cinema Type: art house, flashback/non linear, aesthetics, neo-noir
+- Atmosphere: depressive/sad, disturbing, steamy, mysterious, oppressive, cityscape, meticulous, hypnotic/immersive, symbolic, dreamlike/surreal
+- Character: tandem, couple, female lead, LGBT, loser, star/celebrity, disturbed/madness, double, unreliable narrator
+- Cinema Type: aesthetics, art house, popular culture, flashback/non linear, neo-noir
 - Source: original screenplay
 
 ## Project Structure

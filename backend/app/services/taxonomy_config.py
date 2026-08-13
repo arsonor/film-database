@@ -214,22 +214,28 @@ REFERENCE_EXAMPLES = {
         "title": "2001: A Space Odyssey",
         "year": 1968,
         "enrichment": {
-            "categories": ["Science-Fiction", "Drama", "Adventure", "odyssey/quest"],
-            "cinema_type": ["blockbuster", "art house", "slow cinema", "new hollywood", "aesthetics"],
-            "time_context": ["prehistoric", "1950-60-70's", "future", "decades-spanning"],
+            "categories": ["Science-Fiction", "Drama", "psychological", "survival"],
+            "cinema_type": [
+                "aesthetics", "blockbuster", "art house", "chapters/multi-sequence",
+                "timelapse", "few/no dialogs", "voiceover", "slow cinema",
+                "new hollywood",
+            ],
+            "time_context": ["prehistoric", "1950-60-70's", "future"],
             "geography": [
                 {"continent": "Africa", "country": "Kenya", "state_city": None, "place_type": "diegetic"},
             ],
-            "place_environment": ["space", "desert"],
+            "place_environment": ["desert", "space", "planet", "spaceship"],
             "themes": [
-                "alien contact", "AI/technology", "death", "time passing",
-                "transformation", "philosophical", "metaphysical", "power",
-                "doubt/dilemma", "exploration",
+                "nature/wildlife", "AI/technology", "philosophical", "metaphysical",
+                "power", "rebellion/revolt", "death", "loneliness", "obsession",
+                "doubt/dilemma", "lie", "transformation", "time passing",
+                "alien contact", "exploration",
             ],
             "character_context": ["solitary", "tandem", "android/robot", "alien", "scientist/researcher"],
             "atmosphere": [
-                "contemplative/meditative", "oppressive", "mysterious", "disturbing",
-                "psychedelic", "symbolic", "dreamlike/surreal", "epic",
+                "disturbing", "epic", "mysterious", "oppressive",
+                "contemplative/meditative", "meticulous", "hypnotic/immersive",
+                "psychedelic", "ethereal", "symbolic", "dreamlike/surreal",
             ],
             "source": {
                 "type": "novel",
@@ -262,8 +268,11 @@ REFERENCE_EXAMPLES = {
         "title": "La Haine",
         "year": 1995,
         "enrichment": {
-            "categories": ["Drama", "Thriller", "tragedy"],
-            "cinema_type": ["art house", "black and white", "realism", "slang dialogs"],
+            "categories": ["Drama", "Thriller", "slice of life", "black comedy"],
+            "cinema_type": [
+                "black and white", "art house", "realism", "popular culture",
+                "dialogs/punchline", "slang dialogs", "monologue",
+            ],
             "time_context": ["1980-90's", "single day"],
             "geography": [
                 {"continent": "Europe", "country": "France", "state_city": "Île-de-France", "place_type": "diegetic"},
@@ -271,13 +280,19 @@ REFERENCE_EXAMPLES = {
             ],
             "place_environment": ["urban", "building"],
             "themes": [
-                "social", "societal", "generational", "political", "delinquency",
-                "death", "police violence", "immigration", "trauma/accident",
-                "friendship", "solidarity", "rebellion/revolt", "vengeance",
-                "fight", "humanist", "philosophical",
+                "social", "societal", "generational", "political", "immigration",
+                "class/culture clash", "humanist", "friendship", "solidarity",
+                "fight", "rebellion/revolt", "delinquency", "police violence",
+                "trauma/accident", "death", "doubt/dilemma", "art: music/dance",
             ],
-            "character_context": ["trio", "buddies", "interracial", "poor/marginal", "teenager", "cop"],
-            "atmosphere": ["violent", "oppressive", "depressive/sad", "gritty/realistic", "cityscape"],
+            "character_context": [
+                "trio", "buddies", "teenager", "male ensemble", "interracial",
+                "ordinary", "poor/marginal", "cop",
+            ],
+            "atmosphere": [
+                "depressive/sad", "violent", "disturbing", "oppressive",
+                "cityscape", "gritty/realistic",
+            ],
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -308,11 +323,11 @@ REFERENCE_EXAMPLES = {
         "title": "Mulholland Drive",
         "year": 2001,
         "enrichment": {
-            "categories": [
-                "Drama", "Thriller", "psychological", "crime", "investigation",
-                "mafia/organized crime",
+            "categories": ["Drama", "Thriller", "psychological", "mafia/organized crime"],
+            "cinema_type": [
+                "aesthetics", "art house", "popular culture",
+                "flashback/non linear", "neo-noir",
             ],
-            "cinema_type": ["art house", "flashback/non linear", "aesthetics", "neo-noir"],
             "time_context": ["2000-2010's"],
             "geography": [
                 {"continent": "North America", "country": "United States", "state_city": "Los Angeles", "place_type": "diegetic"},
@@ -320,15 +335,20 @@ REFERENCE_EXAMPLES = {
             ],
             "place_environment": ["urban"],
             "themes": [
-                "dream", "art: cinema", "identity crisis", "amnesia",
-                "trauma/accident", "love", "obsession", "jealousy",
-                "manipulation", "lie", "sex", "adultery", "vengeance",
-                "metaphysical",
+                "love", "manipulation", "sex", "jealousy", "obsession",
+                "trauma/accident", "identity crisis", "amnesia", "guilt",
+                "greed/ambition", "lie", "loneliness", "death", "dream",
+                "art: cinema",
             ],
-            "character_context": ["tandem", "couple", "female lead", "double", "LGBT", "star/celebrity"],
+            "character_context": [
+                "tandem", "couple", "female lead", "LGBT", "loser",
+                "star/celebrity", "disturbed/madness", "double",
+                "unreliable narrator",
+            ],
             "atmosphere": [
-                "mysterious", "steamy", "disturbing", "oppressive",
-                "hypnotic/immersive", "symbolic", "dreamlike/surreal",
+                "depressive/sad", "disturbing", "steamy", "mysterious",
+                "oppressive", "cityscape", "meticulous", "hypnotic/immersive",
+                "symbolic", "dreamlike/surreal",
             ],
             "source": {
                 "type": "original screenplay",
