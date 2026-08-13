@@ -27,16 +27,21 @@ FROM (
 ) x ORDER BY ord;
 
 \echo '============================================================'
-\echo ' 2. Dissolved dimensions are empty (tables still present)'
+\echo ' 2. Dissolved dimensions are gone (dropped by migration 027)'
 \echo '============================================================'
 
-SELECT relation, rows,
-       CASE WHEN rows = 0 THEN 'PASS' ELSE 'FAIL' END AS status
+-- 026 emptied these four tables and left them in place; 027 dropped them once
+-- the recommender, dashboard and games had been rewired (Step 22). A count(*)
+-- cannot be used here — psql fails at parse time on a missing relation — so the
+-- check is on the catalog instead.
+SELECT relation, present,
+       CASE WHEN NOT present THEN 'PASS' ELSE 'FAIL (run migration 027)' END AS status
 FROM (
-    SELECT 'motivation_relation' AS relation, (SELECT count(*) FROM motivation_relation) AS rows, 1 AS ord
-    UNION ALL SELECT 'message_conveyed', (SELECT count(*) FROM message_conveyed), 2
-    UNION ALL SELECT 'film_motivation',  (SELECT count(*) FROM film_motivation),  3
-    UNION ALL SELECT 'film_message',     (SELECT count(*) FROM film_message),     4
+    SELECT 'motivation_relation' AS relation,
+           to_regclass('public.motivation_relation') IS NOT NULL AS present, 1 AS ord
+    UNION ALL SELECT 'message_conveyed', to_regclass('public.message_conveyed') IS NOT NULL, 2
+    UNION ALL SELECT 'film_motivation',  to_regclass('public.film_motivation')  IS NOT NULL, 3
+    UNION ALL SELECT 'film_message',     to_regclass('public.film_message')     IS NOT NULL, 4
 ) x ORDER BY ord;
 
 \echo '============================================================'

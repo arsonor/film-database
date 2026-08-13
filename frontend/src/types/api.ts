@@ -352,6 +352,10 @@ export interface CategoryDecadeCell {
   pct: number;
 }
 
+export interface SubgenreDecadeCell extends CategoryDecadeCell {
+  sort_order: number;
+}
+
 export interface CinemaMovementCell {
   movement: string;
   decade: number;
@@ -359,8 +363,9 @@ export interface CinemaMovementCell {
   sort_order: number;
 }
 
-export interface MessageDecadeCell {
-  message: string;
+/** Themes in the "Values & Reflection" block (sort_order 200–299). */
+export interface ValueThemeDecadeCell {
+  theme: string;
   decade: number;
   film_count: number;
   decade_total: number;
@@ -377,11 +382,11 @@ export interface AtmosphereByCategoryCell {
   pct: number;
 }
 
-export interface MessageByMovementCell {
+export interface ValueThemeByMovementCell {
   movement: string;
   movement_sort_order: number;
-  message: string;
-  message_sort_order: number;
+  theme: string;
+  theme_sort_order: number;
   film_count: number;
   movement_total: number;
   pct: number;
@@ -392,10 +397,11 @@ export interface TaxonomyPayload {
   category_distribution: { name: string; count: number }[];
   top_atmospheres: { name: string; count: number }[];
   category_by_decade_heatmap: CategoryDecadeCell[];
+  subgenre_by_decade_heatmap: SubgenreDecadeCell[];
   cinema_movements_by_decade: CinemaMovementCell[];
-  message_by_decade_heatmap: MessageDecadeCell[];
+  values_by_decade_heatmap: ValueThemeDecadeCell[];
   atmosphere_by_category: AtmosphereByCategoryCell[];
-  message_by_movement: MessageByMovementCell[];
+  values_by_movement: ValueThemeByMovementCell[];
 }
 
 export interface PersonSearchResult {
@@ -416,7 +422,8 @@ export interface PersonTagsResponse {
   top_themes: TagCount[];
   top_atmospheres: TagCount[];
   top_characters: TagCount[];
-  top_messages: TagCount[];
+  top_genres: TagCount[];
+  top_cinema_types: TagCount[];
 }
 
 export interface ProductionCountryCell {

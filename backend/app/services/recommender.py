@@ -1,6 +1,6 @@
 """
 Similar-films recommender using IDF-weighted Jaccard similarity
-across 9 taxonomy dimensions plus structural bonuses.
+across the 7 taxonomy v2 dimensions plus structural bonuses.
 """
 
 import asyncio
@@ -18,14 +18,17 @@ logger = logging.getLogger(__name__)
 
 # ── Tunable constants ──────────────────────────────────────────────────────
 
+# Taxonomy v2 weights. Themes absorbed the 24 motivation tags and 9 of the
+# message tags, so it is now the richest and most semantic dimension and
+# outranks atmospheres. Categories absorbed 43 sub-genres (war, crime,
+# psychological, odyssey/quest…), which are far more discriminative than the
+# 12 main genres alone, hence the bump from 0.7.
 DIMENSION_WEIGHTS: dict[str, float] = {
-    "atmospheres": 1.4,
-    "themes": 1.3,
-    "motivations": 1.1,
-    "messages": 1.0,
-    "cinema_types": 1.0,
+    "themes": 1.4,
+    "atmospheres": 1.3,
+    "categories": 1.0,
+    "cinema_types": 0.9,
     "characters": 0.9,
-    "categories": 0.7,
     "place_contexts": 0.6,
     "time_periods": 0.5,
 }
@@ -44,13 +47,12 @@ _DIM_SQL: dict[str, tuple[str, str, str, str]] = {
     "themes":        ("film_theme",             "theme_context_id",    "theme_context",      "theme_name"),
     "characters":    ("film_character_context",  "character_context_id","character_context",  "context_name"),
     "atmospheres":   ("film_atmosphere",         "atmosphere_id",       "atmosphere",         "atmosphere_name"),
-    "messages":      ("film_message",            "message_id",          "message_conveyed",   "message_name"),
-    "motivations":   ("film_motivation",         "motivation_id",       "motivation_relation","motivation_name"),
     "time_periods":  ("film_period",             "time_context_id",     "time_context",       "time_period"),
     "place_contexts":("film_place",              "place_context_id",    "place_context",      "environment"),
 }
 
 _DIM_KEYS = list(_DIM_SQL.keys())
+_N_DIMS = len(_DIM_KEYS)
 
 _semaphore = asyncio.Semaphore(8)
 
@@ -89,7 +91,7 @@ async def _ensure_idf(db: AsyncSession) -> dict[str, dict[str, float]]:
         _idf_ts = now
         return _idf_map
 
-    # Parallel IDF computation across all 9 dimensions
+    # Parallel IDF computation across all 7 dimensions
     async def _idf_for_dim(dim: str) -> tuple[str, dict[str, float]]:
         junc, junc_fk, lookup, name_col = _DIM_SQL[dim]
         rows = await _q(
@@ -152,7 +154,7 @@ async def get_similar_films(
     idf_map = await _ensure_idf(db)
 
     # ── Phase 1: load source film data in parallel ─────────────────────
-    # 9 tag queries + exclusions + directors + studios + film meta = 13 parallel queries
+    # 7 tag queries + exclusions + directors + studios + film meta = 11 parallel queries
 
     async def _source_tags(dim: str) -> tuple[str, set[str]]:
         junc, junc_fk, lookup, name_col = _DIM_SQL[dim]
@@ -192,13 +194,14 @@ async def get_similar_films(
         ),
     )
 
-    # Unpack phase 1
-    source_tags: dict[str, set[str]] = dict(phase1[:9])  # type: ignore[arg-type]
-    excluded_rows = phase1[9]
+    # Unpack phase 1 (the first _N_DIMS entries are the per-dimension tag sets)
+    source_tags: dict[str, set[str]] = dict(phase1[:_N_DIMS])  # type: ignore[arg-type]
+    excluded_rows = phase1[_N_DIMS]
     excluded = {film_id} | {row[0] for row in excluded_rows}
-    source_director_ids = {row[0] for row in phase1[10]}
-    source_studio_ids = {row[0] for row in phase1[11]}
-    src_row = phase1[12][0] if phase1[12] else None
+    source_director_ids = {row[0] for row in phase1[_N_DIMS + 1]}
+    source_studio_ids = {row[0] for row in phase1[_N_DIMS + 2]}
+    src_meta_rows = phase1[_N_DIMS + 3]
+    src_row = src_meta_rows[0] if src_meta_rows else None
     source_decade = src_row[0] if src_row and src_row[0] is not None else None
     source_ws = float(src_row[1]) if src_row and src_row[1] is not None else None
 
@@ -230,7 +233,7 @@ async def get_similar_films(
         return []
 
     # ── Phase 3: load candidate data in parallel ──────────────────────
-    # 9 tag queries + directors + studios + film meta = 12 parallel queries
+    # 7 tag queries + directors + studios + film meta = 10 parallel queries
 
     async def _cand_tags(dim: str) -> tuple[str, list]:
         junc, junc_fk, lookup, name_col = _DIM_SQL[dim]
@@ -266,24 +269,24 @@ async def get_similar_films(
 
     # Unpack candidate tags
     candidate_tags: dict[int, dict[str, set[str]]] = {cid: {} for cid in candidate_ids}
-    for dim, rows in phase3[:9]:  # type: ignore[misc]
+    for dim, rows in phase3[:_N_DIMS]:  # type: ignore[misc]
         for fid, tag_name in rows:
             if fid in candidate_tags:
                 candidate_tags[fid].setdefault(dim, set()).add(tag_name)
 
     # Unpack candidate directors
     cand_directors: dict[int, set[int]] = {}
-    for fid, pid in phase3[9]:
+    for fid, pid in phase3[_N_DIMS]:
         cand_directors.setdefault(fid, set()).add(pid)
 
     # Unpack candidate studios
     cand_studios: dict[int, set[int]] = {}
-    for fid, sid in phase3[10]:
+    for fid, sid in phase3[_N_DIMS + 1]:
         cand_studios.setdefault(fid, set()).add(sid)
 
     # Unpack candidate meta (decade, weighted_score, collection_id)
     cand_meta: dict[int, tuple] = {}
-    for fid, decade, ws, coll_id in phase3[11]:
+    for fid, decade, ws, coll_id in phase3[_N_DIMS + 2]:
         cand_meta[fid] = (decade, float(ws) if ws is not None else None, coll_id)
 
     # Compute max weighted_score for normalization
@@ -363,7 +366,8 @@ async def get_similar_films(
         _q(
             "SELECT fg.film_id, c.category_name FROM film_genre fg "
             "JOIN category c ON fg.category_id = c.category_id "
-            "WHERE fg.film_id = ANY(:ids) AND c.historic_subcategory_name IS NULL",
+            # Main genres only (sort_order < 200) — cards mirror FilmCard.
+            "WHERE fg.film_id = ANY(:ids) AND c.sort_order < 200",
             {"ids": top_ids},
         ),
     )

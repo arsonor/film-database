@@ -249,15 +249,6 @@ def generate_seed_sql(data: dict) -> str:
     vals = _sql_sorted_values(data["atmospheres"], "atmospheres")
     sections.append(f"INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES\n{vals}\nON CONFLICT (atmosphere_name) DO NOTHING;")
 
-    # Dissolved dimensions (kept empty until Step 22)
-    sections.append("")
-    sections.append("-- =============================================================================")
-    sections.append("-- MOTIVATION_RELATION / MESSAGE_CONVEYED - DEPRECATED")
-    sections.append("-- Dissolved into Genre / Theme / Atmosphere by migration 026 (Taxonomy v2).")
-    sections.append("-- The tables still exist (empty) so the recommender, dashboard and games keep")
-    sections.append("-- running until Step 22; they are deliberately no longer seeded.")
-    sections.append("-- =============================================================================")
-
     # Streaming platforms
     sections.append("")
     sections.append("-- =============================================================================")

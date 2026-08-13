@@ -20,9 +20,8 @@ import type {
 import {
   DIMENSION_LABELS,
   GAME_DIMENSIONS,
-  GROUP_TITLES,
-  TIME_PERIOD_GROUPS,
-  timePeriodBucket,
+  groupBucket,
+  groupTitleFor,
   type GameDimension,
 } from "./dimensions";
 import { LivesDisplay } from "./LivesDisplay";
@@ -233,15 +232,12 @@ export function GameBoard({ target, poolSize, poolFilters, onVictory, onGameOver
                       else if (playedTag && !playedTag.correct) cls = "border-red-500 bg-red-500/15 text-red-400 line-through";
                       else if (isHint) cls = "border-amber-400 bg-amber-400/15 text-amber-300 ring-2 ring-amber-400/50";
 
-                      // Group header: insert before this tag if its bucket differs from the previous tag's bucket
-                      const bucketOf = (so: number | null | undefined) =>
-                        dim === "time_periods" ? timePeriodBucket(so) : (so == null ? 0 : Math.floor(so / 100));
-                      const myBucket = bucketOf(item.sort_order);
-                      const prevBucket = idx > 0 ? bucketOf(items[idx - 1]!.sort_order) : null;
+                      // Group header: insert before this tag if its sub-dimension
+                      // block differs from the previous tag's block.
+                      const myBucket = groupBucket(item.sort_order);
+                      const prevBucket = idx > 0 ? groupBucket(items[idx - 1]!.sort_order) : null;
                       const showGroupHeader = idx === 0 || myBucket !== prevBucket;
-                      const groupTitle = dim === "time_periods"
-                        ? TIME_PERIOD_GROUPS[myBucket]
-                        : GROUP_TITLES[dim]?.[myBucket];
+                      const groupTitle = groupTitleFor(dim, item.sort_order);
 
                       return (
                         <Fragment key={item.id}>

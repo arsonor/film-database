@@ -165,7 +165,8 @@ export function PersonTagsWidget() {
               <SkeletonBlock title="Top 8 themes" />
               <SkeletonBlock title="Top 5 atmospheres" />
               <SkeletonBlock title="Top 5 characters" />
-              <SkeletonBlock title="Top 3 messages" />
+              <SkeletonBlock title="Top 5 genres" />
+              <SkeletonBlock title="Top 5 cinema types" />
             </>
           )}
           {!loadingTags && tags && (
@@ -173,7 +174,8 @@ export function PersonTagsWidget() {
               <RankBlock title="Top 8 themes" items={tags.top_themes} />
               <RankBlock title="Top 5 atmospheres" items={tags.top_atmospheres} />
               <RankBlock title="Top 5 characters" items={tags.top_characters} />
-              <RankBlock title="Top 3 messages" items={tags.top_messages} />
+              <RankBlock title="Top 5 genres" items={tags.top_genres} />
+              <RankBlock title="Top 5 cinema types" items={tags.top_cinema_types} />
             </>
           )}
         </div>

@@ -26,8 +26,6 @@ DIMENSION_MAP = {
     "themes": ("theme_context", "theme_context_id", "theme_name", "film_theme", "theme_context_id"),
     "characters": ("character_context", "character_context_id", "context_name", "film_character_context", "character_context_id"),
     "atmospheres": ("atmosphere", "atmosphere_id", "atmosphere_name", "film_atmosphere", "atmosphere_id"),
-    "messages": ("message_conveyed", "message_id", "message_name", "film_message", "message_id"),
-    "motivations": ("motivation_relation", "motivation_id", "motivation_name", "film_motivation", "motivation_id"),
     "time_periods": ("time_context", "time_context_id", "time_period", "film_period", "time_context_id"),
     "place_contexts": ("place_context", "place_context_id", "environment", "film_place", "place_context_id"),
 }

@@ -39,8 +39,11 @@ router = APIRouter()
 # Curated subset of cinema_type values with strong temporal patterns.
 # Ordered here for reference only — actual ordering in the heatmap comes
 # from each row's sort_order column in the cinema_type table.
+# Taxonomy v2: biopic / western / peplum / costume drama / black comedy /
+# slasher / docufiction left cinema_type for Genre in migration 026 and are no
+# longer selectable here — they now show up in the "Sub-genres × decade" view.
 CINEMA_MOVEMENT_NAMES = [
-    # Aesthetics / visual
+    # Visual techniques
     "CGI",
     "3D",
     "black and white",
@@ -54,21 +57,17 @@ CINEMA_MOVEMENT_NAMES = [
     "new hollywood",
     "new wave",
     "neo-noir",
+    "slow cinema",
+    "dogma",
     # Industry / culture
     "blockbuster",
     "art house",
     "franchise",
-    # Narrative / pacing
-    "slow cinema",
-    # Sub-genres / archetypes
-    "biopic",
-    "western",
-    "peplum",
-    "costume drama",
-    "black comedy",
-    "slasher",
-    "docufiction",
 ]
+
+# Themes in sort_order block 200–299 ("Values & Reflection") — the sub-dimension
+# that absorbed the dissolved `message_conveyed` dimension in migration 026.
+VALUE_THEME_BLOCK = (200, 299)
 
 # Pro/Admin only — share with both new endpoints.
 _PRO_ADMIN_TIERS = {"pro", "admin"}
@@ -128,10 +127,15 @@ class TaxonomyStats(BaseModel):
     top_atmospheres: list[dict[str, Any]]
     # Shape changed in Step 17c: now {category, decade, film_count, decade_total, pct}
     category_by_decade_heatmap: list[dict[str, Any]]
+    # Step 22: sub-genres (category sort_order >= 200) get their own decade view.
+    subgenre_by_decade_heatmap: list[dict[str, Any]]
     cinema_movements_by_decade: list[dict[str, Any]]
-    message_by_decade_heatmap: list[dict[str, Any]]
+    # Step 22: replaces message_by_decade_heatmap — same intent, now driven by
+    # the "Values & Reflection" theme block that absorbed the message dimension.
+    values_by_decade_heatmap: list[dict[str, Any]]
     atmosphere_by_category: list[dict[str, Any]]
-    message_by_movement: list[dict[str, Any]]
+    # Step 22: replaces message_by_movement.
+    values_by_movement: list[dict[str, Any]]
 
 
 class PersonRef(BaseModel):
@@ -150,7 +154,10 @@ class PersonTagsResponse(BaseModel):
     top_themes: list[TagCount]
     top_atmospheres: list[TagCount]
     top_characters: list[TagCount]
-    top_messages: list[TagCount]
+    # Step 22: top_messages is gone with the message dimension; genres and
+    # cinema types are the two signatures that replace it.
+    top_genres: list[TagCount]
+    top_cinema_types: list[TagCount]
 
 
 class PersonSearchResult(BaseModel):
@@ -414,7 +421,7 @@ async def _build_financials() -> FinancialsStats:
             "       (SELECT MIN(c.category_name) FROM film_genre fg "
             "        JOIN category c ON fg.category_id = c.category_id "
             "        WHERE fg.film_id = f.film_id "
-            "          AND c.historic_subcategory_name IS NULL) AS category "
+            "          AND c.sort_order < 200) AS category "
             "FROM film f "
             "WHERE f.budget IS NOT NULL AND f.budget > 0 "
             "  AND f.revenue IS NOT NULL AND f.revenue > 0 "
@@ -721,10 +728,11 @@ async def _build_taxonomy() -> TaxonomyStats:
         cat_dist_rows,
         atmos_rows,
         cat_heatmap_rows,
+        subgenre_heatmap_rows,
         cinema_rows,
-        msg_heatmap_rows,
+        values_heatmap_rows,
         atmos_cat_rows,
-        msg_movement_rows,
+        values_movement_rows,
     ) = await asyncio.gather(
         _q(
             "SELECT tc.theme_name AS name, COUNT(*) AS count "
@@ -736,7 +744,7 @@ async def _build_taxonomy() -> TaxonomyStats:
         _q(
             "SELECT c.category_name AS name, COUNT(*) AS count "
             "FROM film_genre fg JOIN category c ON fg.category_id = c.category_id "
-            "WHERE c.historic_subcategory_name IS NULL "
+            "WHERE c.sort_order < 200 "
             "GROUP BY c.category_name ORDER BY count DESC"
         ),
         _q(
@@ -745,7 +753,7 @@ async def _build_taxonomy() -> TaxonomyStats:
             "JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id "
             "GROUP BY a.atmosphere_name ORDER BY count DESC LIMIT 30"
         ),
-        # 1a. Category × decade — % of decade's films (distinct film_id),
+        # 1a. Main genre × decade — % of decade's films (distinct film_id),
         # so a film tagged with 3 genres no longer triple-counts.
         _q(
             """
@@ -763,7 +771,7 @@ async def _build_taxonomy() -> TaxonomyStats:
               FROM film_genre fg
               JOIN category c ON fg.category_id = c.category_id
               JOIN film f ON fg.film_id = f.film_id
-              WHERE c.historic_subcategory_name IS NULL
+              WHERE c.sort_order < 200
                 AND f.first_release_date IS NOT NULL
               GROUP BY c.category_name, decade
             )
@@ -774,6 +782,49 @@ async def _build_taxonomy() -> TaxonomyStats:
             JOIN decade_totals dt ON cd.decade = dt.decade
             WHERE dt.total >= 5
             ORDER BY cd.category, cd.decade
+            """
+        ),
+        # 1a-bis. Sub-genre × decade — same shape, rows ordered by the taxonomy
+        # sort_order so the sub-dimension groups (Drama/Romance, Comedy,
+        # Thriller/Adventure, …) stay contiguous. Sub-genres carried by fewer
+        # than 30 films would render as an all-empty row, so they are dropped.
+        _q(
+            """
+            WITH decade_totals AS (
+              SELECT (EXTRACT(YEAR FROM first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(*) AS total
+              FROM film
+              WHERE first_release_date IS NOT NULL
+              GROUP BY decade
+              HAVING COUNT(*) >= 20
+            ),
+            subgenre_totals AS (
+              SELECT c.category_id
+              FROM category c
+              JOIN film_genre fg ON fg.category_id = c.category_id
+              WHERE c.sort_order >= 200
+              GROUP BY c.category_id
+              HAVING COUNT(DISTINCT fg.film_id) >= 30
+            ),
+            subgenre_decade AS (
+              SELECT c.category_name AS category,
+                     c.sort_order,
+                     (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
+                     COUNT(DISTINCT f.film_id) AS film_count
+              FROM film_genre fg
+              JOIN category c ON fg.category_id = c.category_id
+              JOIN film f ON fg.film_id = f.film_id
+              WHERE fg.category_id IN (SELECT category_id FROM subgenre_totals)
+                AND f.first_release_date IS NOT NULL
+              GROUP BY c.category_name, c.sort_order, decade
+            )
+            SELECT sd.category, sd.decade, sd.film_count,
+                   dt.total AS decade_total,
+                   ROUND((sd.film_count::numeric / dt.total) * 100, 2) AS pct,
+                   sd.sort_order
+            FROM subgenre_decade sd
+            JOIN decade_totals dt ON sd.decade = dt.decade
+            ORDER BY sd.sort_order, sd.decade
             """
         ),
         # 1b. Cinema movements × decade — count-based, curated subset.
@@ -793,7 +844,9 @@ async def _build_taxonomy() -> TaxonomyStats:
             """,
             {"movement_names": CINEMA_MOVEMENT_NAMES},
         ),
-        # 1c. Messages × decade — % within decade.
+        # 1c. Values & Reflection themes × decade — % within decade.
+        # Replaces the pre-v2 "messages × decade" view: the message dimension
+        # was dissolved into this theme block by migration 026.
         _q(
             """
             WITH decade_totals AS (
@@ -804,34 +857,35 @@ async def _build_taxonomy() -> TaxonomyStats:
               GROUP BY decade
               HAVING COUNT(*) >= 20
             ),
-            message_totals AS (
-              SELECT mc.message_id, mc.message_name, mc.sort_order,
-                     COUNT(DISTINCT fm.film_id) AS total_count
-              FROM message_conveyed mc
-              LEFT JOIN film_message fm ON mc.message_id = fm.message_id
-              GROUP BY mc.message_id, mc.message_name, mc.sort_order
-              HAVING COUNT(DISTINCT fm.film_id) >= 5
+            value_totals AS (
+              SELECT tc.theme_context_id
+              FROM theme_context tc
+              LEFT JOIN film_theme ft ON tc.theme_context_id = ft.theme_context_id
+              WHERE tc.sort_order BETWEEN :vmin AND :vmax
+              GROUP BY tc.theme_context_id
+              HAVING COUNT(DISTINCT ft.film_id) >= 5
             ),
-            message_decade AS (
-              SELECT mc.message_name AS message,
-                     mc.sort_order,
+            value_decade AS (
+              SELECT tc.theme_name AS theme,
+                     tc.sort_order,
                      (EXTRACT(YEAR FROM f.first_release_date)::int / 10) * 10 AS decade,
                      COUNT(DISTINCT f.film_id) AS film_count
-              FROM film_message fm
-              JOIN message_conveyed mc ON fm.message_id = mc.message_id
-              JOIN film f ON fm.film_id = f.film_id
+              FROM film_theme ft
+              JOIN theme_context tc ON ft.theme_context_id = tc.theme_context_id
+              JOIN film f ON ft.film_id = f.film_id
               WHERE f.first_release_date IS NOT NULL
-                AND mc.message_id IN (SELECT message_id FROM message_totals)
-              GROUP BY mc.message_name, mc.sort_order, decade
+                AND ft.theme_context_id IN (SELECT theme_context_id FROM value_totals)
+              GROUP BY tc.theme_name, tc.sort_order, decade
             )
-            SELECT md.message, md.decade, md.film_count,
+            SELECT vd.theme, vd.decade, vd.film_count,
                    dt.total AS decade_total,
-                   ROUND((md.film_count::numeric / dt.total) * 100, 2) AS pct,
-                   md.sort_order
-            FROM message_decade md
-            JOIN decade_totals dt ON md.decade = dt.decade
-            ORDER BY md.sort_order, md.decade
-            """
+                   ROUND((vd.film_count::numeric / dt.total) * 100, 2) AS pct,
+                   vd.sort_order
+            FROM value_decade vd
+            JOIN decade_totals dt ON vd.decade = dt.decade
+            ORDER BY vd.sort_order, vd.decade
+            """,
+            {"vmin": VALUE_THEME_BLOCK[0], "vmax": VALUE_THEME_BLOCK[1]},
         ),
         # 1d. Atmosphere × category — % within category.
         _q(
@@ -840,7 +894,7 @@ async def _build_taxonomy() -> TaxonomyStats:
               SELECT c.category_name AS category, COUNT(DISTINCT fg.film_id) AS total
               FROM film_genre fg
               JOIN category c ON fg.category_id = c.category_id
-              WHERE c.historic_subcategory_name IS NULL
+              WHERE c.sort_order < 200
               GROUP BY c.category_name
             ),
             ca AS (
@@ -852,7 +906,7 @@ async def _build_taxonomy() -> TaxonomyStats:
               JOIN category c ON fg.category_id = c.category_id
               JOIN film_atmosphere fa ON fg.film_id = fa.film_id
               JOIN atmosphere a ON fa.atmosphere_id = a.atmosphere_id
-              WHERE c.historic_subcategory_name IS NULL
+              WHERE c.sort_order < 200
               GROUP BY c.category_name, a.atmosphere_name, a.sort_order
             )
             SELECT ca.category, ca.atmosphere, ca.atmosphere_sort_order,
@@ -863,10 +917,9 @@ async def _build_taxonomy() -> TaxonomyStats:
             ORDER BY ca.category, ca.atmosphere_sort_order
             """
         ),
-        # 1e. Message × cinema movement — % within movement.
-        # Rows = curated movement list, cols = all messages with ≥ 1 film
-        # in any of those movements. Movements without any tagged films are
-        # filtered out by the JOIN.
+        # 1e. Values & Reflection theme × cinema movement — % within movement.
+        # Rows = curated movement list, cols = the value themes. Movements
+        # without any tagged films are filtered out by the JOIN.
         _q(
             """
             WITH movement_totals AS (
@@ -879,28 +932,33 @@ async def _build_taxonomy() -> TaxonomyStats:
               GROUP BY ct.technique_name, ct.sort_order
               HAVING COUNT(DISTINCT fte.film_id) > 0
             ),
-            mm AS (
+            mv AS (
               SELECT ct.technique_name AS movement,
                      ct.sort_order AS movement_sort_order,
-                     mc.message_name AS message,
-                     mc.sort_order AS message_sort_order,
+                     tc.theme_name AS theme,
+                     tc.sort_order AS theme_sort_order,
                      COUNT(DISTINCT fte.film_id) AS film_count
               FROM film_technique fte
               JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
-              JOIN film_message fm ON fte.film_id = fm.film_id
-              JOIN message_conveyed mc ON fm.message_id = mc.message_id
+              JOIN film_theme ft ON fte.film_id = ft.film_id
+              JOIN theme_context tc ON ft.theme_context_id = tc.theme_context_id
               WHERE ct.technique_name = ANY(:movement_names)
-              GROUP BY ct.technique_name, ct.sort_order, mc.message_name, mc.sort_order
+                AND tc.sort_order BETWEEN :vmin AND :vmax
+              GROUP BY ct.technique_name, ct.sort_order, tc.theme_name, tc.sort_order
             )
-            SELECT mm.movement, mm.movement_sort_order,
-                   mm.message, mm.message_sort_order,
-                   mm.film_count, mt.total AS movement_total,
-                   ROUND((mm.film_count::numeric / mt.total) * 100, 2) AS pct
-            FROM mm
-            JOIN movement_totals mt ON mm.movement = mt.movement
-            ORDER BY mm.movement_sort_order, mm.message_sort_order
+            SELECT mv.movement, mv.movement_sort_order,
+                   mv.theme, mv.theme_sort_order,
+                   mv.film_count, mt.total AS movement_total,
+                   ROUND((mv.film_count::numeric / mt.total) * 100, 2) AS pct
+            FROM mv
+            JOIN movement_totals mt ON mv.movement = mt.movement
+            ORDER BY mv.movement_sort_order, mv.theme_sort_order
             """,
-            {"movement_names": CINEMA_MOVEMENT_NAMES},
+            {
+                "movement_names": CINEMA_MOVEMENT_NAMES,
+                "vmin": VALUE_THEME_BLOCK[0],
+                "vmax": VALUE_THEME_BLOCK[1],
+            },
         ),
     )
 
@@ -920,6 +978,17 @@ async def _build_taxonomy() -> TaxonomyStats:
             }
             for r in cat_heatmap_rows
         ],
+        subgenre_by_decade_heatmap=[
+            {
+                "category": r[0],
+                "decade": int(r[1]),
+                "film_count": int(r[2]),
+                "decade_total": int(r[3]),
+                "pct": float(r[4]),
+                "sort_order": int(r[5]) if r[5] is not None else 0,
+            }
+            for r in subgenre_heatmap_rows
+        ],
         cinema_movements_by_decade=[
             {
                 "movement": r[0],
@@ -929,16 +998,16 @@ async def _build_taxonomy() -> TaxonomyStats:
             }
             for r in cinema_rows
         ],
-        message_by_decade_heatmap=[
+        values_by_decade_heatmap=[
             {
-                "message": r[0],
+                "theme": r[0],
                 "decade": int(r[1]),
                 "film_count": int(r[2]),
                 "decade_total": int(r[3]),
                 "pct": float(r[4]),
                 "sort_order": int(r[5]) if r[5] is not None else 0,
             }
-            for r in msg_heatmap_rows
+            for r in values_heatmap_rows
         ],
         atmosphere_by_category=[
             {
@@ -951,17 +1020,17 @@ async def _build_taxonomy() -> TaxonomyStats:
             }
             for r in atmos_cat_rows
         ],
-        message_by_movement=[
+        values_by_movement=[
             {
                 "movement": r[0],
                 "movement_sort_order": int(r[1]) if r[1] is not None else 0,
-                "message": r[2],
-                "message_sort_order": int(r[3]) if r[3] is not None else 0,
+                "theme": r[2],
+                "theme_sort_order": int(r[3]) if r[3] is not None else 0,
                 "film_count": int(r[4]),
                 "movement_total": int(r[5]),
                 "pct": float(r[6]),
             }
-            for r in msg_movement_rows
+            for r in values_movement_rows
         ],
     )
 
@@ -1178,7 +1247,7 @@ async def _build_personal(user_id: str, total_films: int) -> PersonalStats:
             "JOIN film_genre fg ON u.film_id = fg.film_id "
             "JOIN category c ON fg.category_id = c.category_id "
             "WHERE u.user_id = :uid AND u.seen = TRUE "
-            "  AND c.historic_subcategory_name IS NULL "
+            "  AND c.sort_order < 200 "
             "GROUP BY c.category_name ORDER BY count DESC LIMIT 10",
             params,
         ),
@@ -1400,10 +1469,11 @@ async def person_tags(
             top_themes=[],
             top_atmospheres=[],
             top_characters=[],
-            top_messages=[],
+            top_genres=[],
+            top_cinema_types=[],
         )
 
-    # 3. Four parallel tag queries scoped to person_films.
+    # 3. Five parallel tag queries scoped to person_films.
     themes_q = f"""
         {cte}
         SELECT tc.theme_name AS name, COUNT(DISTINCT ft.film_id) AS count
@@ -1435,22 +1505,36 @@ async def person_tags(
         ORDER BY count DESC, cc.context_name
         LIMIT 5
     """
-    msgs_q = f"""
+    # Genres: sub-genres included — they are what makes a filmography
+    # distinctive (a director's "war" or "psychological" streak says more than
+    # a blanket "Drama").
+    genres_q = f"""
         {cte}
-        SELECT mc.message_name AS name, COUNT(DISTINCT fm.film_id) AS count
-        FROM film_message fm
-        JOIN message_conveyed mc ON fm.message_id = mc.message_id
-        WHERE fm.film_id IN (SELECT film_id FROM person_films)
-        GROUP BY mc.message_name
-        ORDER BY count DESC, mc.message_name
-        LIMIT 3
+        SELECT c.category_name AS name, COUNT(DISTINCT fg.film_id) AS count
+        FROM film_genre fg
+        JOIN category c ON fg.category_id = c.category_id
+        WHERE fg.film_id IN (SELECT film_id FROM person_films)
+        GROUP BY c.category_name
+        ORDER BY count DESC, c.category_name
+        LIMIT 5
+    """
+    cinema_q = f"""
+        {cte}
+        SELECT ct.technique_name AS name, COUNT(DISTINCT fte.film_id) AS count
+        FROM film_technique fte
+        JOIN cinema_type ct ON fte.cinema_type_id = ct.cinema_type_id
+        WHERE fte.film_id IN (SELECT film_id FROM person_films)
+        GROUP BY ct.technique_name
+        ORDER BY count DESC, ct.technique_name
+        LIMIT 5
     """
 
-    themes_rows, atmos_rows, chars_rows, msgs_rows = await asyncio.gather(
+    themes_rows, atmos_rows, chars_rows, genres_rows, cinema_rows = await asyncio.gather(
         _q(themes_q, cte_params),
         _q(atmos_q, cte_params),
         _q(chars_q, cte_params),
-        _q(msgs_q, cte_params),
+        _q(genres_q, cte_params),
+        _q(cinema_q, cte_params),
     )
 
     return PersonTagsResponse(
@@ -1458,7 +1542,8 @@ async def person_tags(
         top_themes=[TagCount(name=r[0], count=int(r[1])) for r in themes_rows],
         top_atmospheres=[TagCount(name=r[0], count=int(r[1])) for r in atmos_rows],
         top_characters=[TagCount(name=r[0], count=int(r[1])) for r in chars_rows],
-        top_messages=[TagCount(name=r[0], count=int(r[1])) for r in msgs_rows],
+        top_genres=[TagCount(name=r[0], count=int(r[1])) for r in genres_rows],
+        top_cinema_types=[TagCount(name=r[0], count=int(r[1])) for r in cinema_rows],
     )
 
 

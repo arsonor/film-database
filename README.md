@@ -4,7 +4,7 @@ A personal film database application with a rich taxonomy-based filtering interf
 
 ## Features
 
-- **Browse & Filter** — Explore films with 11 taxonomy dimensions (categories, themes, atmospheres, characters, motivations, etc.), plus location, language, studio, and year range filters
+- **Browse & Filter** — Explore films with 7 taxonomy dimensions (Genre, Theme, Time Period, Place, Atmosphere, Character, Cinema Type), plus location, language, studio, and year range filters
 - **Film Detail** — Full metadata view with poster/backdrop, cast & crew, classification tags, awards, streaming platforms, related films, and similar films carousel
 - **Inline Editing** — Edit taxonomy tags, financials, awards, and film relations directly from the detail page
 - **Add Film** — Search TMDB, auto-enrich with Claude AI taxonomy classification, review and save
@@ -158,18 +158,20 @@ python scripts/export_taxonomy.py --dry-run
 
 Films are classified across 11 dimensions:
 
-| Dimension | Examples |
-|-----------|---------|
-| Categories | Action, Drama, Comedy, Science-Fiction, Historical: biopic |
-| Cinema Types | art house, blockbuster, animation, black and white |
-| Cultural Movements | new wave, neo-noir, expressionism, blaxploitation |
-| Themes | war, investigation, dystopia, art: cinema, survival |
-| Characters | solitary, couple, ensemble cast, buddies |
-| Character Contexts | teenager, female, antihero, vampire, android |
-| Atmospheres | contemplative, violent, mysterious, hypnotic |
-| Motivations | vengeance, redemption, quest, manipulation |
-| Messages | satirical, philosophical, feminist, black comedy |
-| Time Periods | WW2, contemporary, medieval, future |
-| Place Contexts | urban, space, road movie, huis clos |
+Taxonomy v2 — 7 dimensions, each split into named sub-dimensions encoded as
+`sort_order` blocks of 100 (see `frontend/src/lib/taxonomyGroups.ts`).
+
+| Dimension | Sub-dimensions | Examples |
+|-----------|----------------|---------|
+| Genre | Main + 7 sub-genre families | Drama, Comedy, Science-Fiction · war, investigation, satirical, biopic, slasher |
+| Theme | Society & World, Values & Reflection, Human Relations, Personal / Inner conflict, Art Sport & Entertainment, Face to the unknown | political, feminist, love, vengeance, obsession, art: cinema, alien contact |
+| Time Period | Chronological, Time span, Seasons | WW2, contemporary, medieval, future · single day · winter |
+| Place | Environments, Buildings & institutions, Narrative settings, Vehicles | urban, space, jail, road movie, huis clos/confined setting, train |
+| Atmosphere | Light/Joyful, Dark/Extreme, Pace Tension & Scale, Artistic Directing | feel good, violent, epic, contemplative/meditative, dreamlike/surreal |
+| Character | Group structure, Age & identity, Social status & traits, Narrative devices, Archetypes — human, Non-human & creatures | trio, teenager, female lead, unreliable narrator, detective, vampire |
+| Cinema Type | Visual techniques, Industry & culture, Sequencing, Voice & Dialogue, Movements & eras | animation, black and white, blockbuster, flashback/non linear, voiceover, neo-noir |
+
+> The pre-v2 `Motivations` and `Messages` dimensions were dissolved into Genre,
+> Theme and Atmosphere (migrations 026 + 027).
 
 

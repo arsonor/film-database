@@ -210,8 +210,6 @@ def print_comparison(film_name: str, expected: dict, actual: dict):
         ("themes", "themes"),
         ("character_context", "character_context"),
         ("atmosphere", "atmosphere"),
-        ("motivations", "motivations"),
-        ("message", "message"),
         ("source", "source"),
     ]
 

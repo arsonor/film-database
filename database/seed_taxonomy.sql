@@ -457,13 +457,6 @@ INSERT INTO atmosphere (atmosphere_name, sort_order) VALUES
 ON CONFLICT (atmosphere_name) DO NOTHING;
 
 -- =============================================================================
--- MOTIVATION_RELATION / MESSAGE_CONVEYED - DEPRECATED
--- Dissolved into Genre / Theme / Atmosphere by migration 026 (Taxonomy v2).
--- The tables still exist (empty) so the recommender, dashboard and games keep
--- running until Step 22; they are deliberately no longer seeded.
--- =============================================================================
-
--- =============================================================================
 -- STREAM_PLATFORM - Streaming platforms
 -- =============================================================================
 

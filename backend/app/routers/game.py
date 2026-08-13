@@ -29,18 +29,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["game"])
 
 
+# The 7 taxonomy v2 dimensions, in the app-wide display order.
 # (junction_table, junction_fk_col, tag_table, tag_pk_col, tag_name_col)
 DIMENSION_TABLE_MAP: dict[str, tuple[str, str, str, str, str]] = {
     "categories":     ("film_genre",             "category_id",          "category",            "category_id",          "category_name"),
     "themes":         ("film_theme",             "theme_context_id",     "theme_context",       "theme_context_id",     "theme_name"),
-    "atmospheres":    ("film_atmosphere",        "atmosphere_id",        "atmosphere",          "atmosphere_id",        "atmosphere_name"),
-    "characters":     ("film_character_context", "character_context_id", "character_context",   "character_context_id", "context_name"),
-    "motivations":    ("film_motivation",        "motivation_id",        "motivation_relation", "motivation_id",        "motivation_name"),
-    "messages":       ("film_message",           "message_id",           "message_conveyed",    "message_id",           "message_name"),
-    "cinema_types":   ("film_technique",         "cinema_type_id",       "cinema_type",         "cinema_type_id",       "technique_name"),
     "time_periods":   ("film_period",            "time_context_id",      "time_context",        "time_context_id",      "time_period"),
     "place_contexts": ("film_place",             "place_context_id",     "place_context",       "place_context_id",     "environment"),
+    "atmospheres":    ("film_atmosphere",        "atmosphere_id",        "atmosphere",          "atmosphere_id",        "atmosphere_name"),
+    "characters":     ("film_character_context", "character_context_id", "character_context",   "character_context_id", "context_name"),
+    "cinema_types":   ("film_technique",         "cinema_type_id",       "cinema_type",         "cinema_type_id",       "technique_name"),
 }
+
+# A film is playable when it carries tags in at least this many dimensions.
+# Was 5-of-9 before taxonomy v2; 5-of-7 keeps the same "well-tagged enough"
+# bar without excluding films the migration consolidated.
+MIN_TAGGED_DIMENSIONS = 5
 
 
 def _year_from_date(d) -> int | None:
@@ -122,7 +126,7 @@ def _apply_pool_filters(pool_filters: dict | None, params: dict, alias: str = ""
 
 
 async def _pick_eligible_film(db: AsyncSession, exclude_ids: list[int] | None = None) -> int | None:
-    """Pick a random film with poster, summary and tags in >= 5 dimensions."""
+    """Pick a random film with poster, summary and tags in enough dimensions."""
     dim_unions = " UNION ALL ".join([
         f"SELECT DISTINCT film_id FROM {jt}" for (jt, _, _, _, _) in DIMENSION_TABLE_MAP.values()
     ])
@@ -143,7 +147,7 @@ async def _pick_eligible_film(db: AsyncSession, exclude_ids: list[int] | None = 
         JOIN dim_films d ON d.film_id = f.film_id
         WHERE f.poster_url IS NOT NULL
           AND f.summary IS NOT NULL
-          AND d.n_dims >= 5
+          AND d.n_dims >= {MIN_TAGGED_DIMENSIONS}
           {excl_clause}
         ORDER BY RANDOM()
         LIMIT 1
@@ -277,7 +281,7 @@ async def get_random_films(
         pool AS (
             SELECT f.film_id FROM film f
             JOIN dim_films d ON d.film_id = f.film_id
-            WHERE d.n_dims >= 5 AND {where_sql}
+            WHERE d.n_dims >= {MIN_TAGGED_DIMENSIONS} AND {where_sql}
         )
         SELECT (SELECT COUNT(*) FROM pool) AS pool_size
     """
@@ -299,7 +303,7 @@ async def get_random_films(
         SELECT f.film_id, f.original_title, f.first_release_date, f.poster_url
         FROM film f
         JOIN dim_films d ON d.film_id = f.film_id
-        WHERE d.n_dims >= 5 AND {where_sql}
+        WHERE d.n_dims >= {MIN_TAGGED_DIMENSIONS} AND {where_sql}
         ORDER BY RANDOM() LIMIT 3
     """
     r = await db.execute(text(pick_sql), params)
@@ -725,8 +729,10 @@ async def _fetch_film_tags(db: AsyncSession, film_id: int) -> dict[str, list[str
     for dim, (jt, jfk, tt, tpk, tn) in DIMENSION_TABLE_MAP.items():
         r = await db.execute(
             text(
+                # sort_order, not alphabetical: keeps the taxonomy v2
+                # sub-dimension runs contiguous in the Chain It tag list.
                 f"SELECT t.{tn} FROM {jt} j JOIN {tt} t ON j.{jfk} = t.{tpk} "
-                f"WHERE j.film_id = :fid ORDER BY t.{tn}"
+                f"WHERE j.film_id = :fid ORDER BY t.sort_order, t.{tn}"
             ),
             {"fid": film_id},
         )
@@ -792,7 +798,7 @@ async def _pick_chain_pair(
         )
         SELECT f.film_id FROM film f
         JOIN dim_films d ON d.film_id = f.film_id
-        WHERE d.n_dims >= 5 AND {where_sql}
+        WHERE d.n_dims >= {MIN_TAGGED_DIMENSIONS} AND {where_sql}
         ORDER BY RANDOM() LIMIT 150
     """
     r = await db.execute(text(sql), params)
@@ -1105,13 +1111,11 @@ async def chain_joker_reveal_tag(body: dict = Body(...), db: AsyncSession = Depe
 _GUESS_DIM_LABELS = {
     "categories": "Genre",
     "themes": "Theme",
-    "atmospheres": "Atmosphere",
-    "characters": "Characters",
-    "motivations": "Motivation",
-    "messages": "Message",
-    "cinema_types": "Cinema type",
-    "time_periods": "Time period",
+    "time_periods": "Time Period",
     "place_contexts": "Place",
+    "atmospheres": "Atmosphere",
+    "characters": "Character",
+    "cinema_types": "Cinema Type",
 }
 
 
@@ -1297,7 +1301,7 @@ async def guess_random(
         SELECT f.film_id
         FROM film f
         JOIN dim_films d ON d.film_id = f.film_id
-        WHERE d.n_dims >= 5 AND {where_sql}
+        WHERE d.n_dims >= {MIN_TAGGED_DIMENSIONS} AND {where_sql}
         ORDER BY RANDOM() LIMIT 1
     """
     r = await db.execute(text(pick_sql), params)

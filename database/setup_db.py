@@ -168,8 +168,6 @@ async def main():
             ("theme_context", "theme_name"),
             ("character_context", "context_name"),
             ("atmosphere", "atmosphere_name"),
-            ("motivation_relation", "motivation_name"),
-            ("message_conveyed", "message_name"),
             ("stream_platform", "platform_name"),
             ("language", "language_code"),
         ]

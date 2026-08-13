@@ -338,4 +338,31 @@ Replace the bare `<Separator>` at block boundaries with a group header: when `Ma
 - Film page taxonomy shows 7 dimensions; hero shows main genres only
 - Add Film flow: enrichment returns 7 dimensions, review screen shows/edits them, save works end-to-end
 - Manage tags page lists the 7 dimensions with correct ordering
+
+---
+
+## Step 22 Prompt — Taxonomy v2: Deferred Surfaces
+
+Prerequisite: Steps 21a–21c done, local DB migrated.
+
+Rewire the four surfaces Step 21 deferred, then drop the dissolved tables.
+
+- **22a `services/recommender.py`** — 7 dimensions in `_DIM_SQL`; rebalance
+  `DIMENSION_WEIGHTS` for what each dimension now holds; replace the hardcoded
+  `phase1[:9]` / `phase3[11]` gather-unpacking indices with `len(_DIM_KEYS)`;
+  similar-film cards restrict genres to `sort_order < 200`.
+- **22b `routers/stats.py` + `components/stats/`** — replace the two message
+  views with the *Values & Reflection* theme block (`sort_order` 200–299); add a
+  sub-genre × decade view; prune `CINEMA_MOVEMENT_NAMES` of the tags that moved
+  to Genre; restrict every genre-keyed query to `sort_order < 200`; replace
+  `PersonTagsResponse.top_messages` with `top_genres` + `top_cinema_types`.
+- **22c `routers/game.py` + `components/game/`** — 7 dimensions in
+  `DIMENSION_TABLE_MAP` / `_GUESS_DIM_LABELS`; order film tags by `sort_order`;
+  delete the duplicated group-label maps in `dimensions.ts` and delegate to
+  `lib/taxonomyGroups.ts`.
+- **22d** — `database/migrations/027_drop_dissolved_taxonomy.sql` guarded on the
+  four tables being empty; purge them from `schema.sql`, the models and every
+  script; re-tag `reference_films_fallback.json` from `REFERENCE_EXAMPLES`.
+
+See PLAN.md Step 22 for the applied outcome.
 - `npm run build` passes; games/dashboard pages still load (degraded data acceptable)

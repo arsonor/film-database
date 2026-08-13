@@ -341,7 +341,7 @@ def _print_accuracy(title: str, expected: dict, actual: dict):
     dims = [
         "categories", "cinema_type", "time_context",
         "themes", "character_context", "atmosphere",
-        "motivations", "message", "place_environment",
+        "place_environment",
     ]
 
     total_expected = 0
@@ -460,7 +460,7 @@ async def _quick_verify(database_url: str):
               (SELECT COUNT(*) FROM film_genre fg WHERE fg.film_id = f.film_id) as categories,
               (SELECT COUNT(*) FROM film_theme fth WHERE fth.film_id = f.film_id) as themes,
               (SELECT COUNT(*) FROM film_atmosphere fa WHERE fa.film_id = f.film_id) as atmospheres,
-              (SELECT COUNT(*) FROM film_motivation fmo WHERE fmo.film_id = f.film_id) as motivations,
+              (SELECT COUNT(*) FROM film_character_context fcc WHERE fcc.film_id = f.film_id) as characters,
               (SELECT COUNT(*) FROM casting ca WHERE ca.film_id = f.film_id) as cast_count,
               (SELECT COUNT(*) FROM crew c WHERE c.film_id = f.film_id) as crew_count
             FROM film f WHERE f.tmdb_id IN (62, 3405, 1018) ORDER BY f.original_title
@@ -468,12 +468,12 @@ async def _quick_verify(database_url: str):
         rows = result.fetchall()
         all_pass = True
         for r in rows:
-            title, cats, themes, atmos, motivs, cast_ct, crew_ct = r
+            title, cats, themes, atmos, chars, cast_ct, crew_ct = r
             issues = []
             if cats < 2: issues.append(f"categories={cats}<2")
             if themes < 5: issues.append(f"themes={themes}<5")
             if atmos < 3: issues.append(f"atmospheres={atmos}<3")
-            if motivs < 3: issues.append(f"motivations={motivs}<3")
+            if chars < 3: issues.append(f"characters={chars}<3")
             if cast_ct < 5: issues.append(f"cast={cast_ct}<5")
             if crew_ct < 2: issues.append(f"crew={crew_ct}<2")
 
@@ -482,7 +482,7 @@ async def _quick_verify(database_url: str):
                 all_pass = False
             else:
                 print_ok(f"{title}: {cats} categories, {themes} themes, {atmos} atmospheres, "
-                         f"{motivs} motivations, {cast_ct} cast, {crew_ct} crew")
+                         f"{chars} characters, {cast_ct} cast, {crew_ct} crew")
 
         if all_pass:
             print_info("All verification checks PASSED")

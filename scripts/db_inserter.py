@@ -176,23 +176,7 @@ class DBInserter:
                         "film_atmosphere", "atmosphere_id",
                     )
 
-                    # 16. Insert film_motivation
-                    await self._insert_junction_by_name(
-                        session, film_id,
-                        enrichment.get("motivations", []),
-                        "motivation_relation", "motivation_name", "motivation_id",
-                        "film_motivation", "motivation_id",
-                    )
-
-                    # 17. Insert film_message
-                    await self._insert_junction_by_name(
-                        session, film_id,
-                        enrichment.get("message", []),
-                        "message_conveyed", "message_name", "message_id",
-                        "film_message", "message_id",
-                    )
-
-                    # 18. Insert source + film_origin
+                    # 16. Insert source + film_origin
                     await self._insert_source(session, film_id, enrichment.get("source"))
 
                     # 19. Insert awards
@@ -315,8 +299,8 @@ class DBInserter:
             "crew", "casting", "production", "film_language",
             "film_genre", "film_technique", "film_set_place",
             "film_place", "film_period", "film_theme",
-            "film_character_context", "film_atmosphere", "film_motivation",
-            "film_message", "film_origin", "film_exploitation", "award",
+            "film_character_context", "film_atmosphere",
+            "film_origin", "film_exploitation", "award",
             "film_production_country",
         ]
         for table in junction_tables:

@@ -163,32 +163,6 @@ QUERIES = [
         "headers": ["film", "character_context"],
     },
     {
-        "num": 10,
-        "title": "Motivations per film",
-        "sql": """
-            SELECT f.original_title, mr.motivation_name
-            FROM film f
-            JOIN film_motivation fm ON f.film_id = fm.film_id
-            JOIN motivation_relation mr ON fm.motivation_id = mr.motivation_id
-            WHERE f.tmdb_id IN ({ids})
-            ORDER BY f.original_title, mr.motivation_name
-        """,
-        "headers": ["film", "motivation"],
-    },
-    {
-        "num": 11,
-        "title": "Message per film",
-        "sql": """
-            SELECT f.original_title, mc.message_name
-            FROM film f
-            JOIN film_message fmsg ON f.film_id = fmsg.film_id
-            JOIN message_conveyed mc ON fmsg.message_id = mc.message_id
-            WHERE f.tmdb_id IN ({ids})
-            ORDER BY f.original_title, mc.message_name
-        """,
-        "headers": ["film", "message"],
-    },
-    {
         "num": 12,
         "title": "Geography & Place per film",
         "sql": """
@@ -264,8 +238,6 @@ COMPLETENESS_QUERY = """
       (SELECT COUNT(*) FROM film_technique ft WHERE ft.film_id = f.film_id) as cinema_types,
       (SELECT COUNT(*) FROM film_theme fth WHERE fth.film_id = f.film_id) as themes,
       (SELECT COUNT(*) FROM film_atmosphere fa WHERE fa.film_id = f.film_id) as atmospheres,
-      (SELECT COUNT(*) FROM film_motivation fmo WHERE fmo.film_id = f.film_id) as motivations,
-      (SELECT COUNT(*) FROM film_message fms WHERE fms.film_id = f.film_id) as messages,
       (SELECT COUNT(*) FROM film_character_context fcc WHERE fcc.film_id = f.film_id) as characters,
       (SELECT COUNT(*) FROM film_period fp WHERE fp.film_id = f.film_id) as time_periods,
       (SELECT COUNT(*) FROM film_set_place fsp WHERE fsp.film_id = f.film_id) as geographies,
@@ -282,8 +254,6 @@ MIN_COUNTS = {
     "categories": 2,
     "themes": 5,
     "atmospheres": 3,
-    "motivations": 3,
-    "messages": 2,
     "cast_count": 5,
     "crew_count": 2,
     "time_periods": 1,
@@ -334,7 +304,7 @@ async def run_verification(args):
 
             headers = [
                 "film", "tmdb_id", "categories", "cinema",
-                "themes", "atmospheres", "motivations", "messages",
+                "themes", "atmospheres",
                 "characters", "time", "geo", "env", "crew", "cast", "awards",
             ]
             print_table(rows, headers)
@@ -359,15 +329,13 @@ async def run_verification(args):
                     "cinema_types": row[3],
                     "themes": row[4],
                     "atmospheres": row[5],
-                    "motivations": row[6],
-                    "messages": row[7],
-                    "characters": row[8],
-                    "time_periods": row[9],
-                    "geographies": row[10],
-                    "environments": row[11],
-                    "crew_count": row[12],
-                    "cast_count": row[13],
-                    "awards_count": row[14],
+                    "characters": row[6],
+                    "time_periods": row[7],
+                    "geographies": row[8],
+                    "environments": row[9],
+                    "crew_count": row[10],
+                    "cast_count": row[11],
+                    "awards_count": row[12],
                 }
 
                 issues = []

@@ -63,8 +63,6 @@ class Film(Base):
     themes: Mapped[list["FilmTheme"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     characters: Mapped[list["FilmCharacterContext"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     atmospheres: Mapped[list["FilmAtmosphere"]] = relationship(back_populates="film", cascade="all, delete-orphan")
-    motivations: Mapped[list["FilmMotivation"]] = relationship(back_populates="film", cascade="all, delete-orphan")
-    messages: Mapped[list["FilmMessage"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     origins: Mapped[list["FilmOrigin"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     titles: Mapped[list["FilmLanguage"]] = relationship(back_populates="film", cascade="all, delete-orphan")
     crew_entries: Mapped[list["Crew"]] = relationship(back_populates="film", cascade="all, delete-orphan")
@@ -369,48 +367,9 @@ class FilmAtmosphere(Base):
     atmosphere: Mapped["Atmosphere"] = relationship()
 
 
-# =============================================================================
-# CLASSIFICATION: MOTIVATIONS & RELATIONS
-# =============================================================================
-
-
-class MotivationRelation(Base):
-    __tablename__ = "motivation_relation"
-
-    motivation_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    motivation_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-
-
-class FilmMotivation(Base):
-    __tablename__ = "film_motivation"
-
-    film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)
-    motivation_id: Mapped[int] = mapped_column(Integer, ForeignKey("motivation_relation.motivation_id", ondelete="CASCADE"), primary_key=True)
-
-    film: Mapped["Film"] = relationship(back_populates="motivations")
-    motivation: Mapped["MotivationRelation"] = relationship()
-
-
-# =============================================================================
-# CLASSIFICATION: MESSAGE CONVEYED
-# =============================================================================
-
-
-class MessageConveyed(Base):
-    __tablename__ = "message_conveyed"
-
-    message_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    message_name: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-
-
-class FilmMessage(Base):
-    __tablename__ = "film_message"
-
-    film_id: Mapped[int] = mapped_column(Integer, ForeignKey("film.film_id", ondelete="CASCADE"), primary_key=True)
-    message_id: Mapped[int] = mapped_column(Integer, ForeignKey("message_conveyed.message_id", ondelete="CASCADE"), primary_key=True)
-
-    film: Mapped["Film"] = relationship(back_populates="messages")
-    message: Mapped["MessageConveyed"] = relationship()
+# NOTE: the `motivation_relation` / `message_conveyed` dimensions and their
+# junction tables were dissolved into Genre / Theme / Atmosphere by migration
+# 026 and dropped by migration 027 (Taxonomy v2).
 
 
 # =============================================================================

@@ -195,19 +195,21 @@
       "categories": [
         "Science-Fiction",
         "Drama",
-        "Adventure"
+        "Adventure",
+        "odyssey/quest"
       ],
       "cinema_type": [
         "blockbuster",
         "art house",
+        "slow cinema",
         "new hollywood",
-        "aesthetics",
-        "slow cinema"
+        "aesthetics"
       ],
       "time_context": [
         "prehistoric",
-        "20th post-war",
-        "future"
+        "1950-60-70's",
+        "future",
+        "decades-spanning"
       ],
       "geography": [
         {
@@ -226,32 +228,29 @@
         "AI/technology",
         "death",
         "time passing",
-        "transformation"
+        "transformation",
+        "philosophical",
+        "metaphysical",
+        "power",
+        "doubt/dilemma",
+        "exploration"
       ],
       "character_context": [
         "solitary",
         "tandem",
-        "android",
-        "alien"
+        "android/robot",
+        "alien",
+        "scientist/researcher"
       ],
       "atmosphere": [
         "contemplative/meditative",
         "oppressive",
         "mysterious",
         "disturbing",
-        "psychedelic"
-      ],
-      "motivations": [
-        "quest",
-        "odyssey",
-        "power",
-        "doubt/dilemma"
-      ],
-      "message": [
-        "philosophical",
-        "metaphysical",
+        "psychedelic",
         "symbolic",
-        "surreal"
+        "dreamlike/surreal",
+        "epic"
       ],
       "source": {
         "type": "novel",
@@ -299,8 +298,6 @@
         "themes": 0.95,
         "character_context": 0.95,
         "atmosphere": 0.95,
-        "motivations": 0.95,
-        "message": 0.95,
         "source": 0.95,
         "awards": 0.95
       },
@@ -492,20 +489,18 @@
     "enrichment": {
       "categories": [
         "Drama",
-        "Thriller"
+        "Thriller",
+        "tragedy"
       ],
       "cinema_type": [
         "art house",
         "black and white",
         "realism",
-        "generational",
-        "popular culture",
-        "slang dialogs",
-        "black comedy"
+        "slang dialogs"
       ],
       "time_context": [
-        "contemporary",
-        "end 20th"
+        "1980-90's",
+        "single day"
       ],
       "geography": [
         {
@@ -522,45 +517,41 @@
         }
       ],
       "place_environment": [
-        "building",
-        "urban"
+        "urban",
+        "building"
       ],
       "themes": [
         "social",
         "societal",
+        "generational",
         "political",
         "delinquency",
-        "tragedy",
         "death",
-        "police_violence",
+        "police violence",
         "immigration",
-        "trauma/accident"
+        "trauma/accident",
+        "friendship",
+        "solidarity",
+        "rebellion/revolt",
+        "vengeance",
+        "fight",
+        "humanist",
+        "philosophical"
       ],
       "character_context": [
         "trio",
         "buddies",
         "interracial",
-        "teenager",
         "poor/marginal",
+        "teenager",
         "cop"
       ],
       "atmosphere": [
         "violent",
         "oppressive",
         "depressive/sad",
-        "gritty/realistic"
-      ],
-      "motivations": [
-        "friendship",
-        "solidarity",
-        "rebellion/revolt",
-        "vengeance",
-        "fight"
-      ],
-      "message": [
-        "political",
-        "humanist",
-        "philosophical"
+        "gritty/realistic",
+        "cityscape"
       ],
       "source": {
         "type": "original screenplay",
@@ -602,8 +593,6 @@
         "themes": 0.95,
         "character_context": 0.95,
         "atmosphere": 0.95,
-        "motivations": 0.95,
-        "message": 0.95,
         "source": 0.95,
         "awards": 0.95
       },
@@ -852,16 +841,20 @@
     "enrichment": {
       "categories": [
         "Drama",
-        "Thriller"
+        "Thriller",
+        "psychological",
+        "crime",
+        "investigation",
+        "mafia/organized crime"
       ],
       "cinema_type": [
         "art house",
+        "flashback/non linear",
         "aesthetics",
-        "neo-noir",
-        "non linear narrative"
+        "neo-noir"
       ],
       "time_context": [
-        "early 21st"
+        "2000-2010's"
       ],
       "geography": [
         {
@@ -881,20 +874,25 @@
         "urban"
       ],
       "themes": [
-        "amnesia",
-        "psychological",
         "dream",
         "art: cinema",
-        "crime",
-        "investigation",
         "identity crisis",
+        "amnesia",
         "trauma/accident",
-        "mafia"
+        "love",
+        "obsession",
+        "jealousy",
+        "manipulation",
+        "lie",
+        "sex",
+        "adultery",
+        "vengeance",
+        "metaphysical"
       ],
       "character_context": [
         "tandem",
         "couple",
-        "female",
+        "female lead",
         "double",
         "LGBT",
         "star/celebrity"
@@ -904,23 +902,9 @@
         "steamy",
         "disturbing",
         "oppressive",
-        "hypnotic/immersive"
-      ],
-      "motivations": [
-        "love",
-        "obsession",
-        "jealousy",
-        "manipulation",
-        "lie",
-        "sex",
-        "adultery",
-        "vengeance"
-      ],
-      "message": [
-        "surreal",
-        "dreamlike",
+        "hypnotic/immersive",
         "symbolic",
-        "metaphysical"
+        "dreamlike/surreal"
       ],
       "source": {
         "type": "original screenplay",
@@ -950,8 +934,6 @@
         "themes": 0.95,
         "character_context": 0.95,
         "atmosphere": 0.95,
-        "motivations": 0.95,
-        "message": 0.95,
         "source": 0.95,
         "awards": 0.95
       },

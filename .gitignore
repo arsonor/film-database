@@ -41,5 +41,6 @@ database/db_import.ps1
 database/db_export.ps1
 database/Tags and taxonomy sort order.txt
 database/taxonomy modifications.txt
+database/Taxonomy dimensions & tags.txt
 
 query.sql

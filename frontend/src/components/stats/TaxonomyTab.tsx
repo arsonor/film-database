@@ -14,9 +14,10 @@ import type {
   AtmosphereByCategoryCell,
   CategoryDecadeCell,
   CinemaMovementCell,
-  MessageByMovementCell,
-  MessageDecadeCell,
+  SubgenreDecadeCell,
   TaxonomyPayload,
+  ValueThemeByMovementCell,
+  ValueThemeDecadeCell,
 } from "@/types/api";
 import { Section } from "./Section";
 import { AtmosphereWordCloud } from "./AtmosphereWordCloud";
@@ -36,14 +37,19 @@ const PIE_COLORS = [
   "#64748b", "#475569", "#94a3b8", "#cbd5e1", "#1e293b", "#334155",
 ];
 
-type DecadeView = "genres" | "movements" | "messages";
-type CrossView = "atmosphere_by_genre" | "message_by_movement";
+type DecadeView = "genres" | "subgenres" | "movements" | "values";
+type CrossView = "atmosphere_by_genre" | "values_by_movement";
 
 const DECADE_TABS: { value: DecadeView; label: string; subtitle: string }[] = [
   {
     value: "genres",
     label: "Genres",
-    subtitle: "What share of each decade's films belongs to each genre. Each cell = % of decade.",
+    subtitle: "What share of each decade's films belongs to each main genre. Each cell = % of decade.",
+  },
+  {
+    value: "subgenres",
+    label: "Sub-genres",
+    subtitle: "The same view one level down — sub-genres grouped by their taxonomy family. Sub-genres carried by fewer than 30 films are hidden.",
   },
   {
     value: "movements",
@@ -51,9 +57,9 @@ const DECADE_TABS: { value: DecadeView; label: string; subtitle: string }[] = [
     subtitle: "Number of films tagged with each movement, per decade. The diagonal pattern reveals when each era dominated.",
   },
   {
-    value: "messages",
-    label: "Messages",
-    subtitle: "% of films per decade conveying each message. Notice when feminist films emerge, when ecological themes appear...",
+    value: "values",
+    label: "Values & reflection",
+    subtitle: "% of films per decade carrying each Values & Reflection theme. Notice when feminist films emerge, when ecological themes appear...",
   },
 ];
 
@@ -64,9 +70,9 @@ const CROSS_TABS: { value: CrossView; label: string; subtitle: string }[] = [
     subtitle: "% of films in each genre matching each atmosphere. A genre's signature mood profile.",
   },
   {
-    value: "message_by_movement",
-    label: "Message by movement",
-    subtitle: "% of films in each cinema movement conveying each message. Reveals which ideas each movement championed.",
+    value: "values_by_movement",
+    label: "Values by movement",
+    subtitle: "% of films in each cinema movement carrying each Values & Reflection theme. Reveals which ideas each movement championed.",
   },
 ];
 
@@ -199,17 +205,32 @@ export function TaxonomyTab({ data }: Props) {
               rowLabelWidth={160}
             />
           )}
-          {decadeView === "messages" && (
-            <DecadeHeatmap<MessageDecadeCell>
-              data={data.message_by_decade_heatmap}
-              rowKey={(c) => c.message}
+          {decadeView === "subgenres" && (
+            <DecadeHeatmap<SubgenreDecadeCell>
+              data={data.subgenre_by_decade_heatmap}
+              rowKey={(c) => c.category}
+              decadeKey={(c) => c.decade}
+              valueKey={(c) => c.pct}
+              cellLabel={(c) => (c.pct >= 1 ? `${Math.round(c.pct)}%` : "")}
+              tooltip={(c) =>
+                `${c.category} · ${c.decade}s · ${c.pct}% (${c.film_count} of ${c.decade_total} films)`
+              }
+              rowSortOrder={(c) => c.sort_order}
+              rowLabelWidth={160}
+            />
+          )}
+          {decadeView === "values" && (
+            <DecadeHeatmap<ValueThemeDecadeCell>
+              data={data.values_by_decade_heatmap}
+              rowKey={(c) => c.theme}
               decadeKey={(c) => c.decade}
               valueKey={(c) => c.pct}
               cellLabel={(c) => (c.pct >= 0.5 ? `${Math.round(c.pct)}%` : "")}
               tooltip={(c) =>
-                `${c.message} · ${c.decade}s · ${c.pct}% (${c.film_count} of ${c.decade_total} films)`
+                `${c.theme} · ${c.decade}s · ${c.pct}% (${c.film_count} of ${c.decade_total} films)`
               }
               rowSortOrder={(c) => c.sort_order}
+              rowLabelWidth={160}
             />
           )}
         </div>
@@ -217,7 +238,7 @@ export function TaxonomyTab({ data }: Props) {
 
       <Section
         title="Most common tags by filmography"
-        subtitle="Pick a director, composer, or actor to see their characteristic themes, atmospheres, characters, and messages."
+        subtitle="Pick a director, composer, or actor to see their characteristic themes, atmospheres, characters, genres and cinema types."
       >
         <PersonTagsWidget />
       </Section>
@@ -239,17 +260,17 @@ export function TaxonomyTab({ data }: Props) {
               }
             />
           )}
-          {crossView === "message_by_movement" && (
-            <CrossTabHeatmap<MessageByMovementCell>
-              data={data.message_by_movement}
+          {crossView === "values_by_movement" && (
+            <CrossTabHeatmap<ValueThemeByMovementCell>
+              data={data.values_by_movement}
               rowKey={(c) => c.movement}
-              colKey={(c) => c.message}
+              colKey={(c) => c.theme}
               rowSortOrder={(c) => c.movement_sort_order}
-              colSortOrder={(c) => c.message_sort_order}
+              colSortOrder={(c) => c.theme_sort_order}
               valueKey={(c) => c.pct}
               cellLabel={(c) => (c.pct >= 1 ? `${Math.round(c.pct)}%` : "")}
               tooltip={(c) =>
-                `${c.movement} · ${c.message} · ${c.pct}% (${c.film_count} of ${c.movement_total} films)`
+                `${c.movement} · ${c.theme} · ${c.pct}% (${c.film_count} of ${c.movement_total} films)`
               }
               rowLabelWidth={160}
             />
