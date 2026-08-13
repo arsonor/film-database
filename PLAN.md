@@ -42,6 +42,7 @@
 | 21b | Taxonomy v2 — Backend | ✅ DONE | taxonomy_config + enricher rewrite, routers, schemas, tier config, review_tag, export_taxonomy |
 | 21c | Taxonomy v2 — Frontend | ✅ DONE | Collapsible sub-dimension groups in sidebar, grouped Film page taxonomy, Add Film review |
 | 22 | Taxonomy v2 — Deferred surfaces | ✅ DONE | Recommender weights, dashboard Taxonomy tab, 3 games, migration 027 drops motivation/message tables |
+| 22.1 | Taxonomy tweaks (migration 028) | ✅ DONE (local) | courtroom rename, submarine/spaceship, naval→military. **Not yet on Supabase** |
 
 ---
 
@@ -236,3 +237,74 @@ dimensions, then drop the dissolved tables. Everything below is applied to the
   left for Martin.
 - Supabase not touched — sync + deploy backend/frontend together as usual, and
   run **026 then 027** in that order.
+
+---
+
+## Step 22.1: Taxonomy tweaks — migration 028
+
+Three small taxonomy edits requested after Step 22 landed. Applied to the
+**local DB only** (2026-08-13); Supabase and Render are still on the pre-028
+state — see "Deployment" below.
+
+### Changes
+
+1. **Genre** — `trial/judicial chronicle` renamed to **`courtroom`**. sort_order
+   500 unchanged; a lookup-row `UPDATE` preserves all **179** film associations
+   (`film_genre` references `category_id`, not the name).
+2. **Place / Vehicles** — added **`submarine` (404)** and **`spaceship` (405)**
+   after `ship` (403).
+3. **Place / Buildings & institutions** — **`naval` removed**. All 38 films
+   tagged `naval` were given `military` first (5 already had it, 33 gained it),
+   so `military` went 132 → **165**. Deleting the lookup row cascaded the 38
+   junction rows away. `castle` 208→207 and `hotel` 209→208 close the gap.
+
+`place_context` goes 29 → **30** tags; `category` stays at 55.
+
+The migration asserts, before the `DELETE`, that no film tagged `naval` is left
+without `military` — it aborts rather than silently dropping coverage.
+
+### Files touched
+
+- `database/migrations/028_taxonomy_tweaks.sql` (new, guarded + post-assertions)
+- `database/seed_taxonomy.sql` (both sections + the "29 tags" header)
+- `database/verify_taxonomy_v2.sql` (place_context expected count 29 → 30)
+- `backend/app/services/taxonomy_config.py` (`VALID_GENRES_SUB`,
+  `VALID_PLACE_ENVIRONMENTS`)
+- `backend/app/services/claude_enricher.py` — the Genre prompt used
+  *"a courtroom drama gets `trial/judicial chronicle`"* as its worked example,
+  which would have become self-contradictory; reworded to *"a trial-driven
+  drama gets `courtroom`"*.
+- `CLAUDE.md`, `database/tags_definition.md`,
+  `database/Tags and taxonomy sort order.txt`,
+  `database/Taxonomy dimensions & tags.txt` (+ a dated changelog entry)
+
+`tags_definition.md` needed a real correction, not just a rename: `ship` was
+defined as *"including all types of boat, and spaceship"*, which is wrong now
+that `spaceship` stands alone. New/changed entries carry `<!-- TODO Martin -->`
+markers for wording review, matching the 21b convention.
+
+**No frontend change was required** — `taxonomyGroups.ts` only names the 12 main
+genres and the block labels, and no component hardcodes a Place or sub-genre
+tag name. Tier caps are unaffected (`place_contexts: 299` for free still means
+Environments + Buildings; Vehicles stay above it).
+
+### Verification (local)
+
+- Migration ran in one transaction; `BEFORE: 179 / 38 / 132` →
+  `AFTER: courtroom=179, military=165, place_context=30`.
+- `taxonomy_config.py` re-checked name-for-name and in order against the live
+  DB for all 7 dimensions (55/40/30/22/96/59/25) — exact match.
+- `verify_taxonomy_v2.sql`: all checks PASS.
+- Fresh-DB replay on a scratch database: `schema.sql` + `seed_taxonomy.sql`
+  reproduce the same state (55 genres, 30 places, Vehicles block reads
+  `car/bus, train, airplane, ship, submarine, spaceship`, no `naval`).
+- Backend boots; `/films/{id}/similar`, `/game/daily`, `/game/guess/random`
+  all 200.
+
+### Deployment
+
+Supabase is at post-027 and does **not** have 028 yet. To close the gap:
+`psql <supabase> -f database/migrations/028_taxonomy_tweaks.sql`, then redeploy
+the backend so `taxonomy_config.py` matches. Order is not critical here — the
+mismatch only affects enrichment validation on Add Film, not browsing, since
+the sidebar and filters read tag names from the database.

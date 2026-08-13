@@ -61,7 +61,7 @@ The 12 **main genres** occupy block 1 (`sort_order < 200`); everything above is 
 - **Drama / Romance** — melodrama, coming of age, slice of life, tragedy
 - **Comedy** — parodic, satirical, absurdist, black comedy
 - **Thriller / Adventure** — psychological, war, crime, investigation, spy, heist, mafia/organized crime, serial killer, survival, chase/escape, odyssey/quest, disaster, apocalypse
-- **Historical / Justice** — trial/judicial chronicle, prison, biopic, fait divers/true incident, western, peplum, swashbuckler, costume drama, wu xia pian, revisionist/alternate history
+- **Historical / Justice** — courtroom, prison, biopic, fait divers/true incident, western, peplum, swashbuckler, costume drama, wu xia pian, revisionist/alternate history
 - **Sci-fi / Fantasy** — supernatural, whimsical/zany, dystopia, tales and legends
 - **Horror** — jumpscare, slasher, gore, body horror, gothic horror, folk horror
 - **Miscellaneous** — docufiction, martial arts
@@ -93,11 +93,11 @@ Chronological tags use `sort_order` 1–15 (block 0), so the whole dimension fit
 
 Year ranges (enforced in the enrichment prompt via `TIME_PERIOD_YEAR_RANGES`): future 2030+ · contemporary 2020–2029 · 2000-2010's 2000–2019 · 1980-90's 1980–1999 · 1950-60-70's 1946–1979 · WW2 1939–1945 · 1920-30's 1919–1938 · WW1 1914–1918 · 1900-1910's 1900–1913 · 19th 1800–1899 · modern age 1500–1799 · medieval 500–1500 · antiquity 3000 BC–500 AD · prehistoric before recorded civilization · undetermined no identifiable period.
 
-#### Place — `place_context` (29 tags)
+#### Place — `place_context` (30 tags)
 - **Environments** — urban, small town, rural, forest, mountains, desert, beach, maritime, island, underground, space, planet
-- **Buildings & institutions** — building, household/house/apartment, company/factory, school/university, hospital, jail, military, naval, castle, hotel
+- **Buildings & institutions** — building, household/house/apartment, company/factory, school/university, hospital, jail, military, castle, hotel
 - **Narrative settings** — road movie, huis clos/confined setting
-- **Vehicles** — car/bus, train, airplane, ship
+- **Vehicles** — car/bus, train, airplane, ship, submarine, spaceship
 - *(unlabelled block 5)* — no particular
 
 #### Geography (separate from Place)

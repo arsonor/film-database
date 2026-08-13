@@ -32,7 +32,7 @@ VALID_GENRES_SUB = [
     "mafia/organized crime", "serial killer", "survival", "chase/escape",
     "odyssey/quest", "disaster", "apocalypse",
     # Historical / Justice (500s)
-    "trial/judicial chronicle", "prison", "biopic", "fait divers/true incident",
+    "courtroom", "prison", "biopic", "fait divers/true incident",
     "western", "peplum", "swashbuckler", "costume drama", "wu xia pian",
     "revisionist/alternate history",
     # Sci-fi / Fantasy (600s)
@@ -69,12 +69,11 @@ VALID_PLACE_ENVIRONMENTS = [
     "maritime", "island", "underground", "space", "planet",
     # Buildings & institutions (200s)
     "building", "household/house/apartment", "company/factory",
-    "school/university", "hospital", "jail", "military", "naval", "castle",
-    "hotel",
+    "school/university", "hospital", "jail", "military", "castle", "hotel",
     # Narrative settings (300s)
     "road movie", "huis clos/confined setting",
     # Vehicles (400s)
-    "car/bus", "train", "airplane", "ship",
+    "car/bus", "train", "airplane", "ship", "submarine", "spaceship",
     # None (500)
     "no particular",
 ]

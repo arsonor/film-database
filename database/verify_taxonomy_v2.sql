@@ -20,7 +20,7 @@ FROM (
     SELECT 'category (Genre)'          AS dimension, (SELECT count(*) FROM category)          AS tags, 55 AS expected, 1 AS ord
     UNION ALL SELECT 'theme_context (Theme)',        (SELECT count(*) FROM theme_context),      96, 2
     UNION ALL SELECT 'time_context (Time Period)',   (SELECT count(*) FROM time_context),       22, 3
-    UNION ALL SELECT 'place_context (Place)',        (SELECT count(*) FROM place_context),      29, 4
+    UNION ALL SELECT 'place_context (Place)',        (SELECT count(*) FROM place_context),      30, 4
     UNION ALL SELECT 'atmosphere (Atmosphere)',      (SELECT count(*) FROM atmosphere),         25, 5
     UNION ALL SELECT 'character_context (Character)',(SELECT count(*) FROM character_context),  59, 6
     UNION ALL SELECT 'cinema_type (Cinema Type)',    (SELECT count(*) FROM cinema_type),        40, 7

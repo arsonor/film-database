@@ -23,6 +23,8 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **apocalypse** — covers pre-apocalyptic, apocalyptic, and post-apocalyptic scenarios. The world is ending, about to end, or has already ended.
 
+**courtroom** — the trial and the courtroom proceedings are the film's structural spine, not merely one scene among others. Renamed from *trial/judicial chronicle* in migration 028. <!-- TODO Martin: confirm wording -->
+
 **fait divers/true incident** — a specific real-life incident, case, or news story — typically a crime, scandal, trial, accident, or unusual event.
 
 **costume drama** — a film where historical setting, costumes, and production design are central to the experience. The period trappings are not just backdrop but a core part of the film's identity and appeal.
@@ -136,7 +138,14 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **building** — When the building is the central place of action and intrigue, not just a house or apartment.
 
-**ship** — including all types of boat, and spaceship
+**ship** — including all types of surface boat. Since migration 028, **submarine** and **spaceship** are separate tags and are no longer covered by this one.
+
+**submarine** — the action takes place aboard a submarine. <!-- TODO Martin: confirm wording -->
+
+**spaceship** — the action takes place aboard a spacecraft. Distinct from **space** (Environments), which is the setting of outer space itself. <!-- TODO Martin: confirm wording -->
+
+**military** — a military installation, base, barracks or camp as the setting. Since migration 028 this also covers naval settings; the separate **naval** tag was removed and its 38 films folded in here. <!-- TODO Martin: confirm wording -->
+
 
 **huis clos / confined setting** — the action is deliberately restricted to a single or very limited space, creating a sense of enclosure. The confinement is a narrative choice, not just a practical one.
 

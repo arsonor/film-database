@@ -361,8 +361,8 @@ Sub-genres: {', '.join(VALID_GENRES_SUB)}
 Rules:
 - Assign at least ONE main genre — always. Usually one to three.
 - Add sub-genres ONLY when they clearly define the film (a war film gets "war",
-  a courtroom drama gets "trial/judicial chronicle"). A single scene or a minor
-  plot element is not enough. Zero sub-genres is a perfectly valid answer.
+  a trial-driven drama gets "courtroom"). A single scene or a minor plot
+  element is not enough. Zero sub-genres is a perfectly valid answer.
 - Put main genres and sub-genres together in the same "categories" list.
 
 ### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)

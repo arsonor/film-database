@@ -75,7 +75,7 @@ INSERT INTO category (category_name, historic_subcategory_name, sort_order) VALU
     ('disaster', NULL, 411),
     ('apocalypse', NULL, 412),
     -- Sub-genres: Historical / Justice (500s)
-    ('trial/judicial chronicle', NULL, 500),
+    ('courtroom', NULL, 500),
     ('prison', NULL, 501),
     ('biopic', NULL, 502),
     ('fait divers/true incident', NULL, 503),
@@ -155,7 +155,7 @@ INSERT INTO cinema_type (technique_name, sort_order) VALUES
 ON CONFLICT (technique_name) DO NOTHING;
 
 -- =============================================================================
--- PLACE_CONTEXT (Place) - 29 tags
+-- PLACE_CONTEXT (Place) - 30 tags
 -- =============================================================================
 
 INSERT INTO place_context (environment, sort_order) VALUES
@@ -180,9 +180,8 @@ INSERT INTO place_context (environment, sort_order) VALUES
     ('hospital', 204),
     ('jail', 205),
     ('military', 206),
-    ('naval', 207),
-    ('castle', 208),
-    ('hotel', 209),
+    ('castle', 207),
+    ('hotel', 208),
     -- Narrative settings (300s)
     ('road movie', 300),
     ('huis clos/confined setting', 301),
@@ -191,6 +190,8 @@ INSERT INTO place_context (environment, sort_order) VALUES
     ('train', 401),
     ('airplane', 402),
     ('ship', 403),
+    ('submarine', 404),
+    ('spaceship', 405),
     -- None (500)
     ('no particular', 500)
 ON CONFLICT (environment) DO NOTHING;
