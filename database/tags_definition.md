@@ -1,84 +1,180 @@
+# Tag definitions — Taxonomy v2
+
+Reference for tag meaning across the 7 dimensions. Only tags that need
+disambiguation are defined; self-evident tags are omitted.
 
 ## **GENRE**
 
 Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Science-Fiction, Fantasy, Horror, Musical, Documentary) are always assigned — at least one per film. The tags below are sub-genres: use them only when they clearly define the film.
 
+**Historical** — the historical period is essential to the story: the era's politics, social structures or culture actively shape the characters and conflicts. A film merely set in the past is not Historical — that is a Time Period tag.
+
+### Drama / Romance
+
+**melodrama** — heightened emotion and moral clarity, with suffering, sacrifice and reversals of fortune amplified by music and mise-en-scène. Feeling is deliberately pushed past realism.
+
+**coming of age** — the passage from childhood or adolescence into adulthood. The protagonist is young and the film is structured around a formative period after which they are no longer who they were. Defined by age and life stage, not by what is escaped (see Theme **emancipation**).
+
+**slice of life** — an observational film with no driving narrative goal: everyday life is the subject and the structure. Distinct from the Character **ordinary**, which describes who is on screen rather than the film's form.
+
 **tragedy** — in the classical, Greek sense: a narrative driven by fate, inevitability, or a fatal flaw leading to downfall. Not simply "a sad film."
+
+### Comedy
 
 **parodic** vs **satirical** — parodic imitates and exaggerates a specific genre, film, or style for comic effect. Satirical uses humor to critique real-world society, institutions, or human behavior.
 
 **absurdist** — the film uses logical nonsense, paradox, or the inherent meaninglessness of existence as its comedic or philosophical lens. Distinct from **whimsical/zany**, which is lighter and more playful.
 
+**black comedy** — humour drawn from death, cruelty, disaster or taboo. The comic tone and the grim subject are deliberately held together.
+
+### Thriller / Adventure
+
 **psychological** — the film's central subject is the inner mental life of a character: their psyche, mental processes, perceptions, or psychological deterioration. The psychological dimension must be what the film is fundamentally about, not simply present. A thriller with tense moments is not psychological. A drama where characters feel emotions is not psychological. Apply only when exploring the mind itself is the film's primary purpose.
+
+**war** — armed conflict is the film's setting and subject: combat, the front, occupation, resistance, or life shaped by war. Distinct from the Time Period tags **WW1** / **WW2**, which mark only when the film is set.
 
 **investigation** vs **crime** — investigation means the narrative is structured around solving or uncovering something (a detective, journalist, or character actively investigating). Crime is broader: crime is present as a central theme without necessarily following an investigation structure.
 
+**spy** — espionage as the film's structure: intelligence work, infiltration, double agents, state secrets.
+
 **heist** — a planned robbery or elaborate scheme drives the plot. Distinct from general crime by its focus on planning, execution, and team coordination.
 
-**mafia/organized crime** — the film is built around a structured criminal organization: its hierarchy, codes, business and wars. Distinct from the Character **gangster** (an individual embedded in that culture) and from **crime** (which is broader and can be individual). <!-- TODO Martin: merged tag (mafia + organized crime) — confirm wording -->
+**mafia/organized crime** — the film is built around a structured criminal organization: its hierarchy, codes, business and wars. Distinct from the Character **gangster** (an individual embedded in that culture) and from **crime** (which is broader and can be individual).
+
+**serial killer** — a killer who murders repeatedly is the film's subject, through investigation or psychology. Distinct from **slasher**, which is a horror formula rather than a study.
+
+**survival** — a character must stay alive against a hostile environment or force. Isolation, dwindling resources and endurance shape the structure.
 
 **chase/escape** — dynamic action sequence or adventure journey where one party (the protagonist) flees from another (the pursuer, such as law enforcement, a villain, or danger) with the primary goal of survival, evasion, or achieving a high-stakes objective.
 
-**odyssey/quest** — the narrative is structured as a long journey or a pursuit of a goal: the characters travel, search or strive toward something, and that journey is the film's spine. Distinct from **road movie** (Place), which is about the physical displacement itself. <!-- TODO Martin: merged tag (odyssey + quest) — confirm wording -->
+**odyssey/quest** — the narrative is structured as a long journey or the pursuit of a goal: the characters travel, search or strive toward something, and that journey is the film's spine. Distinct from **road movie** (Place), which is about physical displacement itself, and from **exploration** (Theme), which is about venturing into the unknown.
+
+**disaster** — a catastrophe, natural or man-made, strikes a group of people. Structure: setup, catastrophe, survival and escape. Distinct from **apocalypse**, where the world itself ends.
 
 **apocalypse** — covers pre-apocalyptic, apocalyptic, and post-apocalyptic scenarios. The world is ending, about to end, or has already ended.
 
-**courtroom** — the trial and the courtroom proceedings are the film's structural spine, not merely one scene among others. Renamed from *trial/judicial chronicle* in migration 028. <!-- TODO Martin: confirm wording -->
+### Historical / Justice
 
-**fait divers/true incident** — a specific real-life incident, case, or news story — typically a crime, scandal, trial, accident, or unusual event.
+**courtroom** — the trial and the courtroom proceedings are the film's structural spine, not merely one scene among others. A film about lawyers that never reaches a trial does not qualify.
 
-**costume drama** — a film where historical setting, costumes, and production design are central to the experience. The period trappings are not just backdrop but a core part of the film's identity and appeal.
+**prison** — incarceration is the film's setting and subject: confinement, prison hierarchy, escape, or life inside.
+
+**biopic** — the film depicts the life, or a substantial part of the life, of a real person.
+
+**fait divers/true incident** — a specific real-life incident, case, or news story — typically a crime, scandal, trial, accident, or unusual event. The real case is the source material, not merely an inspiration.
+
+**peplum** — sword-and-sandal adventure set in antiquity: gladiators, mythological heroes, ancient empires.
 
 **swashbuckler** — adventure films centered on sword-fighting heroes in historical or romanticized settings, typically involving dashing protagonists, daring rescues, and flamboyant action. Rooted in the Errol Flynn era but extends to any film embracing that spirit.
 
+**costume drama** — a film where historical setting, costumes, and production design are central to the experience. The period trappings are not just backdrop but a core part of the film's identity and appeal.
+
 **wu xia pian** — Chinese martial arts genre rooted in the literary tradition of wuxia (literally "martial heroes"). Characterized by swordplay, chivalric codes, and often wire-assisted choreography set in ancient or mythical China.
 
-**revisionist/alternate history** — the film deliberately reinterprets, subverts, or reimagines historical events or genre conventions.
+**revisionist/alternate history** — the film deliberately rewrites, subverts or reimagines known historical events or genre conventions as an artistic statement, and the audience is meant to notice the deviation. A film that is merely historically inaccurate does not qualify.
 
-**tales and legends** — narratives rooted in mythology, folklore, fairy tales, or legendary stories. Distinct from **supernatural** (which is about unexplained phenomena in a more realistic setting).
+### Sci-fi / Fantasy
+
+**supernatural** — magic, spirits, ghosts, demons or forces beyond the law of nature drive the film's plot and structure. A genre-level shape: the supernatural element is what the film is built on, whether or not the world treats it as ordinary. Distinct from the Theme **paranormal**, which is carried by a character rather than by the film's structure.
 
 **whimsical/zany** — a playful, fanciful, logic-defying spirit. The film bends or ignores rules of reality in a lighthearted or imaginative way, without the intellectual/philosophical intent of **absurdist**.
 
+**dystopia** — a functioning but oppressive society: control, surveillance, engineered order. Distinct from **apocalypse**, where society has collapsed.
+
+**tales and legends** — narratives rooted in mythology, folklore, fairy tales, or legendary stories.
+
+### Horror
+
+**jumpscare** — sudden shocks — abrupt reveals, stings, things bursting into frame — are a primary horror device.
+
 **slasher** — horror subgenre centered on a killer (often masked or anonymous) systematically murdering victims, usually young people, in graphic and suspenseful sequences. Distinct from **serial killer**, which is about the investigation or psychology of a killer.
 
-**docufiction** — blends documentary and fiction techniques, dramatizing real events or situations with a documentary feel. Or uses documentary format as a comedic or satirical device applied to entirely fictional subjects.
+**gore** — explicit, sustained depiction of blood, mutilation and bodily destruction as a defining element of the film.
+
+**body horror** — horror drawn from the body itself: mutation, infection, transformation, bodily violation. The flesh is the site of dread.
+
+**gothic horror** — dread built from decayed grandeur: old houses and castles, family curses, repression and inheritance. Atmosphere and slow dread over shock.
+
+**folk horror** — horror rooted in rural isolation, old belief, ritual and landscape. The threat comes from a community and its surviving pagan practices.
+
+### Miscellaneous
+
+**docufiction** — blends documentary and fiction techniques, dramatizing real events or situations with a documentary feel. Also covers mockumentary: documentary format used as a comedic or satirical device applied to entirely fictional subjects.
+
+**martial arts** — hand-to-hand or weapon combat disciplines are central to the film's action and identity.
 
 
-## **THEMES**
+## **THEME**
+
+### Society & World
 
 **social** vs **societal** — social concerns interpersonal relations within a community, class dynamics, or living conditions (e.g. poverty, exclusion, neighborhood life). Societal is broader: it addresses how society functions as a system — institutions, norms, cultural shifts, systemic issues.
 
 **generational** — the film is deeply representative of a specific generation's identity, lifestyle, struggles, or cultural moment.
 
+**political** — politics as subject or as stance: power structures, elections, ideology, activism, state action. Covers both films that depict political processes and films that advance a political argument.
+
+**conspiracy** — a hidden plot by a powerful group, and its uncovering, drives the film. Distinct from **investigation** (Genre), which is the structure rather than the subject.
+
+**censorship** — the suppression of speech, art or information as a subject of the film.
+
 **sect** — a closed, manipulative group with cult-like dynamics. Not religion in general (see **religion**).
 
-**humanist** — the film is explicitly making a statement about human compassion, dignity, or the value of every individual life. It's not enough for the film to be "warm" or "about people." The humanist/human dignity message must be what the viewer takes away as the film's core statement.
+### Values & Reflection
+
+**humanist** — the film is explicitly making a statement about human compassion, dignity, or the value of every individual life. It's not enough for the film to be "warm" or "about people." The humanist message must be what the viewer takes away as the film's core statement.
 
 **anti establishment** — the film challenges or criticizes institutional power, authority, or the status quo.
 
 **traditionalist/way of life** — the film valorizes or depicts with reverence a particular cultural tradition, lifestyle, or set of values, often rural, ancestral, or community-based.
 
-**philosophical** vs **metaphysical** — a philosophical film explicitly engages with philosophical questions or ideas as part of its narrative or dialogue. Characters discuss meaning, the film poses ethical dilemmas as its subject, or the structure itself embodies a philosophical argument. Metaphysical goes further: it questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world.
+**philosophical** — the film directly and deliberately explores questions of ethics, morality, justice, free will, or how human beings should live. The inquiry must be explicit — through dialogue, moral dilemmas framed as arguments, or a structure that functions as a thought experiment. A film that simply makes the viewer think is not philosophical; a film with a moral lesson is not philosophical.
+
+**metaphysical** — the film questions the nature of reality itself, existence, consciousness, or what lies beyond the perceivable world. Philosophical stays in the realm of human conduct; metaphysical goes past it.
+
+### Human Relations > Bonds & attachments
 
 **love** — love as a driving force in the broadest sense: romantic, parental, fraternal, platonic. When a character's actions are motivated by deep emotional attachment to another. Distinct from the Genre **Romance** (which defines the film's genre).
 
 **communication** — the act of communicating (or failing to communicate) is itself the dramatic engine. Misunderstandings, language barriers, the struggle to connect or express oneself.
 
+**family/parenthood** — family bonds and dynamics as subject matter: parenthood, filiation, sibling ties, inheritance, family conflict or reconciliation. Distinct from the Character **relatives**, which only records that family members are on screen.
+
+### Human Relations > Desire & transgression
+
 **manipulation** — a character deliberately controls, deceives, or psychologically exploits others to achieve their goals. Distinct from **lie** (which is a single act of deception) — manipulation is sustained, strategic, and often involves power dynamics.
 
 **perversion** — desire that transgresses social norms or moral boundaries, taken to a dark or disturbing extreme. Distinct from **sex** (which is desire as a neutral or positive driving force) and from **steamy** (Atmosphere, which is about erotic mood). Perversion implies that motivation itself is troubling, deviant, or destructive.
 
-**class/culture clash** — specifically about tension or conflict between social classes or cultures. Not simply "poor characters" (see Characters: **poor/marginal**), but when the divide between them is a driving force of the narrative.
+### Human Relations > Interpersonal conflict
+
+**class/culture clash** — conflict between characters or groups from fundamentally opposed worlds: class, wealth, culture, nationality, or values. The divide between them drives the narrative. Not simply the presence of rich and poor characters (see Characters **poor/marginal**), and not internal (see **identity crisis**).
 
 **fight** — applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
 
-**trafficking/fraud** — large-scale, systematic financial or institutional deception. Distinct from **heist** (Genre, which involves physical theft) and from **corruption** (which implies abuse of institutional power). <!-- TODO Martin: renamed from "organized fraud" — does the definition need to cover trafficking too? -->
+### Human Relations > Crime & abuse of power
+
+**trafficking/fraud** — organised illegal trade (drugs, arms, people, goods) or large-scale systematic financial and institutional deception. Distinct from **heist** (Genre, a single planned theft) and from **corruption** (abuse of entrusted power).
+
+**corruption** — abuse of entrusted power for private gain: bribery, cover-ups, institutional rot in police, politics, business or justice.
+
+**terrorism** — politically or ideologically motivated violence against civilians as a subject of the film.
+
+### Personal / Inner conflict > Wounds & burdens
+
+**identity crisis** — a character's sense of who they are collapses or is called into question: role, origin, belonging, or self-image. Internal and psychological, unlike **class/culture clash**, which is a conflict between people.
 
 **illness** — physical or mental illness as a significant theme in the narrative. Not when a character happens to be ill as a minor plot point.
 
-**death** — a central theme the film meditates on or builds around, not simply an event that occurs. A character dying in act three of an action film doesn't make death a theme. A film where mortality, grief, the meaning of death, or the process of dying is what the film is wrestling with qualifies.
+**death** — a central theme the film meditates on or builds around, not simply an event that occurs. A character dying in act three of an action film doesn't make death a theme. A film where mortality, the meaning of death, or the process of dying is what the film is wrestling with qualifies.
 
 **grief/mourning** — the process of living with a loss: bereavement, absence, and its aftermath. Distinct from **death**, which is about mortality as a subject.
+
+**loneliness** — isolation as a felt condition: solitude, disconnection, the inability to reach others. Distinct from the Character **solitary**, which is a structural fact about the cast.
+
+**guilt** — a character is haunted by responsibility for something they did or failed to do: remorse, self-blame, the inability to move past it. Guilt is a state the character occupies and may never resolve. Distinct from **redemption**, which is a trajectory travelled.
+
+### Personal / Inner conflict > Drives & arcs
 
 **obsession** — a pathological, consuming fixation that distorts a character's behavior and judgment. Not dedication, not passion, not strong motivation — but a compulsion that takes over and damages the character or those around them.
 
@@ -88,22 +184,44 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **honor/duty** — a character acts out of obligation, moral code, or loyalty to a principle larger than self-interest.
 
-**emancipation** — a character's process of freeing themselves from control, constraint, or dependence. Also covers apprenticeship and coming-of-age growth when the core arc is about gaining autonomy.
+**emancipation** — a character frees themselves from a force that constrains them: a controlling person, an oppressive institution, a social role, a tradition, a dependency. Defined by what is escaped, not by age — distinct from **coming of age** (Genre), which is defined by life stage. A young protagonist escaping a controlling family earns both.
+
+**redemption** — a character actively seeks to make amends, atone, or become better than who they were. Redemption is a trajectory the film is structured around, whether or not it succeeds. Distinct from **guilt**, which is the wound rather than the journey.
 
 **transformation** — used when the film deliberately shows a significant and radical change in a character's physical or mental state between beginning and end. Not for subtle character development that any good film has, but for clear, marked transformation.
 
-**time passing** — when the passage of time itself is a deliberate subject of the film, often spanning years or decades. The film makes you feel time elapsing.
+**time passing** — when the passage of time itself is a deliberate subject of the film. The film makes you feel time elapsing. Distinct from the Time Period span tags, which only record how long the story covers.
 
-**dream** vs **dreamlike/surreal** (Atmosphere) — the Theme dream is for a film that prominently features dreams, dreaming, dream-like sequences or dream logic as a notable element, key theme or narrative device. The Atmosphere **dreamlike/surreal** describes a film whose overall artistic expression feels dream-like in texture, regardless of whether actual dreams appear in the plot.
+**dream** — the film prominently features dreams, dreaming, dream sequences or dream logic as a notable element or narrative device. Distinct from the Atmosphere **dreamlike/surreal**, which describes texture regardless of whether actual dreams appear.
 
-**game** vs **gambling** — game covers games as a narrative element (board games, video games, deadly games, competition games. Gambling specifically involves wagering and betting stakes (poker, casino, horse racing).
+### Art, Sport & Entertainment
+
+**party** — celebration, nightlife or a gathering as a significant setting or event in the film.
+
+**game** — games as a narrative element: board games, video games, invented or deadly games with rules.
+
+**gambling** — wagering money on chance: casino, poker, betting, racing stakes.
+
+**contest** — a formal non-athletic competition with a prize or ranking: talent shows, cooking or chess contests, pageants, dance-offs. Distinct from **sport: tournament** (athletic) and from **game**.
+
+### Face to the unknown
+
+**paranormal** — a character experiences or possesses unnatural faculties: contact with the afterlife, mediumship, telepathy, telekinesis, precognition, parapsychology. A theme lived by a character, distinct from **supernatural** (Genre), which structures the whole film.
+
+**virtual/parallel universe** — simulated realities, alternate dimensions or worlds running alongside our own.
+
+**exploration** — venturing into unmapped or unknown territory: expeditions, discovery, first contact. Distinct from **odyssey/quest** (Genre), which is about the journey structuring the film rather than the unknown being entered.
 
 
-## **TIME PERIODS**
+## **TIME PERIOD**
+
+Time Period tags describe **when the film is set**, not when it was released. When the film explicitly signals another era, follow the film. When the setting is simply unstated or vague, default to the production year — an unmarked setting almost always matches the era the film was made in. **undetermined** is not a fallback for uncertainty; it is reserved for fables, allegories, abstract settings and fantasy worlds with no real-world historical equivalent.
+
+The war tags are purely chronological: a film set 1939–1945 is tagged WW2 whether or not it concerns the war (that is the Genre **war**).
 
 **future** — The film is set in a time that has not yet occurred, approximately 2030 or beyond. Includes near-future, far-future, and unspecified future settings. Key indicators: futuristic technology, society structures that don't exist yet, dates explicitly shown as future. If the film is clearly set "a few years from now" relative to its own production, it qualifies.
 
-**contemporary** — The film is set approximately between 2020 and 2029. Apply ONLY when the setting is clearly in this specific decade through explicit dates, contemporary technology (smartphones, social media, post-COVID references), or unmistakable current-era markers. Do NOT apply simply because the film was released recently.
+**contemporary** — The film is set approximately between 2020 and 2029. Key indicators: smartphones and social media, post-COVID references, present-day culture. A film produced in this decade with no markers pointing to another era belongs here.
 
 **2000-2010's** — The film is set approximately between 2000 and 2019. Key indicators: early smartphone era, post-9/11 references, 2000s–2010s technology and culture. A film released in 2005 that appears set in its own time belongs here. A film released in 2005 depicting the 1970s does NOT.
 
@@ -113,7 +231,7 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **WW2** — The film is set during World War II, approximately 1939–1945.
 
-**1920-30's** — The film is set approximately between 1919 and 1938, covering the 1920s and 1930s decades. Key indicators: Jazz Age, Prohibition, Great Depression, rise of fascism, Art Deco aesthetics.
+**1920-30's** — The film is set approximately between 1919 and 1938. Key indicators: Jazz Age, Prohibition, Great Depression, rise of fascism, Art Deco aesthetics.
 
 **WW1** — The film is set during World War I, approximately 1914–1918.
 
@@ -129,27 +247,50 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **prehistoric** — The film is set before recorded civilization. Early humans, cavemen, dinosaur-era settings.
 
-**undetermined** — The time period is deliberately vague, impossible to identify, or irrelevant. Often applies to fables, allegories, abstract settings, or fantasy worlds with no real-world historical equivalent. Use this tag rather than guessing when no clear period indicators exist.
+### Time span
 
-**single day** / **several years** / **decades-spanning** — the stretch of time the story covers, when it is a defining trait of the film (a real-time or one-day narrative, a story following characters over years, a saga spanning decades). <!-- TODO Martin: new Time span tags — confirm wording -->
+Applied only when the stretch of time covered is a defining trait of the film. Most films fall between these and receive no span tag.
+
+**single day** — the story unfolds within 24 hours or less.
+
+**several years** — the narrative follows its characters across roughly 2 to 15 years.
+
+**decades-spanning** — the narrative covers 20 years or more, often across generations. Requires a continuous story unfolding across time, not disconnected blocks separated by hard cuts.
 
 
 ## **PLACE CONTEXTS**
 
-**building** — When the building is the central place of action and intrigue, not just a house or apartment.
+**small town** — a small, self-contained community where everyone knows everyone. Distinct from **urban** (city scale) and **rural** (countryside and farmland).
 
-**ship** — including all types of surface boat. Since migration 028, **submarine** and **spaceship** are separate tags and are no longer covered by this one.
+**planet** — an identified planet other than Earth as the setting. Distinct from **space** (outer space itself) and **spaceship** (aboard a craft).
 
-**submarine** — the action takes place aboard a submarine. <!-- TODO Martin: confirm wording -->
+**building** — when a building is the central place of action and intrigue, not just a house or apartment.
 
-**spaceship** — the action takes place aboard a spacecraft. Distinct from **space** (Environments), which is the setting of outer space itself. <!-- TODO Martin: confirm wording -->
+**military** — a military installation, base, barracks, camp or command as the setting, in any branch: army, navy or air force. Combine with a Vehicles tag for films set aboard a military vessel or aircraft.
 
-**military** — a military installation, base, barracks or camp as the setting. Since migration 028 this also covers naval settings; the separate **naval** tag was removed and its 38 films folded in here. <!-- TODO Martin: confirm wording -->
+**castle** — a castle, fortress or palace as a significant setting.
 
+**hotel** — a hotel, inn or resort as a significant setting.
 
 **huis clos / confined setting** — the action is deliberately restricted to a single or very limited space, creating a sense of enclosure. The confinement is a narrative choice, not just a practical one.
 
-**road movie** — A film whose narrative structure is built entirely around a journey from one place to another. Remove the journey and the film has no structure left. The story progresses through the physical displacement of characters. The road itself is the plot. Can extend to unconventional transport or settings: on foot, confined to a vehicle, or survival/escape.
+**road movie** — a film whose narrative structure is built entirely around a journey from one place to another. Remove the journey and the film has no structure left. The story progresses through the physical displacement of characters. The road itself is the plot. Can extend to unconventional transport or settings: on foot, confined to a vehicle, or survival/escape.
+
+### Vehicles
+
+Applied when a significant part of the action takes place aboard. These tags record **where** the film happens; when the vehicle is itself a subject or an object of obsession, use the Character **vehicle** instead or as well.
+
+**car/bus** — road vehicles: cars, buses, coaches, trucks.
+
+**train** — rail travel as a setting.
+
+**airplane** — aircraft as a setting.
+
+**ship** — all types of surface vessel: sailing ships, liners, naval ships, fishing boats, ferries.
+
+**submarine** — the action takes place aboard a submarine.
+
+**spaceship** — the action takes place aboard a spacecraft.
 
 **no particular** — the setting is irrelevant or interchangeable; the film doesn't rely on any specific location for its identity.
 
@@ -164,52 +305,62 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **delicate/intimate** — quiet, tender, emotionally close. The film handles its subject with softness and subtlety, often in a small-scale, personal setting.
 
-**contemplative/meditative** — The film creates a feeling of calm, stillness, and peaceful observation. The viewer's mind is released and quieted. Key indicators: static or slow camera, silence or sparse sound, ASMR-like quality, a sense of emotional distance or serenity. The viewer feels like they are resting. This tag is rarely combined with tension, action, or narrative urgency. Distinct from **slow cinema** (Cinema Types), which is a formal filmmaking movement.
-
-**oppressive** — films where the atmosphere creates a sustained, suffocating weight the viewer physically feels throughout. Not tense scenes, not dark moments, but an unrelenting heaviness. Oppressive is not a moment, it's the entire viewing experience.
-
-**meticulous** — the film demonstrates exceptional precision and attention to detail in its storytelling, direction, or visual composition. Everything feels deliberate, ordered, controlled.
-
-**ethereal** — light, floating, airy quality. The film feels weightless or suspended, as if existing slightly above reality. Distinct from **dreamlike/surreal**, which is about artistic intent; ethereal is a felt atmospheric quality.
-
-**hypnotic/immersive** — The film seizes the viewer's attention through cinematic technique and pulls them into an altered state of absorption. Key indicators: rhythmic editing, repetition, slow motion, droning or pulsating sound design, visual intensity, sustained tension that locks focus. The viewer feels captured, not relaxed. Apply this tag when the film — or significant sequences within it — produces a trance-like or spellbound effect.
-
-**psychedelic** — vivid, hallucinatory, sensory-overload visual or audio experience. More aggressive and disorienting than **hypnotic/immersive**.
-
 **steamy** — strong erotic charge or sexual tension pervading the atmosphere. Distinct from the Theme **sex** (which is about sexual desire driving the plot) — steamy is about the film's temperature and mood.
 
 **sordid** — the film depicts moral degradation, sleaze, depravity, or a world of seedy, ugly reality. A deliberately uncomfortable, grimy quality.
 
-**cityscape** — the urban environment as a defining visual and narrative presence
-
-**pastoral** — the countryside, rural life, or natural landscape as a defining atmospheric presence
-
-**gritty/realistic** — raw, unpolished, grounded in harsh or unglamorous reality. The film feels like real life without cinematic polish.
-
 **epic** — grand in scale, scope, or ambition. Large canvases, sweeping narratives, a sense of historical or emotional magnitude.
 
-**symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (Theme, which questions reality) and from **dreamlike/surreal** (which distorts it) — symbolic asks the viewer to decode the film's visual and narrative language.
+**edge of your seat** — sustained forward suspense: the viewer is anxious about what happens next. Distinct from **oppressive** (weight and dread rather than anticipation) and from **claustrophobic** (enclosure).
+
+**oppressive** — a heavy, suffocating atmosphere that hangs over the film and does not lift. Dread and weight rather than suspense. Not a single tense scene, but it need not be literally every minute — apply when the heaviness dominates the viewing experience.
+
+**claustrophobic** — the space itself presses in: confinement, no exit, walls closing. A spatial sensation, unlike **oppressive**, which is psychological weight.
+
+**contemplative/meditative** — the film creates a feeling of calm, stillness, and peaceful observation. The viewer's mind is released and quieted. Key indicators: static or slow camera, silence or sparse sound, a sense of emotional distance or serenity. The viewer feels like they are resting. Rarely combined with tension, action, or narrative urgency. Distinct from **slow cinema** (Cinema Types), which is a formal movement.
+
+**cityscape** — the film features the urban environment as a visually dominant presence: skylines, streets, concrete, neon, crowds, traffic. The city must be seen extensively, not merely inhabited — a film set in a city but shot mostly in interiors does not qualify. Only for films also tagged **urban**.
+
+**pastoral** — the countryside, rural life, or natural landscape as a defining atmospheric presence. Its rhythms, textures and light actively shape the film's mood, beyond simply being set in the country (see **rural**).
+
+**gritty/realistic** — the film deliberately uses a raw, rough, unglamorous aesthetic to make the viewer feel the physical and social harshness of the world depicted: handheld camera, natural or unflattering light, dirt and decay, lived-in locations. A standard drama set in the real world is not gritty/realistic — the roughness must be a felt, deliberate choice.
+
+**meticulous** — the film demonstrates exceptional precision and attention to detail in its storytelling, direction, or visual composition. Everything feels deliberate, ordered, controlled.
+
+**hypnotic/immersive** — the film seizes the viewer's attention through cinematic technique and pulls them into an altered state of absorption. Key indicators: rhythmic editing, repetition, slow motion, droning or pulsating sound design, sustained tension that locks focus. The viewer feels captured, not relaxed. Applies when the film, or significant sequences within it, produce a trance-like effect.
+
+**psychedelic** — vivid, hallucinatory, sensory-overload visual or audio experience. More aggressive and disorienting than **hypnotic/immersive**.
+
+**ethereal** — light, floating, airy quality. The film feels weightless or suspended, as if existing slightly above reality. Distinct from **dreamlike/surreal**, which is about artistic intent; ethereal is a felt atmospheric quality.
+
+**symbolic** — the film deliberately uses images, objects, characters, or situations as symbols carrying meaning beyond their literal narrative function. The viewer is invited to read beneath the surface. Distinct from **metaphysical** (Theme, which questions reality) and from **dreamlike/surreal** (which distorts it) — symbolic asks the viewer to decode the film's language.
 
 **dreamlike/surreal** — a floating, oneiric texture and/or deliberate, often jarring juxtapositions of impossible or irrational elements. The film feels dream-like regardless of whether actual dreams appear in the plot (for those, see the Theme **dream**).
 
-**poetic** — the film must have a distinctly lyrical quality in its pacing, imagery, or language that prioritizes beauty, rhythm, and emotional resonance over narrative efficiency. The storytelling feels closer to poetry than to prose — elliptical, image-driven, emotionally rather than logically structured.
+**poetic** — the film's storytelling is closer to poetry than to prose: elliptical, image-led, structured by rhythm and emotional association rather than by plot logic. Beautiful cinematography alone does not qualify, nor does a moving story. Test: if the film's meaning survives being summarised as a plot, it is not poetic.
 
 
 ## **CHARACTERS**
+
+**generations** — two or more generations of a family or community are set side by side, and the generational gap is part of the subject.
+
+**team/group/gang** — a bonded group of four or more acting as a unit toward a shared goal. Distinct from **ensemble cast**, where characters follow separate storylines.
 
 **ensemble cast** — used strictly when the film features multiple distinct characters in separate storylines that eventually intersect or parallel each other. Not simply "a film with many characters" — the narrative structure must deliberately distribute focus across diverse character arcs.
 
 **adult/child** — the central relationship or dynamic is between an adult and a child. Not simply "a film featuring both adults and children."
 
-**female lead** — used when the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
+**female lead** — the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
 
-**ordinary** — used only when depicting the ordinariness of a character's life is a deliberate artistic choice, not whenever ordinary people appear on screen, aren't superheroes or historical figures. The film draws meaning from the mundane.
+**male ensemble** — the film centres on a group of men, and male dynamics or male experience are central to it. The counterpart of **female lead** at group level.
+
+**ordinary** — used only when depicting the ordinariness of a character's life is a deliberate artistic choice, not whenever ordinary people appear on screen. The film draws meaning from the mundane.
 
 **simpleton/fool** — a character whose naivety, simplicity, or apparent stupidity is a defining trait, often used for comic effect or as an unexpected lens on the world.
 
-**disabled** — A character with a significant physical or cognitive disability that is explicitly depicted and relevant to the narrative. Includes blindness, deafness, paralysis, amputation, cognitive impairment, and severe disfigurement when treated with dramatic weight.
+**disabled** — a character with a significant physical or cognitive disability that is explicitly depicted and relevant to the narrative. Includes blindness, deafness, paralysis, amputation, cognitive impairment, and severe disfigurement when treated with dramatic weight.
 
-**outcast/misfit** — A character defined by social rejection or a profound inability to belong. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are.
+**outcast/misfit** — a character defined by social rejection or a profound inability to belong. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are.
 
 **double** — a character is duplicated, mirrored, or has a doppelgänger. Can be literal (twins, clones) or metaphorical (split personality, alter ego).
 
@@ -217,15 +368,25 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **unreliable narrator** — the story is told through a perspective that the audience eventually discovers is distorted, biased, or deliberately deceptive.
 
+**chosen one** — a character singled out by prophecy, birth or destiny to fulfil a role others cannot.
+
 **antihero** — a protagonist who lacks conventional heroic qualities: morality, idealism, courage, or likability. The audience follows and often roots for them despite their flaws, selfishness, or moral ambiguity. Distinct from a villain (who opposes the protagonist) and from **outcast/misfit** (who is defined by social exclusion, not moral complexity).
+
+**secret agent** — an intelligence operative working covertly for a state or organisation.
 
 **vigilante** — a character who takes justice into their own hands outside the law. Distinct from **cop** or **detective** (who operate within institutions) and from **antihero** (who may not care about justice at all).
 
 **gangster** — a character embedded in organized crime culture and identity. Distinct from **mafia/organized crime** (Genre), which describes the broader criminal organization as a subject.
 
+**soldier** vs **warrior** vs **knight** — soldier is a member of a modern organised army; warrior is a fighter in a pre-modern, tribal or fantasy setting outside such an army; knight is a medieval armoured warrior bound to a code and a lord.
+
+**femme fatale** — a seductive woman whose allure draws the protagonist into danger or ruin. Her attraction is the instrument of the plot, not a character trait. A noir archetype.
+
 **mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
 
-**vehicle** as a character or as a central narrative element.
+**devil** — an embodiment of evil as a figure: Satan, a demon, or a personified malevolent force.
+
+**vehicle** — a vehicle is a central subject or narrative element: an object of desire, obsession, identity or conflict (the DeLorean, the stolen bicycle, the truck in *Duel*, the cars of *Crash*), or a character in its own right (Christine, Herbie). Also covers films built around driving, racing or a specific machine. Distinct from the Place **Vehicles** tags, which only record that the action happens aboard one.
 
 
 ## **CINEMA TYPES**
@@ -233,6 +394,52 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 **motion capture** — the film uses body/facial tracking technology to translate live actor performances into digital characters. Distinguished from pure **CGI** (which is computer-generated without actor performance data) and from **animation** (which is hand-drawn or stylized). Used for performance-driven digital characters.
 
 **aesthetics** — the film has a strong, distinctive visual and auditory identity that is central to its artistic statement. Not simply "a beautiful film" — the "look" is inseparable from the film's meaning.
+
+**found footage** — the film presents itself as recovered or in-world recorded material, shot by the characters themselves. A formal conceit, not merely a handheld style.
+
+**dogma** — films following (or inspired by) the Dogme 95 manifesto: natural lighting, handheld camera, no special effects, diegetic sound only.
+
+**blockbuster** — large-scale mainstream commercial entertainment, with high production budgets, wide theatrical release, and broad audience appeal as primary goals. Judged on production intent and scale, not box office results.
+
+**art house** — artistic expression rather than mass commercial appeal, typically with limited theatrical release, festival circulation, or independent distribution. A well-crafted studio film with broad appeal is not art house. Many films are neither blockbuster nor art house; the two rarely co-occur, and both apply only to studio-scale films that are also formally radical (*2001*, *Apocalypse Now*).
+
+**B** — a low-budget commercial film, historically the second feature in a double bill. Fast-paced genre entertainment (horror, sci-fi, westerns) with modest production values and lesser-known casts. Not the same as "bad film" or "indie film."
+
+**franchise** — the film belongs to a multi-film series sharing continuity, characters or a brand.
+
+**popular culture** — the film explicitly references, quotes, or is steeped in elements of shared popular culture (other movies, music, brands, TV, memes). The film speaks through pop culture. Not used simply because the film itself became popular.
+
+### Narrative techniques > Sequencing
+
+**chapters/multi-sequence** — the narrative is structured in clearly distinct segments: multiple storylines, chapters, anthology-like episodes, or radically different points of view. The segmentation is a deliberate structural choice, not simply a twist or a shift of perspective.
+
+**flashback/non linear** — the film deliberately breaks chronological order: flashbacks, flash-forwards, reordered or interleaved timelines as a structural choice, not a single brief recollection.
+
+**real time** — narrative time equals screen time, or very nearly so. The film unfolds without temporal ellipsis.
+
+**timelapse** — accelerated footage compressing hours, seasons or years into seconds, used as a notable stylistic device.
+
+**slow-motion** — repeated, deliberate use of slowed footage as a defining stylistic signature, not an isolated shot.
+
+**sequence-shot** — the film features notable use of long, unbroken takes as a defining stylistic choice. Not for films that simply have one or two long shots.
+
+**split screen** — the frame is divided to show simultaneous actions or perspectives, used as a deliberate device.
+
+**musical montage** — a sequence cut to music that compresses time or carries emotion in place of dialogue, used as a recognisable set piece.
+
+### Narrative techniques > Voice & Dialogue
+
+**dialogs/punchline** — the film's writing quality, wit, or density of dialogue is a defining characteristic. The words themselves are a major reason to watch the film. Used when dialogue is exceptionally sharp, literary, or memorable — not for every film that contains conversations.
+
+**slang dialogs** — a specific subset of dialogs where the language is rooted in street speech, regional vernacular, argot, or subcultural jargon. The way characters speak is authentically tied to a particular milieu and is central to the film's texture.
+
+**voiceover** — a narrating voice, diegetic or not, running across the film as a structuring device. A brief framing narration at the opening and close does not qualify.
+
+**monologue** — a character speaks at length and uninterrupted as a deliberate set piece.
+
+**fourth wall break** — a character addresses the audience directly or the film acknowledges its own artifice.
+
+### Movements & eras
 
 **expressionism** — early 20th-century movement originating in German cinema, using extreme visual distortion to externalize psychological states and inner turmoil. Characters' environments literally reflect their emotional or mental reality. Influenced nearly every genre that followed, especially horror and noir. **Period: 1919–1933, with lasting stylistic influence**.
 
@@ -250,28 +457,8 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **new hollywood** — the era when a generation of film-school-educated directors broke from studio conventions to make auteur-driven, often darker and more politically engaged films. Characterized by anti-establishment themes, morally ambiguous protagonists, location shooting, and a willingness to challenge audiences. **Period: 1967–1982**.
 
-**blockbuster** — large-scale mainstream commercial entertainment, with high production budgets, wide theatrical release, and broad audience appeal as primary goals.
-
-**art house** — artistic expression rather than mass commercial appeal, typically with limited theatrical release, festival circulation, or independent distribution.
-
-**B** — a low-budget commercial film, historically the second feature in a double bill. Fast-paced genre entertainment (horror, sci-fi, westerns) with modest production values and lesser-known casts. Not the same as "bad film" or "indie film."
-
-**popular culture** — the film explicitly references, quotes, or is steeped in elements of shared popular culture (other movies, music, brands, TV, memes). The film speaks through pop culture. Not used simply because the film itself became popular.
-
-**sequence-shot** — the film features notable use of long, unbroken takes as a defining stylistic choice. Not for films that simply have one or two long shots.
-
-**chapters/multi-sequence** — the narrative is structured in clearly distinct segments: multiple storylines, chapters, anthology-like episodes, or radically different points of view. The segmentation is a deliberate structural choice.
-
-**flashback/non linear** — the film deliberately breaks chronological order: flashbacks, flash-forwards, reordered or interleaved timelines as a structural choice, not a single brief recollection.
-
 **slow cinema** — a formal filmmaking movement characterized by extremely long takes, minimal dialogue, static camera, and deliberate pacing as artistic statement. Distinct from the Atmosphere **contemplative/meditative**, which is a feeling — slow cinema is a technique and movement.
 
-**dogma** — films following (or inspired by) the Dogme 95 manifesto: natural lighting, handheld camera, no special effects, diegetic sound only.
+**blaxploitation** — a 1970s American film movement featuring predominantly Black casts in genre films (action, crime, horror) made primarily for Black urban audiences. Often characterized by funk/soul soundtracks, stylized antiheroes, and inner-city settings. The tag also applies to later films that consciously reference or revive the aesthetic. **Period: primarily 1971–1979**.
 
-**dialogs/punchline** — the film's writing quality, wit, or density of dialogue is a defining characteristic. The words themselves are a major reason to watch the film. Used when dialogue is exceptionally sharp, literary, or memorable — not for every film that contains conversations.
-
-**slang dialogs** — a specific subset of dialogs where the language is rooted in street speech, regional vernacular, argot, or subcultural jargon. The way characters speak is authentically tied to a particular milieu and is central to the film's texture.
-
-**blaxploitation** — a 1970s American film movement featuring predominantly Black casts in genre films (action, crime, horror) made primarily for Black urban audiences. Often characterized by funk/soul soundtracks, stylized antiheroes, and inner-city settings. The tag also applies to later films that consciously reference or revive the aesthetic **Period: primarily 1971–1979**.
-
-**giallo** — Italian thriller/horror genre characterized by elaborate murder sequences, stylized visuals, mystery-driven plots, and distinctive scores. Also applies to non-Italian films that adopt the giallo aesthetic **Period: primarily 1963–1985, with occasional revivals**.
+**giallo** — Italian thriller/horror genre characterized by elaborate murder sequences, stylized visuals, mystery-driven plots, and distinctive scores. Also applies to non-Italian films that adopt the giallo aesthetic. **Period: primarily 1963–1985, with occasional revivals**.
