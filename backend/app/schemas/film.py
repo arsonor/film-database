@@ -176,7 +176,6 @@ class FilmCreate(BaseModel):
     film: dict
     titles: list[dict] = []
     categories: list[str] = []
-    historic_subcategories: list[str] = []
     crew: list[dict] = []
     cast: list[dict] = []
     studios: list[dict] = []

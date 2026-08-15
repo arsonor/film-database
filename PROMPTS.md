@@ -366,3 +366,249 @@ Rewire the four surfaces Step 21 deferred, then drop the dissolved tables.
 
 See PLAN.md Step 22 for the applied outcome.
 - `npm run build` passes; games/dashboard pages still load (degraded data acceptable)
+
+---
+
+## Step 23 Prompt — Enrichment Pipeline Hardening + Prompt Caching
+
+Read `CLAUDE.md`, then `PLAN.md` (Step 23), then these files:
+- `backend/app/services/claude_enricher.py` (main target)
+- `backend/app/services/taxonomy_config.py` (context — do NOT change any tag list)
+- `backend/app/services/tmdb_service.py` (`GENRE_TO_CATEGORY`, `map_tmdb_genre_to_category`)
+- `backend/app/services/tmdb_mapper.py` (`_map_genres`, `map_film_to_db`)
+- `backend/app/routers/add_film.py`
+- `backend/app/routers/films.py` (`create_film` and `update_film` — compare their colour handling)
+- `backend/app/schemas/add_film.py`
+- `frontend/src/pages/AddFilmPage.tsx` (`ReviewScreen.handleSave`)
+- `scripts/claude_enrichment_runner.py`, `scripts/claude_batch_enrichment.py`
+
+**This step changes NO taxonomy.** Do not add, rename, remove or reorder a single
+tag, and do not touch `seed_taxonomy.sql` or any migration. If something looks
+like it needs a taxonomy change, stop and report instead.
+
+---
+
+### Part A — Restructure the prompt for caching (`claude_enricher.py`)
+
+Today `_build_user_prompt()` returns one big string, rebuilt per call (and again
+on every JSON-retry), with `## Film Metadata` at the top and ~15k tokens of
+constant content after it. Restructure into a constant prefix + per-film suffix.
+
+1. **Build the static prefix once.** In `__init__`, after `self.tag_definitions`
+   is loaded, set `self._static_prefix = self._build_static_prefix()`. That
+   method returns, in order: the existing `_build_taxonomy_section()` output
+   (dimension lists + Source + Awards + the Tag Usage Guide), then
+   `_build_examples_section()`, then the `## Output Format` JSON skeleton.
+   Nothing film-specific may appear in it.
+
+2. **`_build_film_block(tmdb_mapped_data)`** returns only the `## Film Metadata`
+   section (same fields as now) followed by a short closing instruction, e.g.
+   *"Classify the film above using the taxonomy and definitions provided.
+   Respond with ONLY the JSON object described in the Output Format section."*
+
+3. **Assemble with cache breakpoints** in `enrich_film`:
+
+   ```python
+   system=[{
+       "type": "text",
+       "text": ENRICHMENT_SYSTEM_PROMPT,
+       "cache_control": {"type": "ephemeral"},
+   }],
+   messages=[{"role": "user", "content": [
+       {"type": "text", "text": self._static_prefix,
+        "cache_control": {"type": "ephemeral"}},
+       {"type": "text", "text": film_block},
+   ]}],
+   ```
+
+   Two breakpoints only (the API allows four). The film block must be **last**
+   and must NOT be cached.
+
+4. **Retry path must not break the cache.** The JSON-parse retry currently
+   rebuilds the whole prompt and appends a stricter instruction. Change it to
+   rebuild **only the film block** and append the stricter wording there, so the
+   two cached blocks stay byte-identical across retries.
+
+5. **Log cache usage** on every call, next to the existing `output_tokens` log:
+   `input_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`
+   (read them defensively with `getattr(response.usage, ..., 0)` — they may be
+   absent on older SDK versions).
+
+Keep `_build_user_prompt` as a thin wrapper (`prefix + "\n\n" + film_block`) if
+anything else calls it — grep first; `scripts/claude_batch_enrichment.py` and
+`scripts/test_enrichment_pipeline.py` are the likely callers. If the batch script
+builds its own request bodies, give it the same two-breakpoint structure, since
+caching stacks with the Batch API discount and that is the path Step 25 will use.
+
+---
+
+### Part B — Model default
+
+Replace the hardcoded `model: str = "claude-sonnet-4-6"` default with a module
+constant read from the environment:
+
+```python
+DEFAULT_ENRICHMENT_MODEL = os.getenv("CLAUDE_ENRICHMENT_MODEL", "claude-sonnet-5")
+```
+
+Sonnet 5 is both cheaper ($2/$10 vs $3/$15 per MTok) and stronger than Sonnet 4.6.
+**Verify the exact model string against the installed `anthropic` SDK or the API
+docs before committing it** — if `claude-sonnet-5` is rejected, report the error
+rather than silently falling back. Add `CLAUDE_ENRICHMENT_MODEL` to `.env.example`
+with a comment listing the alternatives (`claude-haiku-4-5-20251001` for cheap
+bulk passes).
+
+---
+
+### Part C — Prompt dedup and confidence calibration
+
+In `ENRICHMENT_SYSTEM_PROMPT`:
+
+1. **Delete the "Awards rules" block** — fully duplicated by the
+   `### Awards & Nominations` section, which also carries the festival list.
+2. **Delete the "Source rules" block** — duplicated by `### Source / Origin`,
+   which also carries the valid type list.
+3. **Trim the `[NEW]` sentence** to a short cross-reference; the taxonomy section
+   header already states the rule.
+4. **Delete `"Do not force tags. An empty list is better than a wrong tag."`**
+   The measured failure mode on the bulk import is under-tagging, and per-tag
+   restraint is now enforced much more precisely by `tags_definition.md`.
+   Replace with a scoped version, e.g. *"Geography, Source and Awards may
+   legitimately be empty when the metadata does not support them. The tag
+   dimensions should not be — apply every tag whose definition the film
+   satisfies."*
+   Keep `"Be comprehensive: assign ALL relevant values"` and keep the
+   "DEFINING or SIGNIFICANT aspect" philosophy block — they now carry the
+   balance on their own.
+5. **Add a confidence calibration scale.** All three reference examples are
+   canonical films scoring 0.85–0.95; with no other signal the model reproduces
+   that band for obscure films, which makes
+   `get_low_confidence_films(threshold=0.6)` inert. Do **not** falsify the
+   example values — they are honest. Instead add explicit bands:
+
+   ```
+   Confidence calibration — these scores drive human review, so spread them:
+   - 0.9-1.0: you know this film well; the classification is unambiguous.
+   - 0.7-0.9: confident, but working partly from metadata rather than the film.
+   - 0.5-0.7: plausible inference from the overview/keywords alone.
+   - below 0.5: guessing; the film is obscure or the metadata is too thin.
+   The reference examples below are famous films and score high for that reason.
+   Do not treat their scores as a default.
+   ```
+
+Do not alter the dimension lists, the Genre main/sub rules, or the Time Context
+year-range table.
+
+---
+
+### Part D1 — Genre edits are silently discarded (frontend)
+
+In `AddFilmPage.tsx`, `ReviewScreen.handleSave` builds `updatedEnrichment` with
+six dimensions but omits `categories`, sending edited genres to
+`preview.categories` instead. `create_film` reads genres **only** from
+`enrichment["categories"]`, so genre edits never reach the database, and when
+`enrichment_failed` is true (`enrichment` is `{}`) a film is saved with **no
+genres at all**.
+
+Fix in the frontend: add `categories` to `updatedEnrichment` alongside the other
+six. Keep `preview.categories` in sync too (it is part of `EnrichmentPreview`).
+Do not change `create_film`'s read path — one source (`enrichment`) is correct.
+
+Verify by adding and removing a genre on the review screen and confirming
+`film_genre` matches after save.
+
+---
+
+### Part D2 — New B&W films saved as colour (backend)
+
+`update_film` already syncs `film.color` from the `black and white` cinema_type
+tag; `create_film` does not, and `TMDBMapper` always emits `color: True`.
+Migration `019_backfill_color_flag.sql` fixed the historical rows but is a
+one-shot, so every film added since is wrong again.
+
+In `create_film`, after the taxonomy junctions are inserted, mirror
+`update_film`'s logic: if the enrichment's `cinema_type` list contains
+`black and white`, `UPDATE film SET color = FALSE WHERE film_id = :fid`.
+Place it after the junction loop so it reflects the final saved tags, and add a
+comment pointing at `update_film` as the sibling implementation.
+
+---
+
+### Part D3 — Remove `historic_subcategories`
+
+Produced by `tmdb_mapper`, carried through `EnrichmentPreview` and merged in
+`add_film.py`, then **ignored by `create_film`**. Dead since the v2 migration
+made all genre rows flat (`historic_subcategory_name IS NULL`).
+
+Remove the field from `schemas/add_film.py`, `add_film.py`, `tmdb_mapper.py` and
+`frontend/src/types/api.ts`. Grep for `historic_subcategor` across the repo
+afterwards. **Leave the `category.historic_subcategory_name` column and the
+`IS NULL` guards in `create_film` / `update_film` alone** — the column still
+exists and those guards are correct.
+
+---
+
+### Part E — Wire up the unused TMDB genre mapping
+
+`TMDBService.map_tmdb_genre_to_category` returns a `note`
+(War→`war`, Crime→`crime`, Mystery→`investigation`, Animation→`animation`,
+Documentary→`documentary`) and a `subcategory` (Western→`western`), and nothing
+consumes either. Under v2 those are real tags: `war`, `crime`, `investigation`,
+`western` are Genre sub-genres, `animation` is a Cinema Type.
+
+Read `_map_genres` in `tmdb_mapper.py` first, then:
+
+- Route genre-valued notes and the Western subcategory into the mapper's
+  `categories` list (deduplicated, main genres first).
+- Route `animation` into a new `cinema_types` list on the mapper output.
+- Drop the `documentary` note — `Documentary` is already a main genre via
+  `GENRE_TO_CATEGORY`, so it would duplicate.
+- Surface `cinema_types` through `EnrichmentPreview` and merge it in
+  `add_film.py` with the **same precedence rule already used for categories**:
+  Claude's list wins when non-empty, TMDB's is the fallback.
+
+This matters most on the `enrichment_failed` path, which currently leaves the
+review screen with no cinema types and (per D1) no genres either.
+
+Validate the seeded names against `taxonomy_config.VALID_CATEGORIES` /
+`VALID_CINEMA_TYPES` at module import and log a warning on mismatch, so a future
+taxonomy edit can't silently reintroduce a dead mapping.
+
+---
+
+### Part F — Cost instrumentation
+
+In `scripts/claude_enrichment_runner.py`, the pricing constants are stale
+("Sonnet 4", $3/$15). Replace with a per-model table covering Sonnet 5 ($2/$10),
+Haiku 4.5 ($1/$5) and Opus 5 ($5/$25), plus cache-read (0.1× input) and
+5-minute cache-write (1.25× input) rates, and make the cost estimator read the
+actual `cache_read_input_tokens` / `cache_creation_input_tokens` returned by the
+API instead of assuming every input token is billed at full rate. Print a
+running total and a cache hit-rate percentage in the progress output.
+
+Add a `# Rates verified 2026-08-14` comment — these change.
+
+---
+
+### Verification
+
+1. **Cache proof.** Enrich two different films in one process (a small script or
+   `test_enrichment_pipeline.py`) and show the logged usage: call 1 should report
+   a large `cache_creation_input_tokens`, call 2 a large `cache_read_input_tokens`
+   (~15k) and a small `input_tokens`. Report the actual numbers — this is the
+   headline result of the step.
+2. **Prompt integrity.** Print the assembled prefix once and confirm the
+   dimension lists, Genre rules, year-range table and tag guide are all still
+   present and unchanged, and that nothing film-specific leaked into it.
+3. **Add Film end to end** (local, admin): add a B&W film (e.g. a Bergman or
+   Kurosawa title), edit one genre on the review screen, save. Confirm the edited
+   genre is in `film_genre` and `film.color = FALSE`.
+4. **Failure path.** Temporarily force `enrich_film` to raise, add a TMDB
+   Animation or Western film, and confirm the review screen still shows seeded
+   genres and `animation`, and that saving writes them.
+5. `grep -rn "historic_subcategor" backend frontend scripts` returns only the
+   `category` column references in `films.py` and `schema.sql`.
+6. Backend boots; `npm run build` and `tsc --noEmit` pass.
+
+Report the measured before/after cost per film. Do **not** run any bulk
+re-enrichment — that is Step 24/25 and needs Martin's merge-policy decision first.

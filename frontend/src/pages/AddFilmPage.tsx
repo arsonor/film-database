@@ -378,8 +378,12 @@ function ReviewScreen({
   };
 
   // Local editable state for taxonomy dimensions
+  // `categories` and `cinemaTypes` come from the PREVIEW, not the enrichment
+  // dict: add_film.py has already merged Claude's list with the TMDB seeds
+  // (Claude wins when non-empty). Reading the enrichment dict here would drop
+  // those seeds on the enrichment_failed path, where enrichment is {}.
   const [categories, setCategories] = useState(preview.categories);
-  const [cinemaTypes, setCinemaTypes] = useState(getEnrichmentList("cinema_type"));
+  const [cinemaTypes, setCinemaTypes] = useState(preview.cinema_types);
   const [themes, setThemes] = useState(getEnrichmentList("themes"));
   const [characters, setCharacters] = useState(getEnrichmentList("character_context"));
   const [atmospheres, setAtmospheres] = useState(getEnrichmentList("atmosphere"));
@@ -391,6 +395,11 @@ function ReviewScreen({
   const handleSave = useCallback(() => {
     const updatedEnrichment = {
       ...enrichment,
+      // `categories` MUST be here: create_film reads genres only from
+      // enrichment.categories, so before this it saved Claude's original list
+      // and silently discarded every edit — and saved zero genres when
+      // enrichment_failed left enrichment as {}.
+      categories,
       cinema_type: cinemaTypes,
       themes,
       character_context: characters,
@@ -401,6 +410,8 @@ function ReviewScreen({
 
     setPreview({
       ...preview,
+      // Kept in sync — it is part of EnrichmentPreview — but create_film's
+      // read path stays single-source on `enrichment`.
       categories,
       enrichment: updatedEnrichment,
       streaming_platforms: streamingPlatforms,

@@ -43,6 +43,9 @@
 | 21c | Taxonomy v2 — Frontend | ✅ DONE | Collapsible sub-dimension groups in sidebar, grouped Film page taxonomy, Add Film review |
 | 22 | Taxonomy v2 — Deferred surfaces | ✅ DONE | Recommender weights, dashboard Taxonomy tab, 3 games, migration 027 drops motivation/message tables |
 | 22.1 | Taxonomy tweaks (migration 028) | ✅ DONE | courtroom rename, submarine/spaceship, naval→military. Local + Supabase + deployed |
+| 23 | Enrichment pipeline hardening + prompt caching | ✅ DONE | Cacheable prompt prefix, Sonnet 5, prompt dedup, 3 Add Film bugs, TMDB genre seeds |
+| 24 | Backfill the 38 zero-association v2 tags | ⬜ TODO | `review_tag.py` tag-by-tag, additive only |
+| 25 | Re-enrichment of the bulk-import cohort | ⬜ TODO | Batch API + diff-then-apply harness, merge policy TBD |
 
 ---
 
@@ -242,3 +245,213 @@ Supabase after the migration reported the same BEFORE/AFTER numbers as local
 (179 / 38 / 132 → courtroom 179, military 165, place_context 30);
 `verify_taxonomy_v2.sql` all PASS; user data untouched (15 users, 1961
 `user_film_status` rows, 265 game results).
+
+---
+
+## Step 23: Enrichment Pipeline Hardening + Prompt Caching
+
+### Why now
+
+The taxonomy is settled (v2 + tweaks). The next big job is **re-tagging the
+~2500 films imported under the old thin prompt** (Steps 24–25). That job is
+gated on the enrichment pipeline being cheap, correct and non-lossy — which it
+currently isn't. This step fixes the pipeline itself and changes no taxonomy.
+
+### The economics being fixed
+
+Every enrichment call currently sends ~15,400 tokens of **byte-identical**
+static content (system prompt + 7 dimension lists + the 42 KB
+`tags_definition.md` + 3 reference examples + output skeleton) plus only ~400
+tokens of film-specific data, and re-pays full input price on all of it.
+
+Current published rates: **Sonnet 5 $2/$10 per MTok** (standard — the scheduled
+September increase was cancelled), Haiku 4.5 $1/$5. Cache reads bill at 0.1×
+input; 5-minute cache writes at 1.25×. Batch API is −50% and stacks with caching.
+
+> **⚠ Superseded — see "Step 23 outcome" below.** Both the rates and the token
+> estimate in this section are wrong. $2/$10 is an *introductory* Sonnet 5 rate
+> ending **2026-08-31** (standard: $3/$15), and the static prefix measures
+> **20 423** tokens on Sonnet 5's tokenizer, not ~15 400. Budget Step 25 from
+> the outcome section's figures, not from the table below.
+
+Projected cost of re-enriching all 4048 films:
+
+| Setup | Est. |
+|---|---|
+| As-is (`claude-sonnet-4-6`, no cache, sequential) | ~$177 |
+| Sonnet 5 + prompt caching | ~$64 |
+| Sonnet 5 + caching + Batch API | **~$32** |
+
+So Step 23 buys roughly a 5× cost reduction and, more importantly, makes
+iterating on the prompt affordable enough to run trial passes over a sample
+before committing to the full re-tag.
+
+### Scope
+
+**A. Cacheable prompt structure** (`claude_enricher.py`)
+
+Split the prompt into a constant prefix and a per-film suffix, then mark two
+cache breakpoints (system block, static prefix block). The static prefix is
+built **once in `__init__`** rather than rebuilt per film — today the 42 KB
+guide is re-concatenated on every call, and again on every retry.
+
+This also fixes a recency problem: `## Film Metadata` currently sits ~15k tokens
+*before* the output instruction. It moves to the end, immediately before the
+final instruction.
+
+**B. Model default** → Sonnet 5, via an env-overridable constant rather than a
+hardcoded default, so the re-tagging runs can A/B Sonnet vs Haiku without a code
+edit.
+
+**C. Prompt dedup + calibration**
+
+- Awards guidance appears twice (system prompt *and* the `### Awards &
+  Nominations` block), near-verbatim. Source rules and the "[NEW] prefix" rule
+  likewise appear twice. Keep one copy of each — the one in the taxonomy section,
+  which carries the valid-value lists.
+- **Remove `"Do not force tags. An empty list is better than a wrong tag."`** It
+  pulls toward sparseness, and the observed failure mode on the bulk import is
+  *under*-tagging, not over-tagging. Restraint is now enforced per-tag and far
+  more precisely by `tags_definition.md`. Keep a narrow version scoped only to
+  Geography / Source / Awards, where an empty result is genuinely often correct.
+- **Confidence anchoring.** All three reference examples are canonical films and
+  legitimately score 0.85–0.95 — the values aren't dishonest, but they're the
+  only calibration signal in the prompt, so the model reproduces that band for
+  obscure films too, which makes
+  `get_low_confidence_films(threshold=0.6)` nearly inert. Fix by adding an
+  explicit calibration scale to the system prompt and a one-line note that the
+  examples are well-known films, rather than by faking lower numbers.
+
+**D. Three Add Film bugs**
+
+1. **Genre edits are silently discarded.** `ReviewScreen.handleSave` writes six
+   dimensions back into `updatedEnrichment` but not `categories` — those go to
+   `preview.categories` instead, while `create_film` reads genres *only* from
+   `enrichment["categories"]`, which still holds Claude's original list. Adding
+   or removing a genre on the review screen has no effect on what is saved. In
+   the `enrichment_failed` path, `enrichment` is `{}`, so the TMDB genres shown
+   on screen are saved as **zero genres**.
+2. **New B&W films are recorded as colour.** `update_film` syncs `film.color`
+   from the `black and white` cinema_type tag; `create_film` does not, and
+   `TMDBMapper` always emits `color: True`. Migration 019 backfilled the
+   historical rows but is a one-shot — every film added since is wrong again
+   until re-run.
+3. **`historic_subcategories` is dead weight.** Produced by the mapper, merged
+   by `add_film.py`, ignored by `create_film`. Remove it end to end.
+
+**E. TMDB genre seeds** — `map_tmdb_genre_to_category` computes a `note` for
+War/Crime/Mystery/Animation/Documentary and a `subcategory` for Western, and
+**nothing consumes either**. Under v2 those map onto real tags (`war`, `crime`,
+`investigation`, `western` are Genre sub-genres; `animation` is a Cinema Type).
+Wire them into the mapper output so they seed the review screen and, critically,
+so the `enrichment_failed` fallback isn't empty.
+
+**F. Cost instrumentation** — log `cache_read_input_tokens` /
+`cache_creation_input_tokens` per call and refresh the stale pricing constants
+in `claude_enrichment_runner.py` (currently "Sonnet 4" at $3/$15).
+
+### Explicitly out of scope
+
+- No taxonomy change of any kind.
+- No re-tagging run — Steps 24/25.
+- No change to `_validate_enrichment` semantics, the junction-insert logic, or
+  any tier/filter behaviour.
+- Merge policy for Step 25 (union vs replace vs cohort-scoped) stays undecided.
+
+### Success criteria
+
+- Two consecutive enrichments in one process report
+  `cache_read_input_tokens ≈ 15k` on the second — the measurable proof the
+  prefix is stable and the breakpoints are placed correctly.
+- Editing a genre on the Add Film review screen changes what lands in
+  `film_genre`.
+- A film enriched with `black and white` is created with `film.color = FALSE`.
+- With enrichment forced to fail, a TMDB "Animation"/"Western" film still
+  arrives at the review screen with `animation` / `western` pre-filled.
+- Cost per film, logged, drops to roughly a third of the pre-change figure.
+
+
+---
+
+## Step 23 outcome (applied 2026-08-14)
+
+### Headline: the cache works
+
+Two enrichments in one process, `claude-sonnet-5`:
+
+| | call 1 | call 2 |
+|---|---|---|
+| `cache_creation_input_tokens` | 20 423 | 0 |
+| `cache_read_input_tokens` | 0 | **20 423** |
+| `input_tokens` (full rate) | ~210 | **210** |
+
+**Cost per film: $0.0582 → $0.0125** (~4.7x). Extrapolated to 4048 films:
+~$236 before, **~$51** now, **~$25** with the Batch API's -50% on top.
+
+### Three things the Step 23 prompt did not anticipate
+
+1. **`temperature=0.3` is a hard 400 on Sonnet 5** —
+   `invalid_request_error: temperature is deprecated for this model`. Verified
+   live before writing any code. Removed from all three call sites
+   (`claude_enricher.py`, and both request builders in
+   `claude_batch_enrichment.py`). Without this every call would have failed.
+2. **PLAN.md's Sonnet 5 pricing is optimistic.** $2/$10 per MTok is an
+   *introductory* rate ending **2026-08-31**; standard is $3/$15. A re-tag run
+   in September costs ~$76 uncached-batch (~$38 batched), not ~$51/~$25.
+   `MODEL_PRICES` carries a comment to flip when it lapses.
+3. **The prefix is 20 423 tokens, not ~15 400.** Sonnet 5 uses the new
+   tokenizer (~1.33x the old count for the same text), so the estimate measured
+   on Sonnet 4.6 was low. Prefix content is unchanged.
+
+Also: **Sonnet 5 runs adaptive thinking when `thinking` is omitted** (Sonnet 4.6
+did not), and `max_tokens` caps thinking + response *together* — which would
+have risked truncating the JSON and added unbudgeted output cost. The enricher
+now sends `thinking: {"type": "disabled"}` explicitly, overridable via
+`CLAUDE_ENRICHMENT_THINKING=adaptive`.
+
+### What shipped
+
+- **A.** `_static_prefix` built once in `__init__` (taxonomy + tag guide +
+  examples + output skeleton); `_build_film_block()` per film, last, uncached,
+  followed by the closing instruction. Two `cache_control` breakpoints. The
+  JSON-retry rebuilds *only* the film block, so the cached bytes never drift.
+  Cache usage logged on every call.
+- **B.** `DEFAULT_ENRICHMENT_MODEL = os.getenv("CLAUDE_ENRICHMENT_MODEL",
+  "claude-sonnet-5")`; `claude-sonnet-5` verified live against the installed
+  SDK (anthropic 0.86.0). `.env.example` documents both new vars.
+- **C.** Awards + Source blocks deleted from the system prompt (duplicated by
+  the taxonomy section), `[NEW]` trimmed to a cross-reference, "Do not force
+  tags" replaced with the Geography/Source/Awards-scoped version, confidence
+  calibration bands added.
+- **D1.** `categories` added to `updatedEnrichment` in `ReviewScreen.handleSave`.
+- **D2.** `create_film` now mirrors `update_film`'s colour sync, after the
+  junction loop.
+- **D3.** `historic_subcategories` removed from `tmdb_mapper`, `schemas/add_film`,
+  `add_film.py` and `types/api.ts`. The `category.historic_subcategory_name`
+  column and its `IS NULL` guards are untouched, as specified.
+- **E.** `_map_genres` now returns `(categories, cinema_types)` and routes the
+  previously-dead `note`/`subcategory` fields into real v2 tags. Seeds are
+  validated against `VALID_CATEGORIES` / `VALID_CINEMA_TYPES` at import.
+- **F.** Per-model price table (`# Rates verified 2026-08-14`) with cache
+  read/write multipliers; `ClaudeEnricher.usage_totals` accumulates real token
+  counts; the runner prints a running total and cache hit-rate.
+
+### Verification
+
+- Cache proof above; prompt integrity confirmed (all 7 dimension lists, Genre
+  main/sub rules, year-range table, tag guide, `courtroom`/`spaceship` present;
+  **no film-specific leakage** into the prefix).
+- TMDB seeds: `Western -> [Historical, western]`, `War+Drama -> [Historical,
+  Drama, war]`, `Crime+Mystery+Thriller -> [Thriller, crime, investigation]`,
+  `Animation -> cinema_types=[animation]`, `Documentary` not duplicated.
+- D1+D2 exercised against the local DB: edited genres (`Drama`, `courtroom`)
+  reach `film_genre`, and `film.color = FALSE` for a `black and white` film.
+- `grep historic_subcategor` returns only the `category` column references.
+- Backend imports clean; `tsc --noEmit` clean; `npm run build` succeeds.
+
+### Residual gap (not fixed — out of scope)
+
+A TMDB film whose only genres are `Animation` and/or `Family` still seeds
+**zero** categories, because both map to `None` in `GENRE_TO_CATEGORY`. It does
+get `animation` as a cinema type. Closing this means editing
+`GENRE_TO_CATEGORY`, which Step 23 forbids.

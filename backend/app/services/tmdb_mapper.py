@@ -8,9 +8,29 @@ the database schema for direct insertion.
 import logging
 from datetime import date
 
+from .taxonomy_config import VALID_CATEGORIES, VALID_CINEMA_TYPES
 from .tmdb_service import TMDBService
 
 logger = logging.getLogger(__name__)
+
+# TMDB genre "note" values → real Taxonomy v2 tags.
+TMDB_NOTE_TO_SUB_GENRE: dict[str, str] = {
+    "war": "war",
+    "crime": "crime",
+    "investigation": "investigation",
+}
+TMDB_NOTE_TO_CINEMA_TYPE: dict[str, str] = {
+    "animation": "animation",
+}
+
+# Fail loudly at import if a future taxonomy edit orphans one of these seeds,
+# rather than silently reintroducing a dead mapping.
+for _tag in (*TMDB_NOTE_TO_SUB_GENRE.values(), "western"):
+    if _tag not in VALID_CATEGORIES:
+        logger.warning("TMDB genre seed %r is not a valid Genre tag", _tag)
+for _tag in TMDB_NOTE_TO_CINEMA_TYPE.values():
+    if _tag not in VALID_CINEMA_TYPES:
+        logger.warning("TMDB genre seed %r is not a valid Cinema Type tag", _tag)
 
 PROVIDER_NAME_MAP = {
     "Netflix": "Netflix",
@@ -57,7 +77,7 @@ class TMDBMapper:
 
         Returns:
             Dict matching the database schema with keys:
-            film, titles, categories, historic_subcategories, crew, cast,
+            film, titles, categories, cinema_types, crew, cast,
             studios, languages, keywords, production_countries.
         """
         # --- Film core ---
@@ -112,7 +132,7 @@ class TMDBMapper:
         titles = self._build_titles(tmdb_data, fr_data)
 
         # --- Categories ---
-        categories, historic_subcategories = self._map_genres(tmdb_data)
+        categories, cinema_types = self._map_genres(tmdb_data)
 
         # --- Crew (deduplicated) ---
         crew = self._map_crew(tmdb_data)
@@ -156,7 +176,7 @@ class TMDBMapper:
             "film": film,
             "titles": titles,
             "categories": categories,
-            "historic_subcategories": historic_subcategories,
+            "cinema_types": cinema_types,
             "crew": crew,
             "cast": cast,
             "studios": studios,
@@ -232,24 +252,38 @@ class TMDBMapper:
 
     def _map_genres(self, tmdb_data: dict) -> tuple[list[str], list[str]]:
         """
-        Map TMDB genres to our categories and historic subcategories.
+        Map TMDB genres to our Genre and Cinema Type tags.
 
-        Returns (categories, historic_subcategories).
+        Returns (categories, cinema_types). Main genres come first, then the
+        sub-genres derived from the mapping's `note` / `subcategory` fields —
+        which nothing consumed before Step 23, leaving the enrichment_failed
+        path with an empty review screen.
         """
         categories: list[str] = []
-        historic_subcategories: list[str] = []
-        seen_categories: set[str] = set()
+        sub_genres: list[str] = []
+        cinema_types: list[str] = []
+        seen: set[str] = set()
+
+        def add(bucket: list[str], value: str | None) -> None:
+            if value and value not in seen:
+                seen.add(value)
+                bucket.append(value)
 
         for genre in tmdb_data.get("genres", []):
             mapping = TMDBService.map_tmdb_genre_to_category(genre["name"])
-            cat = mapping["category"]
-            if cat and cat not in seen_categories:
-                seen_categories.add(cat)
-                categories.append(cat)
-            if mapping["subcategory"]:
-                historic_subcategories.append(mapping["subcategory"])
+            add(categories, mapping["category"])
+            # Western → the `western` sub-genre (a flat Genre row since v2).
+            add(sub_genres, mapping["subcategory"])
 
-        return categories, historic_subcategories
+            note = mapping["note"]
+            if note in TMDB_NOTE_TO_CINEMA_TYPE:
+                add(cinema_types, TMDB_NOTE_TO_CINEMA_TYPE[note])
+            elif note in TMDB_NOTE_TO_SUB_GENRE:
+                add(sub_genres, TMDB_NOTE_TO_SUB_GENRE[note])
+            # `documentary` is deliberately dropped — Documentary is already a
+            # main genre via GENRE_TO_CATEGORY, so routing it here would dupe.
+
+        return categories + sub_genres, cinema_types
 
     def _map_crew(self, tmdb_data: dict) -> list[dict]:
         """

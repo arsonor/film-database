@@ -16,7 +16,7 @@ export interface EnrichmentPreview {
   film: Record<string, unknown>;
   titles: Record<string, unknown>[];
   categories: string[];
-  historic_subcategories: string[];
+  cinema_types: string[];
   crew: Record<string, unknown>[];
   cast: Record<string, unknown>[];
   studios: Record<string, unknown>[];

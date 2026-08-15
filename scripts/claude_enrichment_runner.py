@@ -41,11 +41,47 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Anthropic pricing (per million tokens) — Sonnet 4
-SONNET_INPUT_PRICE = 3.00    # $/M input tokens
-SONNET_OUTPUT_PRICE = 15.00  # $/M output tokens
-OPUS_INPUT_PRICE = 15.00
-OPUS_OUTPUT_PRICE = 75.00
+# Anthropic pricing, $/million tokens.  # Rates verified 2026-08-14
+#
+# NOTE on Sonnet 5: $2/$10 is an INTRODUCTORY rate that ends 2026-08-31;
+# standard is $3/$15. Set SONNET_5_INTRO_UNTIL to None once it lapses.
+MODEL_PRICES: dict[str, tuple[float, float]] = {
+    "claude-sonnet-5":   (2.00, 10.00),   # intro; $3/$15 from 2026-09-01
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5":  (1.00, 5.00),
+    "claude-opus-5":     (5.00, 25.00),
+    "claude-opus-4-8":   (5.00, 25.00),
+}
+_DEFAULT_PRICE = (3.00, 15.00)
+
+# Cache multipliers relative to the model's input price.
+CACHE_READ_MULT = 0.10   # cache hits bill at 0.1x input
+CACHE_WRITE_MULT = 1.25  # 5-minute cache writes bill at 1.25x input
+
+
+def prices_for(model: str) -> tuple[float, float]:
+    """(input, output) $/MTok for a model id, with a prefix fallback."""
+    if model in MODEL_PRICES:
+        return MODEL_PRICES[model]
+    for known, price in MODEL_PRICES.items():
+        if model.startswith(known):
+            return price
+    return _DEFAULT_PRICE
+
+
+def call_cost(model: str, usage) -> float:
+    """Actual $ for one response, honouring cache reads/writes."""
+    in_price, out_price = prices_for(model)
+    plain = getattr(usage, "input_tokens", 0) or 0
+    write = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    out = getattr(usage, "output_tokens", 0) or 0
+    return (
+        plain * in_price
+        + write * in_price * CACHE_WRITE_MULT
+        + read * in_price * CACHE_READ_MULT
+        + out * out_price
+    ) / 1_000_000
 
 
 def load_json(path: Path) -> list | dict:
@@ -135,14 +171,20 @@ async def run_enrichment(args):
         print_summary(enriched, [])
         return
 
-    # Estimate cost
-    est_input_tokens = len(films_to_process) * 3000   # ~3k input tokens per film
-    est_output_tokens = len(films_to_process) * 800    # ~800 output tokens per film
-    is_opus = "opus" in args.model.lower()
-    input_price = OPUS_INPUT_PRICE if is_opus else SONNET_INPUT_PRICE
-    output_price = OPUS_OUTPUT_PRICE if is_opus else SONNET_OUTPUT_PRICE
-    est_cost = (est_input_tokens * input_price + est_output_tokens * output_price) / 1_000_000
-    print(f"Estimated API cost: ${est_cost:.2f} ({args.model})")
+    # Estimate cost. Since Step 23 the ~20.4k-token prompt prefix is cached, so
+    # a warm call bills ~0.2k input at full rate + ~20.4k at the 0.1x cache-read
+    # rate. The first call of each 5-minute window pays the 1.25x write instead.
+    in_price, out_price = prices_for(args.model)
+    n = len(films_to_process)
+    per_film = (
+        200 * in_price
+        + 20_400 * in_price * CACHE_READ_MULT
+        + 800 * out_price
+    ) / 1_000_000
+    print(
+        f"Estimated API cost: ${per_film * n:.2f} "
+        f"(${per_film:.4f}/film, {args.model} @ ${in_price}/${out_price} per MTok, cached)"
+    )
 
     # Run enrichment
     enricher = ClaudeEnricher(api_key=api_key, model=args.model)
@@ -187,6 +229,21 @@ async def run_enrichment(args):
                         len(enriched), len(review_queue))
 
         # Brief delay between requests
+        # Running cost + cache hit-rate, from the actual token counts.
+        u = enricher.usage_totals
+        cached_in = u["cache_read"] + u["cache_write"]
+        spent = (
+            u["input"] * in_price
+            + u["cache_write"] * in_price * CACHE_WRITE_MULT
+            + u["cache_read"] * in_price * CACHE_READ_MULT
+            + u["output"] * out_price
+        ) / 1_000_000
+        hit_rate = (u["cache_read"] / cached_in * 100) if cached_in else 0.0
+        tqdm.write(
+            f"  spent ${spent:.4f} over {u['calls']} calls "
+            f"(${spent / max(u['calls'], 1):.4f}/film) · cache hit rate {hit_rate:.1f}%"
+        )
+
         if i < len(films_to_process) - 1:
             await asyncio.sleep(0.3)
 
@@ -194,6 +251,28 @@ async def run_enrichment(args):
     save_json(enriched_path, enriched)
     save_json(review_path, review_queue)
     print_summary(enriched, review_queue)
+    _print_cost(enricher, in_price, out_price)
+
+
+def _print_cost(enricher, in_price: float, out_price: float) -> None:
+    u = enricher.usage_totals
+    if not u["calls"]:
+        return
+    cached_in = u["cache_read"] + u["cache_write"]
+    spent = (
+        u["input"] * in_price
+        + u["cache_write"] * in_price * CACHE_WRITE_MULT
+        + u["cache_read"] * in_price * CACHE_READ_MULT
+        + u["output"] * out_price
+    ) / 1_000_000
+    print(f"\n  {'=' * 58}")
+    print(f"  COST — {u['calls']} calls, ${spent:.4f} total (${spent / u['calls']:.4f}/film)")
+    print(f"    input (full rate) : {u['input']:>10,} tok")
+    print(f"    cache writes 1.25x: {u['cache_write']:>10,} tok")
+    print(f"    cache reads  0.10x: {u['cache_read']:>10,} tok")
+    print(f"    output            : {u['output']:>10,} tok")
+    if cached_in:
+        print(f"    cache hit rate    : {u['cache_read'] / cached_in * 100:>9.1f}%")
 
 
 def print_summary(enriched: list[dict], review_queue: list[dict]):

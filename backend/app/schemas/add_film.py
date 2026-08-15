@@ -28,7 +28,7 @@ class EnrichmentPreview(BaseModel):
     film: dict
     titles: list[dict] = []
     categories: list[str] = []
-    historic_subcategories: list[str] = []
+    cinema_types: list[str] = []
     crew: list[dict] = []
     cast: list[dict] = []
     studios: list[dict] = []

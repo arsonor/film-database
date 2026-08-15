@@ -1106,6 +1106,17 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
                     {"fid": film_id, "lid": lid},
                 )
 
+    # Keep film.color in sync with the 'black and white' cinema_type tag.
+    # TMDBMapper always emits color=True, so without this every B&W film added
+    # since migration 019 (a one-shot backfill) was saved as colour.
+    # Sibling implementation: update_film, further down this module.
+    # Placed after the junction loop so it reflects the tags actually saved.
+    if any(v == "black and white" for v in enrichment.get("cinema_type", []) if v):
+        await db.execute(
+            text("UPDATE film SET color = FALSE WHERE film_id = :fid"),
+            {"fid": film_id},
+        )
+
     # Insert awards
     for award in enrichment.get("awards", []):
         if not isinstance(award, dict) or not award.get("festival_name"):

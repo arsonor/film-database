@@ -143,16 +143,11 @@ async def enrich_film(
         logger.warning("ANTHROPIC_API_KEY not set, skipping enrichment")
         enrichment_failed = True
 
-    # Merge Claude categories/subcategories with TMDB ones (Claude has priority when available)
-    if enrichment.get("categories"):
-        merged_categories = enrichment["categories"]
-    else:
-        merged_categories = mapped.get("categories", [])
-
-    if enrichment.get("historic_subcategories"):
-        merged_subcategories = enrichment["historic_subcategories"]
-    else:
-        merged_subcategories = mapped.get("historic_subcategories", [])
+    # Merge Claude's tags with the TMDB seeds — Claude wins when non-empty,
+    # TMDB is the fallback. That fallback is what keeps the review screen
+    # populated on the enrichment_failed path.
+    merged_categories = enrichment.get("categories") or mapped.get("categories", [])
+    merged_cinema_types = enrichment.get("cinema_type") or mapped.get("cinema_types", [])
 
     # Convert date objects to strings for JSON serialization
     film_data = mapped["film"]
@@ -163,7 +158,7 @@ async def enrich_film(
         film=film_data,
         titles=mapped.get("titles", []),
         categories=merged_categories,
-        historic_subcategories=merged_subcategories,
+        cinema_types=merged_cinema_types,
         crew=mapped.get("crew", []),
         cast=mapped.get("cast", []),
         studios=mapped.get("studios", []),

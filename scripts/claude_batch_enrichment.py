@@ -439,7 +439,6 @@ async def run_test(args):
             response = await client.messages.create(
                 model=model,
                 max_tokens=2000,
-                temperature=0.3,
                 system=[{
                     "type": "text",
                     "text": system_prompt,
@@ -587,7 +586,6 @@ def run_submit(args):
             "params": {
                 "model": model,
                 "max_tokens": 2000,
-                "temperature": 0.3,
                 "system": [{
                     "type": "text",
                     "text": system_prompt,

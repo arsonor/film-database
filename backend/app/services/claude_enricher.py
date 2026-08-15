@@ -9,6 +9,7 @@ Character, Cinema Type) based on TMDB metadata.
 import asyncio
 import json
 import logging
+import os
 from datetime import date
 from pathlib import Path
 
@@ -27,6 +28,26 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
+# Model + request configuration
+# =============================================================================
+
+# Overridable so the Step 24/25 re-tagging runs can A/B models without a code
+# edit. Alternatives: "claude-haiku-4-5" (cheap bulk passes), "claude-opus-5".
+DEFAULT_ENRICHMENT_MODEL = os.getenv("CLAUDE_ENRICHMENT_MODEL", "claude-sonnet-5")
+
+# Sonnet 5 runs *adaptive thinking* when `thinking` is omitted, and max_tokens
+# caps thinking + response together — an omitted value would risk truncating the
+# JSON and would add output-token cost the Step 23 estimates don't budget for.
+# "disabled" keeps the pre-migration behaviour; set to "adaptive" to trade cost
+# for depth. Verified accepted on claude-sonnet-5 (2026-08-14).
+ENRICHMENT_THINKING = os.getenv("CLAUDE_ENRICHMENT_THINKING", "disabled")
+
+# NOTE: `temperature` must NOT be sent. Sonnet 5 (and Opus 4.7+) reject
+# non-default sampling parameters with
+# `400 invalid_request_error: temperature is deprecated for this model`.
+
+
+# =============================================================================
 # System prompt for film classification
 # =============================================================================
 
@@ -35,23 +56,21 @@ ENRICHMENT_SYSTEM_PROMPT = """You are a film classification expert. Given metada
 The taxonomy has 7 dimensions: Genre (main genres + sub-genres), Theme, Time Context, Place (geography + environment), Atmosphere, Character and Cinema Type.
 
 Core principles:
-- ONLY use values from the provided valid value lists unless no existing value fits, in which case prefix new suggestions with [NEW].
+- ONLY use values from the provided valid value lists (see the [NEW] rule in the taxonomy section for the exception).
 - Be comprehensive: assign ALL relevant values, not just the most obvious ones.
-- A dimension can have ZERO values if nothing is truly pertinent. Do not force tags. An empty list is better than a wrong tag.
-- Provide a confidence score (0.0-1.0) for each dimension. Use lower scores when you're uncertain or the film is obscure.
+- Geography, Source and Awards may legitimately be empty when the metadata does not support them. The tag dimensions should not be — apply every tag whose definition the film satisfies.
 - Respond ONLY with the JSON structure specified. No preamble, no markdown backticks.
 
 Tag selection philosophy — tags must characterize the film as a whole:
 - Each tag should represent a DEFINING or SIGNIFICANT aspect of the film, not an incidental detail.
 - Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
 
-Source rules:
-- Identify if based on a novel, true story, play, original screenplay, etc.
-- For adaptations, include the source title and author when known.
-
-Awards rules:
-- Only include awards you are confident about. Fewer correct entries are better than invented ones.
-- Focus on: Academy Awards, Cannes, Venice, Berlin, César, BAFTA, Golden Globes."""
+Confidence calibration — these scores drive human review, so spread them:
+- 0.9-1.0: you know this film well; the classification is unambiguous.
+- 0.7-0.9: confident, but working partly from metadata rather than the film.
+- 0.5-0.7: plausible inference from the overview/keywords alone.
+- below 0.5: guessing; the film is obscure or the metadata is too thin.
+The reference examples below are famous films and score high for that reason. Do not treat their scores as a default."""
 
 
 class ClaudeEnricher:
@@ -59,7 +78,7 @@ class ClaudeEnricher:
 
     MAX_RETRIES = 3
 
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-6"):
+    def __init__(self, api_key: str, model: str = DEFAULT_ENRICHMENT_MODEL):
         self.client = anthropic.AsyncAnthropic(api_key=api_key)
         self.model = model
         self.valid_sets = {
@@ -68,6 +87,31 @@ class ClaudeEnricher:
         self.valid_source_types = set(VALID_SOURCE_TYPES)
         self.main_genres = set(VALID_GENRES_MAIN)
         self.tag_definitions = self._load_tag_definitions()
+        # Built ONCE. This is the cacheable prefix (~20.4k tokens on Sonnet 5's
+        # tokenizer: dimension lists + tag guide + reference examples + output
+        # skeleton). Rebuilding it per call — as the pre-Step-23 code did, and
+        # again on every retry — both wasted work and risked byte drift that
+        # would break the cache.
+        self._static_prefix = self._build_static_prefix()
+        # Cumulative token usage across this instance — the cost estimator in
+        # scripts/claude_enrichment_runner.py reads it to price a real run
+        # instead of assuming every input token bills at full rate.
+        self.usage_totals: dict[str, int] = {
+            "calls": 0, "input": 0, "output": 0, "cache_read": 0, "cache_write": 0,
+        }
+
+    def _thinking_param(self) -> dict | None:
+        """Request kwarg for thinking, or None to omit the field entirely."""
+        mode = (ENRICHMENT_THINKING or "").strip().lower()
+        if mode in ("disabled", "off", "none"):
+            return {"type": "disabled"}
+        if mode == "adaptive":
+            return {"type": "adaptive"}
+        logger.warning(
+            "Unknown CLAUDE_ENRICHMENT_THINKING=%r; omitting the thinking parameter",
+            ENRICHMENT_THINKING,
+        )
+        return None
 
     # -------------------------------------------------------------------------
     # Core enrichment method
@@ -90,24 +134,59 @@ class ClaudeEnricher:
 
         logger.info("Enriching film: %s (tmdb_id=%s)", title, tmdb_id)
 
-        prompt = self._build_user_prompt(tmdb_mapped_data)
+        film_block = self._build_film_block(tmdb_mapped_data)
+
+        thinking = self._thinking_param()
+        extra: dict = {"thinking": thinking} if thinking else {}
 
         for attempt in range(self.MAX_RETRIES + 1):
             try:
+                # Two cache breakpoints (the API allows four). Render order is
+                # tools -> system -> messages, so the second breakpoint caches
+                # the cumulative prefix. The film block is LAST and uncached.
                 response = await self.client.messages.create(
                     model=self.model,
                     max_tokens=4096,
-                    temperature=0.3,
-                    system=ENRICHMENT_SYSTEM_PROMPT,
-                    messages=[{"role": "user", "content": prompt}],
+                    system=[{
+                        "type": "text",
+                        "text": ENRICHMENT_SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"},
+                    }],
+                    messages=[{"role": "user", "content": [
+                        {
+                            "type": "text",
+                            "text": self._static_prefix,
+                            "cache_control": {"type": "ephemeral"},
+                        },
+                        {"type": "text", "text": film_block},
+                    ]}],
+                    **extra,
                 )
 
-                # Extract text content
-                text = response.content[0].text.strip()
+                # Extract text content. Do NOT assume content[0] is the text
+                # block: with CLAUDE_ENRICHMENT_THINKING=adaptive the first
+                # block is a thinking block with no `.text`, which would raise
+                # AttributeError, be swallowed by the generic handler below,
+                # burn all retries and return an empty enrichment.
+                text = next(
+                    (b.text for b in response.content
+                     if getattr(b, "type", None) == "text"),
+                    "",
+                ).strip()
+                usage = response.usage
+                self.usage_totals["calls"] += 1
+                self.usage_totals["input"] += getattr(usage, "input_tokens", 0) or 0
+                self.usage_totals["output"] += getattr(usage, "output_tokens", 0) or 0
+                self.usage_totals["cache_read"] += getattr(usage, "cache_read_input_tokens", 0) or 0
+                self.usage_totals["cache_write"] += getattr(usage, "cache_creation_input_tokens", 0) or 0
                 logger.info(
-                    "Claude response for '%s': stop_reason=%s, output_tokens=%s, text_length=%d",
+                    "Claude response for '%s': stop_reason=%s, output_tokens=%s, "
+                    "input_tokens=%s, cache_write=%s, cache_read=%s, text_length=%d",
                     title, response.stop_reason,
-                    getattr(response.usage, 'output_tokens', '?'),
+                    getattr(usage, 'output_tokens', '?'),
+                    getattr(usage, 'input_tokens', '?'),
+                    getattr(usage, 'cache_creation_input_tokens', 0),
+                    getattr(usage, 'cache_read_input_tokens', 0),
                     len(text),
                 )
 
@@ -130,9 +209,11 @@ class ClaudeEnricher:
                     title, attempt + 1, self.MAX_RETRIES, e,
                 )
                 if attempt < self.MAX_RETRIES:
-                    # Retry with stricter prompt
-                    prompt = (
-                        self._build_user_prompt(tmdb_mapped_data)
+                    # Rebuild ONLY the film block. Appending to the cached
+                    # prefix instead would change its bytes and throw away the
+                    # cache on exactly the calls that already cost the most.
+                    film_block = (
+                        self._build_film_block(tmdb_mapped_data)
                         + "\n\nIMPORTANT: Your previous response was not valid JSON. "
                         "Respond with ONLY the JSON object, no markdown, no backticks, no explanation."
                     )
@@ -252,8 +333,69 @@ class ClaudeEnricher:
     # Prompt building
     # -------------------------------------------------------------------------
 
+    def _build_static_prefix(self) -> str:
+        """The constant, cacheable half of the user prompt.
+
+        Contains NOTHING film-specific: taxonomy dimensions + Source + Awards +
+        the tag usage guide, the reference examples, and the output skeleton.
+        Built once in __init__ and reused byte-for-byte on every request.
+        """
+        return "\n\n".join([
+            self._build_taxonomy_section(),
+            self._build_examples_section(),
+            self._build_output_format_section(),
+        ])
+
+    @staticmethod
+    def _build_output_format_section() -> str:
+        """The JSON output skeleton (constant — part of the cached prefix)."""
+        return """## Output Format
+Respond with ONLY this JSON structure:
+{
+  "categories": ["..."],
+  "cinema_type": ["..."],
+  "time_context": ["..."],
+  "geography": [
+    {"continent": "...", "country": "...", "state_city": "..." or null, "place_type": "diegetic|shooting|fictional"}
+  ],
+  "place_environment": ["..."],
+  "themes": ["..."],
+  "character_context": ["..."],
+  "atmosphere": ["..."],
+  "source": {
+    "type": "...",
+    "title": "..." or null,
+    "author": "..." or null
+  },
+  "awards": [
+    {"festival_name": "Academy Awards", "category": "Best Visual Effects", "year": 1969, "result": "won"},
+    {"festival_name": "Academy Awards", "category": "Best Director", "year": 1969, "result": "nominated"}
+  ],
+  "confidence": {
+    "categories": 0.0-1.0,
+    "cinema_type": 0.0-1.0,
+    "time_context": 0.0-1.0,
+    "geography": 0.0-1.0,
+    "place_environment": 0.0-1.0,
+    "themes": 0.0-1.0,
+    "character_context": 0.0-1.0,
+    "atmosphere": 0.0-1.0,
+    "source": 0.0-1.0,
+    "awards": 0.0-1.0
+  },
+  "new_values_suggested": []
+}"""
+
     def _build_user_prompt(self, tmdb_mapped_data: dict) -> str:
-        """Build the complete user prompt for a film enrichment request."""
+        """Full prompt as a single string (prefix + film block).
+
+        Thin wrapper kept for callers that build their own request bodies —
+        `scripts/claude_batch_enrichment.py` and `test_enrichment_pipeline.py`.
+        """
+        return self._static_prefix + "\n\n" + self._build_film_block(tmdb_mapped_data)
+
+    def _build_film_block(self, tmdb_mapped_data: dict) -> str:
+        """The per-film half of the prompt. Must never be cached."""
         film = tmdb_mapped_data.get("film", {})
         crew = tmdb_mapped_data.get("crew", [])
         cast = tmdb_mapped_data.get("cast", [])
@@ -285,15 +427,10 @@ class ClaudeEnricher:
         budget_str = f"${film['budget']:,}" if film.get("budget") else "Unknown"
         revenue_str = f"${film['revenue']:,}" if film.get("revenue") else "Unknown"
 
-        # Build taxonomy section
-        taxonomy_section = self._build_taxonomy_section()
-
-        # Build reference examples
-        examples_section = self._build_examples_section()
-
-        prompt = f"""Classify this film into the taxonomy below.
-
-## Film Metadata
+        # The film block sits LAST, immediately before the final instruction —
+        # pre-Step-23 it sat ~15k tokens *before* it, which both hurt recency
+        # and made the constant content uncacheable.
+        return f"""## Film Metadata
 - Title: {film.get('original_title', 'Unknown')}
 - Year: {year}
 - Overview: {film.get('summary', 'No overview available')}
@@ -305,48 +442,7 @@ class ClaudeEnricher:
 - Budget: {budget_str} | Revenue: {revenue_str}
 - Languages: {', '.join(lang.get('name', lang.get('code', '')) for lang in languages) if languages else 'N/A'}
 
-{taxonomy_section}
-
-{examples_section}
-
-## Output Format
-Respond with ONLY this JSON structure:
-{{
-  "categories": ["..."],
-  "cinema_type": ["..."],
-  "time_context": ["..."],
-  "geography": [
-    {{"continent": "...", "country": "...", "state_city": "..." or null, "place_type": "diegetic|shooting|fictional"}}
-  ],
-  "place_environment": ["..."],
-  "themes": ["..."],
-  "character_context": ["..."],
-  "atmosphere": ["..."],
-  "source": {{
-    "type": "...",
-    "title": "..." or null,
-    "author": "..." or null
-  }},
-  "awards": [
-    {{"festival_name": "Academy Awards", "category": "Best Visual Effects", "year": 1969, "result": "won"}},
-    {{"festival_name": "Academy Awards", "category": "Best Director", "year": 1969, "result": "nominated"}}
-  ],
-  "confidence": {{
-    "categories": 0.0-1.0,
-    "cinema_type": 0.0-1.0,
-    "time_context": 0.0-1.0,
-    "geography": 0.0-1.0,
-    "place_environment": 0.0-1.0,
-    "themes": 0.0-1.0,
-    "character_context": 0.0-1.0,
-    "atmosphere": 0.0-1.0,
-    "source": 0.0-1.0,
-    "awards": 0.0-1.0
-  }},
-  "new_values_suggested": []
-}}"""
-
-        return prompt
+Classify the film above using the taxonomy and definitions provided. Respond with ONLY the JSON object described in the Output Format section."""
 
     def _build_taxonomy_section(self) -> str:
         """Build the taxonomy dimension section of the prompt."""
@@ -360,26 +456,15 @@ Main genres: {', '.join(VALID_GENRES_MAIN)}
 Sub-genres: {', '.join(VALID_GENRES_SUB)}
 Rules:
 - Assign at least ONE main genre — always. Usually one to three.
-- Add sub-genres ONLY when they clearly define the film (a war film gets "war",
-  a trial-driven drama gets "courtroom"). A single scene or a minor plot
-  element is not enough. Zero sub-genres is a perfectly valid answer.
+- Add sub-genres ONLY when they clearly define the film
 - Put main genres and sub-genres together in the same "categories" list.
 
 ### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)
 Valid: {', '.join(dims['cinema_type'])}
-Rules:
-- "blockbuster" and "art house" rarely co-occur; apply both only when a film was
-  produced at studio blockbuster scale AND is formally radical enough to have
-  circulated as art cinema. If in doubt, choose one.
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
 Chronological tags map to these year ranges: {year_table}
-Pick the chronological tag(s) covering the years the story takes place in — not
-the release year. A film may span several periods (flashbacks, epics).
-Optionally add a Time span tag (single day / several years / decades-spanning)
-when the stretch of time covered is a defining trait, and a Season
-(spring / summer / autumn / winter) when the season matters to the film.
 
 ### Place Context — Geography
 Provide as: continent > country > state/city
