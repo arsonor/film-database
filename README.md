@@ -168,7 +168,7 @@ Taxonomy v2 — 7 dimensions, each split into named sub-dimensions encoded as
 | Time Period | Chronological, Time span, Seasons | WW2, contemporary, medieval, future · single day · winter |
 | Place | Environments, Buildings & institutions, Narrative settings, Vehicles | urban, space, jail, road movie, huis clos/confined setting, train |
 | Atmosphere | Light/Joyful, Dark/Extreme, Pace Tension & Scale, Artistic Directing | feel good, violent, epic, contemplative/meditative, dreamlike/surreal |
-| Character | Group structure, Age & identity, Social status & traits, Narrative devices, Archetypes — human, Non-human & creatures | trio, teenager, female lead, unreliable narrator, detective, vampire |
+| Character | Group structure, Age & identity, Social status, Traits & conditions, Narrative devices, Archetypes — human (Figures & roles, Law & crime, Fighters), Non-human & creatures | trio, teenager, female lead, unreliable narrator, detective, vampire |
 | Cinema Type | Visual techniques, Industry & culture, Sequencing, Voice & Dialogue, Movements & eras | animation, black and white, blockbuster, flashback/non linear, voiceover, neo-noir |
 
 > The pre-v2 `Motivations` and `Messages` dimensions were dissolved into Genre,

@@ -159,10 +159,13 @@ One UPDATE per tag (or a VALUES-join bulk UPDATE per dimension). Blocks of 100 =
 **character_context (Character)**
 - 100s Group structure: solitary 100, tandem 101, trio 102, couple 103, relatives 104, generations 105, buddies 106, team/group/gang 107, ensemble cast 108
 - 200s Age & identity: childhood 200, teenager 201, elderly 202, adult/child 203, female lead 204, male ensemble 205, LGBT 206, interracial 207
-- 300s Social status & traits: ordinary 300, poor/marginal 301, wealthy 302, genius 303, simpleton/fool 304, loser 305, star/celebrity 306, disturbed/madness 307, disabled 308, outcast/misfit 309, sex worker 310, psychopath 311
-- 400s Narrative devices: double 400, cross-dressing 401, unreliable narrator 402
-- 500s Archetypes — human: super hero 500, chosen one 501, antihero 502, scientist/researcher 503, mentor 504, cop 505, detective 506, secret agent 507, vigilante 508, gangster 509, soldier 510, warrior 511, knight 512, samurai 513, pirate 514, viking 515, witch/wizard 516, femme fatale 517
-- 600s Non-human & creatures: animal 600, monster/terrestrial creature 601, devil 602, ghost/spirit 603, vampire 604, zombie 605, alien 606, android/robot 607, vehicle 608
+- 300s Social status: ordinary 300, poor/marginal 301, wealthy 302, star/celebrity 303, sex worker 304, outcast/misfit 305
+- 400s Traits & conditions: genius 400, simpleton/fool 401, loser 402, disabled 403, disturbed/madness 404, psychopath 405
+- 500s Narrative devices: double 500, cross-dressing 501, unreliable narrator 502
+- 600s Archetypes — human > Figures & roles: super hero 600, chosen one 601, antihero 602, mentor 603, scientist/researcher 604, witch/wizard 605, femme fatale 606
+- 700s Archetypes — human > Law & crime: cop 700, detective 701, secret agent 702, vigilante 703, gangster 704
+- 800s Archetypes — human > Fighters: soldier 800, warrior 801, knight 802, samurai 803, pirate 804, viking 805
+- 900s Non-human & creatures: animal 900, monster/terrestrial creature 901, devil 902, ghost/spirit 903, vampire 904, zombie 905, alien 906, android/robot 907, vehicle 908
 
 **cinema_type (Cinema Type)**
 - 100s Visual techniques: animation 100, mixed animation 101, CGI 102, 3D 103, motion capture 104, black and white 105, aesthetics 106, found footage 107, dogma 108
@@ -303,7 +306,7 @@ Export:
   - time_periods: 0 Chronological · 1 Time span · 2 Seasons
   - place_contexts: 1 Environments · 2 Buildings & institutions · 3 Narrative settings · 4 Vehicles · 5 (empty label — "no particular")
   - atmospheres: 1 Light / Joyful · 2 Dark / Extreme · 3 Pace, Tension & Scale · 4 Artistic Directing
-  - characters: 1 Group structure · 2 Age & identity · 3 Social status & traits · 4 Narrative devices · 5 Archetypes — human · 6 Non-human & creatures
+  - characters: 1 Group structure · 2 Age & identity · 3 Social status · 4 Traits & conditions · 5 Narrative devices · 6 Figures & roles (parent "Archetypes — human") · 7 Law & crime (A—h) · 8 Fighters (A—h) · 9 Non-human & creatures
   - cinema_types: 1 Visual techniques · 2 Industry & culture · 3 Sequencing (parent "Narrative techniques") · 4 Voice & Dialogue (NT) · 5 Movements & eras
 
 ### Part 3 — FilterSection.tsx group headers

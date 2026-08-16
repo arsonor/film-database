@@ -258,11 +258,17 @@ Applied only when the stretch of time covered is a defining trait of the film. M
 **decades-spanning** — the narrative covers 20 years or more, often across generations. Requires a continuous story unfolding across time, not disconnected blocks separated by hard cuts.
 
 
-## **PLACE CONTEXTS**
+## **PLACE**
+
+**no particular** — the setting is irrelevant or interchangeable; the film doesn't rely on any specific location for its identity.
+
+### Environments
 
 **small town** — a small, self-contained community where everyone knows everyone. Distinct from **urban** (city scale) and **rural** (countryside and farmland).
 
 **planet** — an identified planet other than Earth as the setting. Distinct from **space** (outer space itself) and **spaceship** (aboard a craft).
+
+### Buildings & institutions
 
 **building** — when a building is the central place of action and intrigue, not just a house or apartment.
 
@@ -271,6 +277,8 @@ Applied only when the stretch of time covered is a defining trait of the film. M
 **castle** — a castle, fortress or palace as a significant setting.
 
 **hotel** — a hotel, inn or resort as a significant setting.
+
+### Narrative settings
 
 **huis clos / confined setting** — the action is deliberately restricted to a single or very limited space, creating a sense of enclosure. The confinement is a narrative choice, not just a practical one.
 
@@ -291,8 +299,6 @@ Applied when a significant part of the action takes place aboard. These tags rec
 **submarine** — the action takes place aboard a submarine.
 
 **spaceship** — the action takes place aboard a spacecraft.
-
-**no particular** — the setting is irrelevant or interchangeable; the film doesn't rely on any specific location for its identity.
 
 
 ## **ATMOSPHERES**
@@ -356,11 +362,13 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **ordinary** — used only when depicting the ordinariness of a character's life is a deliberate artistic choice, not whenever ordinary people appear on screen. The film draws meaning from the mundane.
 
+**outcast/misfit** — a character defined by social rejection or a profound inability to belong. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are.
+
 **simpleton/fool** — a character whose naivety, simplicity, or apparent stupidity is a defining trait, often used for comic effect or as an unexpected lens on the world.
 
 **disabled** — a character with a significant physical or cognitive disability that is explicitly depicted and relevant to the narrative. Includes blindness, deafness, paralysis, amputation, cognitive impairment, and severe disfigurement when treated with dramatic weight.
 
-**outcast/misfit** — a character defined by social rejection or a profound inability to belong. Do not apply to characters who are simply poor (see **poor/marginal**), criminal (see archetypes), non-human (see **monster/terrestrial creature**), or disabled (see **disabled**). Apply only when the character's oddness or rejection by society is who they fundamentally are.
+**disturbed/madness** — a character whose mental state is visibly outside normal functioning: clinical mental illness (institutionalised or in need of it), a mind unravelling under pressure, or behaviour pushed to a deranged, berserk or grotesquely exaggerated extreme. Covers both the permanently ill and the character who becomes unhinged over the course of the film. Distinct from **psychopath** (a cold, calculating absence of empathy rather than a loss of control) and from the Theme **illness**, which treats mental illness as subject matter.
 
 **double** — a character is duplicated, mirrored, or has a doppelgänger. Can be literal (twins, clones) or metaphorical (split personality, alter ego).
 
@@ -372,6 +380,10 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **antihero** — a protagonist who lacks conventional heroic qualities: morality, idealism, courage, or likability. The audience follows and often roots for them despite their flaws, selfishness, or moral ambiguity. Distinct from a villain (who opposes the protagonist) and from **outcast/misfit** (who is defined by social exclusion, not moral complexity).
 
+**mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
+
+**femme fatale** — a seductive woman whose allure draws the protagonist into danger or ruin. Her attraction is the instrument of the plot, not a character trait. A noir archetype.
+
 **secret agent** — an intelligence operative working covertly for a state or organisation.
 
 **vigilante** — a character who takes justice into their own hands outside the law. Distinct from **cop** or **detective** (who operate within institutions) and from **antihero** (who may not care about justice at all).
@@ -379,10 +391,6 @@ Applied when a significant part of the action takes place aboard. These tags rec
 **gangster** — a character embedded in organized crime culture and identity. Distinct from **mafia/organized crime** (Genre), which describes the broader criminal organization as a subject.
 
 **soldier** vs **warrior** vs **knight** — soldier is a member of a modern organised army; warrior is a fighter in a pre-modern, tribal or fantasy setting outside such an army; knight is a medieval armoured warrior bound to a code and a lord.
-
-**femme fatale** — a seductive woman whose allure draws the protagonist into danger or ruin. Her attraction is the instrument of the plot, not a character trait. A noir archetype.
-
-**mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
 
 **devil** — an embodiment of evil as a figure: Satan, a demon, or a personified malevolent force.
 

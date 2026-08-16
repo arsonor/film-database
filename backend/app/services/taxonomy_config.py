@@ -155,18 +155,22 @@ VALID_CHARACTERS = [
     # Age & identity (200s)
     "childhood", "teenager", "elderly", "adult/child", "female lead",
     "male ensemble", "LGBT", "interracial",
-    # Social status & traits (300s)
-    "ordinary", "poor/marginal", "wealthy", "genius", "simpleton/fool",
-    "loser", "star/celebrity", "disturbed/madness", "disabled",
-    "outcast/misfit", "sex worker", "psychopath",
-    # Narrative devices (400s)
+    # Social status (300s)
+    "ordinary", "poor/marginal", "wealthy", "star/celebrity", "sex worker",
+    "outcast/misfit",
+    # Traits & conditions (400s)
+    "genius", "simpleton/fool", "loser", "disabled", "disturbed/madness",
+    "psychopath",
+    # Narrative devices (500s)
     "double", "cross-dressing", "unreliable narrator",
-    # Archetypes — human (500s)
-    "super hero", "chosen one", "antihero", "scientist/researcher", "mentor",
-    "cop", "detective", "secret agent", "vigilante", "gangster", "soldier",
-    "warrior", "knight", "samurai", "pirate", "viking", "witch/wizard",
-    "femme fatale",
-    # Non-human & creatures (600s)
+    # Archetypes — human > Figures & roles (600s)
+    "super hero", "chosen one", "antihero", "mentor", "scientist/researcher",
+    "witch/wizard", "femme fatale",
+    # Archetypes — human > Law & crime (700s)
+    "cop", "detective", "secret agent", "vigilante", "gangster",
+    # Archetypes — human > Fighters (800s)
+    "soldier", "warrior", "knight", "samurai", "pirate", "viking",
+    # Non-human & creatures (900s)
     "animal", "monster/terrestrial creature", "devil", "ghost/spirit",
     "vampire", "zombie", "alien", "android/robot", "vehicle",
 ]

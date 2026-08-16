@@ -71,8 +71,12 @@ GROUP_LABELS: dict[str, dict[int, str]] = {
         4: "Artistic Directing",
     },
     "characters": {
-        1: "Group structure", 2: "Age & identity", 3: "Social status & traits",
-        4: "Narrative devices", 5: "Archetypes - human", 6: "Non-human & creatures",
+        1: "Group structure", 2: "Age & identity", 3: "Social status",
+        4: "Traits & conditions", 5: "Narrative devices",
+        6: "Archetypes - human > Figures & roles",
+        7: "Archetypes - human > Law & crime",
+        8: "Archetypes - human > Fighters",
+        9: "Non-human & creatures",
     },
     "cinema_types": {
         1: "Visual techniques", 2: "Industry & culture",

@@ -118,9 +118,12 @@ A separate `production_country` / `film_production_country` pair records the *pr
 #### Character — `character_context` (59 tags)
 - **Group structure** — solitary, tandem, trio, couple, relatives, generations, buddies, team/group/gang, ensemble cast
 - **Age & identity** — childhood, teenager, elderly, adult/child, female lead, male ensemble, LGBT, interracial
-- **Social status & traits** — ordinary, poor/marginal, wealthy, genius, simpleton/fool, loser, star/celebrity, disturbed/madness, disabled, outcast/misfit, sex worker, psychopath
+- **Social status** — ordinary, poor/marginal, wealthy, star/celebrity, sex worker, outcast/misfit
+- **Traits & conditions** — genius, simpleton/fool, loser, disabled, disturbed/madness, psychopath
 - **Narrative devices** — double, cross-dressing, unreliable narrator
-- **Archetypes — human** — super hero, chosen one, antihero, scientist/researcher, mentor, cop, detective, secret agent, vigilante, gangster, soldier, warrior, knight, samurai, pirate, viking, witch/wizard, femme fatale
+- **Figures & roles** *(Archetypes — human)* — super hero, chosen one, antihero, mentor, scientist/researcher, witch/wizard, femme fatale
+- **Law & crime** *(Archetypes — human)* — cop, detective, secret agent, vigilante, gangster
+- **Fighters** *(Archetypes — human)* — soldier, warrior, knight, samurai, pirate, viking
 - **Non-human & creatures** — animal, monster/terrestrial creature, devil, ghost/spirit, vampire, zombie, alien, android/robot, vehicle
 
 #### Cinema Type — `cinema_type` (40 tags)

@@ -83,10 +83,13 @@ export const TAXONOMY_GROUPS: Record<string, TaxonomyGroup[]> = {
   characters: [
     { block: 1, label: "Group structure" },
     { block: 2, label: "Age & identity" },
-    { block: 3, label: "Social status & traits" },
-    { block: 4, label: "Narrative devices" },
-    { block: 5, label: "Archetypes — human" },
-    { block: 6, label: "Non-human & creatures" },
+    { block: 3, label: "Social status" },
+    { block: 4, label: "Traits & conditions" },
+    { block: 5, label: "Narrative devices" },
+    { block: 6, label: "Figures & roles", parent: "Archetypes — human" },
+    { block: 7, label: "Law & crime", parent: "Archetypes — human" },
+    { block: 8, label: "Fighters", parent: "Archetypes — human" },
+    { block: 9, label: "Non-human & creatures" },
   ],
   cinema_types: [
     { block: 1, label: "Visual techniques" },

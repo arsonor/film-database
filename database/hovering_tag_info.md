@@ -169,15 +169,17 @@ Order of dimensions and of sub-dimension blocks must match
 
 **female lead** places female experience, perspective, or identity at its core
 
-### Social status & traits
+### Social status
 
 **ordinary** ordinariness of a character's life is a deliberate artistic choice, not whenever ordinary people appear on screen but draws meaning from the mundane
+
+**outcast/misfit** social rejection or a profound inability to belong
+
+### Traits & conditions
 
 **simpleton/fool** naivety, simplicity, or apparent stupidity is a defining trait, often used for comic effect or as an unexpected lens on the world
 
 **disabled** significant physical or cognitive disability that is explicitly depicted and relevant to the narrative
-
-**outcast/misfit** social rejection or a profound inability to belong
 
 ### Narrative devices
 
@@ -187,9 +189,11 @@ Order of dimensions and of sub-dimension blocks must match
 
 **unreliable narrator** the story is told through a perspective that the audience eventually discovers is distorted, biased, or deliberately deceptive
 
-### Archetypes — human
+### Archetypes — human > Figures & roles
 
 **antihero** lack conventional heroic qualities but the audience follows and often roots for them despite their flaws, selfishness, or moral ambiguity
+
+### Archetypes — human > Law & crime
 
 **vigilante** takes justice into their own hands outside the law
 
