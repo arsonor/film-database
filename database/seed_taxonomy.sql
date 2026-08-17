@@ -206,7 +206,7 @@ ON CONFLICT (environment) DO NOTHING;
 -- =============================================================================
 
 INSERT INTO time_context (time_period, sort_order) VALUES
-    -- Chronological (future -> prehistoric)
+    -- Years & eras (future -> prehistoric)
     ('future', 1),
     ('contemporary', 2),
     ('2000-2010''s', 3),

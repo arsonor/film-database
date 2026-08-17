@@ -464,7 +464,7 @@ Valid: {', '.join(dims['cinema_type'])}
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
-Chronological tags map to these year ranges: {year_table}
+Years & eras tags map to these year ranges: {year_table}
 
 ### Place Context — Geography
 Provide as: continent > country > state/city

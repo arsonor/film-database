@@ -79,7 +79,7 @@ VALID_PLACE_ENVIRONMENTS = [
 ]
 
 VALID_TIME_CONTEXTS = [
-    # Chronological (future -> prehistoric)
+    # Years & eras (future -> prehistoric)
     "future", "contemporary", "2000-2010's", "1980-90's", "1950-60-70's",
     "WW2", "1920-30's", "WW1", "1900-1910's", "19th", "modern age",
     "medieval", "antiquity", "prehistoric", "undetermined",
@@ -89,7 +89,7 @@ VALID_TIME_CONTEXTS = [
     "spring", "summer", "autumn", "winter",
 ]
 
-# Year ranges for the Chronological block — mirrored in the enrichment prompt.
+# Year ranges for the Years & eras block — mirrored in the enrichment prompt.
 TIME_PERIOD_YEAR_RANGES = [
     ("future", "2030 onward"),
     ("contemporary", "2020-2029"),

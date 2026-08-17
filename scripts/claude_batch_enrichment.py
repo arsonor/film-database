@@ -87,7 +87,7 @@ Note: Use "franchise" for films that are part of a major franchise (sequels, pre
 
 ### Time Context (when is the film set — can be multiple)
 Valid: {', '.join(dims['time_context'])}
-Chronological tags map to these year ranges: {year_table}
+Years & eras tags map to these year ranges: {year_table}
 IMPORTANT: tag the years the STORY takes place in, not the release year. Optionally add a Time span tag (single day / several years / decades-spanning) and a Season when either is a defining trait.
 
 ### Place Context — Geography

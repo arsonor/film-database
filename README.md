@@ -165,7 +165,7 @@ Taxonomy v2 — 7 dimensions, each split into named sub-dimensions encoded as
 |-----------|----------------|---------|
 | Genre | Main + 7 sub-genre families | Drama, Comedy, Science-Fiction · war, investigation, satirical, biopic, slasher |
 | Theme | Society & World, Values & Reflection, Human Relations, Personal / Inner conflict, Art Sport & Entertainment, Face to the unknown | political, feminist, love, vengeance, obsession, art: cinema, alien contact |
-| Time Period | Chronological, Time span, Seasons | WW2, contemporary, medieval, future · single day · winter |
+| Time Period | Years & eras, Time span, Seasons | WW2, contemporary, medieval, future · single day · winter |
 | Place | Environments, Buildings & institutions, Narrative settings, Vehicles | urban, space, jail, road movie, huis clos/confined setting, train |
 | Atmosphere | Light/Joyful, Dark/Extreme, Pace Tension & Scale, Artistic Directing | feel good, violent, epic, contemplative/meditative, dreamlike/surreal |
 | Character | Group structure, Age & identity, Social status, Traits & conditions, Narrative devices, Archetypes — human (Figures & roles, Law & crime, Fighters), Non-human & creatures | trio, teenager, female lead, unreliable narrator, detective, vampire |

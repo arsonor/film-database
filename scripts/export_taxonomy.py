@@ -61,7 +61,7 @@ GROUP_LABELS: dict[str, dict[int, str]] = {
         11: "Art, Sport & Entertainment > Entertainment",
         12: "Face to the unknown",
     },
-    "time_contexts": {0: "Chronological", 1: "Time span", 2: "Seasons"},
+    "time_contexts": {0: "Years & eras", 1: "Time span", 2: "Seasons"},
     "place_contexts": {
         1: "Environments", 2: "Buildings & institutions", 3: "Narrative settings",
         4: "Vehicles", 5: "None",

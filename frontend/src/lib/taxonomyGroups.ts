@@ -63,7 +63,7 @@ export const TAXONOMY_GROUPS: Record<string, TaxonomyGroup[]> = {
     { block: 12, label: "Face to the unknown" },
   ],
   time_periods: [
-    { block: 0, label: "Chronological" },
+    { block: 0, label: "Years & eras" },
     { block: 1, label: "Time span" },
     { block: 2, label: "Seasons" },
   ],

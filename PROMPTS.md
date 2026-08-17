@@ -139,7 +139,7 @@ One UPDATE per tag (or a VALUES-join bulk UPDATE per dimension). Blocks of 100 =
 - 1200s Face to the unknown: sorcery 1200, alien contact 1201, paranormal 1202, curse 1203, time travel/loop 1204, virtual/parallel universe 1205, invasion 1206, exploration 1207
 
 **time_context (Time Period)**
-- 1–15 Chronological: future 1, contemporary 2, 2000-2010's 3, 1980-90's 4, 1950-60-70's 5, WW2 6, 1920-30's 7, WW1 8, 1900-1910's 9, 19th 10, modern age 11, medieval 12, antiquity 13, prehistoric 14, undetermined 15
+- 1–15 Years & eras: future 1, contemporary 2, 2000-2010's 3, 1980-90's 4, 1950-60-70's 5, WW2 6, 1920-30's 7, WW1 8, 1900-1910's 9, 19th 10, modern age 11, medieval 12, antiquity 13, prehistoric 14, undetermined 15
 - 100s Time span: single day 100, several years 101, decades-spanning 102
 - 200s Seasons: spring 200, summer 201, autumn 202, winter 203
 
@@ -303,7 +303,7 @@ Export:
 - `TAXONOMY_GROUPS: Record<string, { block: number; label: string; parent?: string }[]>` keyed by dimension. Blocks/labels (block = sort_order block number, i.e. `Math.floor(sort_order/100)`):
   - categories: 1 Main · 2 Drama / Romance · 3 Comedy · 4 Thriller / Adventure · 5 Historical / Justice · 6 Sci-fi / Fantasy · 7 Horror · 8 Miscellaneous (blocks 2–8 have parent "Sub-genres")
   - themes: 1 Society & World · 2 Values & Reflection · 3 Bonds & attachments (parent "Human Relations") · 4 Desire & transgression (HR) · 5 Interpersonal conflict (HR) · 6 Crime & abuse of power (HR) · 7 Wounds & burdens (parent "Personal / Inner conflict") · 8 Drives & arcs (PIC) · 9 Art (parent "Art, Sport & Entertainment") · 10 Sport (ASE) · 11 Entertainment (ASE) · 12 Face to the unknown
-  - time_periods: 0 Chronological · 1 Time span · 2 Seasons
+  - time_periods: 0 Years & eras · 1 Time span · 2 Seasons
   - place_contexts: 1 Environments · 2 Buildings & institutions · 3 Narrative settings · 4 Vehicles · 5 (empty label — "no particular")
   - atmospheres: 1 Light / Joyful · 2 Dark / Extreme · 3 Pace, Tension & Scale · 4 Artistic Directing
   - characters: 1 Group structure · 2 Age & identity · 3 Social status · 4 Traits & conditions · 5 Narrative devices · 6 Figures & roles (parent "Archetypes — human") · 7 Law & crime (A—h) · 8 Fighters (A—h) · 9 Non-human & creatures
@@ -311,7 +311,7 @@ Export:
 
 ### Part 3 — FilterSection.tsx group headers
 
-Replace the bare `<Separator>` at block boundaries with a group header: when `Math.floor(sort_order/100)` changes, render a full-width label row — parent label (if any and different from the previous block's parent) as a tiny uppercase muted line, then the block label as a small semibold muted line — looked up from `TAXONOMY_GROUPS[dimension]`. Blocks without a label entry fall back to the current plain separator. Keep chips, lock logic and tooltips unchanged. The first block's label also renders (including "Main" for Genre and "Chronological" for Time Period).
+Replace the bare `<Separator>` at block boundaries with a group header: when `Math.floor(sort_order/100)` changes, render a full-width label row — parent label (if any and different from the previous block's parent) as a tiny uppercase muted line, then the block label as a small semibold muted line — looked up from `TAXONOMY_GROUPS[dimension]`. Blocks without a label entry fall back to the current plain separator. Keep chips, lock logic and tooltips unchanged. The first block's label also renders (including "Main" for Genre and "Years & eras" for Time Period).
 
 ### Part 4 — Labels + tiers
 

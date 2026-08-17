@@ -85,9 +85,9 @@ The 12 **main genres** occupy block 1 (`sort_order < 200`); everything above is 
 The `art: X` / `sport: X` tags are children of the bare `art` / `sport` parents; dashboards that count "top themes" filter out names matching `'%: %'` so the parents aren't double-counted.
 
 #### Time Period — `time_context` (22 tags)
-Chronological tags use `sort_order` 1–15 (block 0), so the whole dimension fits blocks 0/1/2.
+Years & eras tags use `sort_order` 1–15 (block 0), so the whole dimension fits blocks 0/1/2.
 
-- **Chronological** — future, contemporary, 2000-2010's, 1980-90's, 1950-60-70's, WW2, 1920-30's, WW1, 1900-1910's, 19th, modern age, medieval, antiquity, prehistoric, undetermined
+- **Years & eras** — future, contemporary, 2000-2010's, 1980-90's, 1950-60-70's, WW2, 1920-30's, WW1, 1900-1910's, 19th, modern age, medieval, antiquity, prehistoric, undetermined
 - **Time span** — single day, several years, decades-spanning
 - **Seasons** — spring, summer, autumn, winter
 
