@@ -27,6 +27,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
 from app.services.claude_enricher import ClaudeEnricher  # noqa: E402
 
+from _pricing import CACHE_READ_MULT, CACHE_WRITE_MULT, prices_for  # noqa: E402
+
 try:
     from tqdm import tqdm
 except ImportError:
@@ -41,47 +43,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Anthropic pricing, $/million tokens.  # Rates verified 2026-08-14
-#
-# NOTE on Sonnet 5: $2/$10 is an INTRODUCTORY rate that ends 2026-08-31;
-# standard is $3/$15. Set SONNET_5_INTRO_UNTIL to None once it lapses.
-MODEL_PRICES: dict[str, tuple[float, float]] = {
-    "claude-sonnet-5":   (2.00, 10.00),   # intro; $3/$15 from 2026-09-01
-    "claude-sonnet-4-6": (3.00, 15.00),
-    "claude-haiku-4-5":  (1.00, 5.00),
-    "claude-opus-5":     (5.00, 25.00),
-    "claude-opus-4-8":   (5.00, 25.00),
-}
-_DEFAULT_PRICE = (3.00, 15.00)
-
-# Cache multipliers relative to the model's input price.
-CACHE_READ_MULT = 0.10   # cache hits bill at 0.1x input
-CACHE_WRITE_MULT = 1.25  # 5-minute cache writes bill at 1.25x input
-
-
-def prices_for(model: str) -> tuple[float, float]:
-    """(input, output) $/MTok for a model id, with a prefix fallback."""
-    if model in MODEL_PRICES:
-        return MODEL_PRICES[model]
-    for known, price in MODEL_PRICES.items():
-        if model.startswith(known):
-            return price
-    return _DEFAULT_PRICE
-
-
-def call_cost(model: str, usage) -> float:
-    """Actual $ for one response, honouring cache reads/writes."""
-    in_price, out_price = prices_for(model)
-    plain = getattr(usage, "input_tokens", 0) or 0
-    write = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    read = getattr(usage, "cache_read_input_tokens", 0) or 0
-    out = getattr(usage, "output_tokens", 0) or 0
-    return (
-        plain * in_price
-        + write * in_price * CACHE_WRITE_MULT
-        + read * in_price * CACHE_READ_MULT
-        + out * out_price
-    ) / 1_000_000
+# Pricing constants and helpers live in scripts/_pricing.py (shared with
+# scripts/retag_films.py) — imported above.
 
 
 def load_json(path: Path) -> list | dict:

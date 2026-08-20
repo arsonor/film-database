@@ -615,3 +615,804 @@ Add a `# Rates verified 2026-08-14` comment — these change.
 
 Report the measured before/after cost per film. Do **not** run any bulk
 re-enrichment — that is Step 24/25 and needs Martin's merge-policy decision first.
+
+---
+
+## Step 24 Prompt — Tag Weighting Foundation + Re-tag Harness
+
+Read `CLAUDE.md`, then `PLAN.md` (Steps 24 and 25 — the decision record matters,
+not just the scope list), then:
+- `backend/app/services/claude_enricher.py`
+- `backend/app/services/taxonomy_config.py` (context — change no tag list)
+- `backend/app/services/tmdb_service.py`, `tmdb_mapper.py`
+- `backend/app/routers/films.py` (`create_film` / `update_film` junction loops)
+- `database/schema.sql` (junction tables)
+- `scripts/claude_enrichment_runner.py` (`MODEL_PRICES`, cost estimator)
+- `scripts/claude_batch_enrichment.py` (**to be deleted** — read for its Batch
+  submit/status/collect plumbing before removing it)
+- `frontend/src/lib/taxonomyGroups.ts` (block layout — note `time_periods`
+  block 0 is **"Years & eras"**)
+
+**This step changes NO taxonomy and runs NO production enrichment.** It builds
+the machinery Step 25 executes.
+
+---
+
+### Part A — Migration 029: the `weight` column
+
+`database/migrations/029_tag_weight.sql`, one transaction.
+
+Add `weight smallint` to all seven tag junctions:
+
+| junction | lookup | fk | name column |
+|---|---|---|---|
+| `film_genre` | `category` | `category_id` | `category_name` |
+| `film_theme` | `theme_context` | `theme_context_id` | `theme_name` |
+| `film_technique` | `cinema_type` | `cinema_type_id` | `technique_name` |
+| `film_character_context` | `character_context` | `character_context_id` | `context_name` |
+| `film_atmosphere` | `atmosphere` | `atmosphere_id` | `atmosphere_name` |
+| `film_period` | `time_context` | `time_context_id` | `time_period` |
+| `film_place` | `place_context` | `place_context_id` | `environment` |
+
+- `weight smallint NULL CHECK (weight IS NULL OR weight BETWEEN 1 AND 100)`
+- NULL means "unscored legacy row" — do **not** backfill existing rows to a
+  value. Everything before the re-tag is genuinely unscored, and a fake 50 would
+  be indistinguishable from a real secondary later.
+- Convention, documented in a comment on each column: **100 = defining,
+  50 = secondary**. The range is wider than the two values in use so a third
+  level or true percentages need no migration.
+- One partial index per junction for the Step 26 "defining only" queries, e.g.
+  `CREATE INDEX idx_film_theme_defining ON film_theme (theme_context_id) WHERE weight = 100;`
+
+Mirror the columns into `database/schema.sql`. Apply to the **local DB only**.
+
+---
+
+### Part B — Enricher: the `defining` output key
+
+**B1 — output format.** Add one key to `_build_output_format_section()`, after
+`atmosphere` and before `source`:
+
+```json
+"defining": {
+  "categories": ["..."],
+  "cinema_type": ["..."],
+  "time_context": ["..."],
+  "place_environment": ["..."],
+  "themes": ["..."],
+  "character_context": ["..."],
+  "atmosphere": ["..."]
+}
+```
+
+Keep the flat tag lists exactly as they are. `defining` is a **subset** of them,
+not a replacement — anything in a tag list but absent from `defining` is
+secondary. This shape was chosen over per-tag objects because it costs far fewer
+tokens and leaves `_validate_enrichment` almost untouched.
+
+**B1b — the three reference examples must gain the key.** They are the few-shot
+examples; if they lack `defining`, the model sees three complete outputs without
+it and will omit it inconsistently. Add these to `taxonomy_config.REFERENCE_EXAMPLES`
+**exactly as written** — they were hand-validated by Martin and are the
+calibration standard for the entire run. Do not re-derive or "improve" them.
+
+```python
+# 2001 — 25 defining of 51 tags
+"defining": {
+    "categories": ["Science-Fiction"],
+    "cinema_type": ["aesthetics", "art house", "chapters/multi-sequence",
+                    "few/no dialogs", "slow cinema"],
+    "time_context": ["future", "prehistoric"],
+    "place_environment": ["space", "spaceship"],
+    "themes": ["AI/technology", "philosophical", "metaphysical",
+               "alien contact", "exploration", "transformation"],
+    "character_context": ["solitary", "android/robot"],
+    "atmosphere": ["contemplative/meditative", "epic", "mysterious",
+                   "hypnotic/immersive", "psychedelic", "meticulous",
+                   "symbolic"],
+},
+
+# La Haine — 25 defining of 46 tags
+"defining": {
+    "categories": ["Drama", "slice of life"],
+    "cinema_type": ["black and white", "realism", "dialogs/punchline",
+                    "slang dialogs"],
+    "time_context": ["single day"],
+    "place_environment": ["urban"],
+    "themes": ["social", "societal", "political", "immigration",
+               "class/culture clash", "police violence", "rebellion/revolt",
+               "friendship"],
+    "character_context": ["trio", "buddies", "teenager", "interracial",
+                          "poor/marginal"],
+    "atmosphere": ["violent", "oppressive", "gritty/realistic", "cityscape"],
+},
+
+# Mulholland Drive — 23 defining of 45 tags
+"defining": {
+    "categories": ["Drama", "psychological"],
+    "cinema_type": ["aesthetics", "art house", "flashback/non linear",
+                    "neo-noir"],
+    "time_context": [],
+    "place_environment": ["urban"],
+    "themes": ["identity crisis", "amnesia", "dream", "art: cinema",
+               "obsession", "greed/ambition"],
+    "character_context": ["female lead", "tandem", "double",
+                          "unreliable narrator", "disturbed/madness"],
+    "atmosphere": ["dreamlike/surreal", "mysterious", "hypnotic/immersive",
+                   "disturbing", "symbolic"],
+},
+```
+
+Two patterns visible in those sets, worth preserving because they are correct:
+**Time Period is rarely defining** unless the period is the subject (`single day`
+on La Haine is structural; Mulholland Drive's `2000-2010's` is background, hence
+the empty list), and **Genre skews secondary** — which is consistent with main
+genres being excluded from identification anyway.
+
+**B2 — prompt section.** Add to `ENRICHMENT_SYSTEM_PROMPT`, after the tag
+selection philosophy block:
+
+```
+Defining vs secondary tags:
+Every tag you assign must genuinely apply. Among those, mark the DEFINING ones —
+the tags someone would use to describe this film in two sentences to a friend.
+Test: if this tag disappeared, would that description still be accurate?
+- John Wick: "fight" is defining — remove it and you have misdescribed the film.
+- A family drama with one memorable brawl: "fight" applies, but is secondary.
+Everything you list that is not marked defining is understood to be secondary.
+A secondary tag is still a real tag: it is not a lower-confidence guess, it is
+an accurate description of something the film contains without being about.
+Typically 30-50% of the tags you assign will be defining. Judge each tag on its
+own merits rather than to a quota — but if you are marking nearly everything, or
+almost nothing, you have lost the distinction.
+```
+
+The 30–50% band is measured, not invented: the three reference films land at
+49% / 54% / 51%, and they are unusually dense canonical works, so that is an
+**upper** bound rather than the expected mean. Step 25's sample pass recalibrates
+it against ordinary films.
+
+> **Do not confuse two different things.** The *defining set* is ~20–25 tags per
+> film, judged absolutely by Claude. The *minimum identifying set* is the 3–4
+> tags that suffice to isolate the film among 4048 — a **derived subset**,
+> computed in SQL in Step 26, never requested from the model. 2001's identifying
+> set (`AI/technology`, `alien contact`, `contemplative/meditative`) is a subset
+> of its 25 defining tags; `philosophical` and `space` are equally defining but
+> add no discriminating power.
+
+**B3 — validation.** In `_validate_enrichment`, after the list-dimension loop:
+for each dimension, intersect `defining[dim]` with the validated tag list, drop
+anything outside it with a warning, and normalise missing/malformed `defining`
+to `{dim: [] for dim in list_dims}`. Add the same empty shape to
+`_empty_enrichment()`. A defining tag that isn't in the tag list must **never**
+be written.
+
+**B4 — optional film context.** Give `_build_film_block` a
+`extra_context: dict | None = None` parameter that renders extra `- Key: value`
+lines at the end of the metadata block. Used by the re-tag script to pass the
+known setting period; unused by Add Film. This is deliberately factual context
+only — do NOT pass existing tags here (see PLAN.md Step 24 guardrail 4).
+
+**B5 — writes carry weights.** In `films.py`, `create_film` and `update_film`
+must write `weight` on every junction row. `create_film` reads
+`enrichment["defining"]`; `update_film` has no defining input, so it writes
+`NULL` — do not invent a value there. Keep `ON CONFLICT DO NOTHING` semantics.
+
+---
+
+### Part C — `scripts/retag_films.py`
+
+Four separate commands. Generating must never write to the database, and
+applying must never call the API.
+
+**Shared:** import `ClaudeEnricher` and use its `_static_prefix` /
+`_build_film_block`. Do **not** rebuild the prompt — that fork is what
+`claude_batch_enrichment.py` did and why it drifted. Move `MODEL_PRICES` and the
+cost helpers out of `claude_enrichment_runner.py` into a new `scripts/_pricing.py`
+and import from both.
+
+**`snapshot`** — `CREATE TABLE <junction>_pre_retag AS SELECT * FROM <junction>`
+for all seven (drop-if-exists first, with a confirmation prompt since that
+discards a previous snapshot). Print row counts and the exact `pg_dump` command
+to run alongside. Print the restore procedure too.
+
+**`generate`** — flags: `--sample FILE`, `--all`, `--batch`, `--limit N`,
+`--resume`, `--sample-subset N`, `--exclude-reference` (**default on**).
+
+Sample file format — plain text, one film per line, `#` starts a comment
+(whole-line or trailing), blank lines skipped. Entries are either a bare
+`film_id` or `Title (year)`; resolve titles against `film.original_title` and
+`film_language.film_title`, and **abort with the ambiguous candidates listed**
+rather than guessing when a title matches more than one row.
+
+```
+# --- films I know cold ---
+1247
+Barry Lyndon (1975)
+# --- structural edge cases ---
+892   # silent
+1455  # documentary
+```
+
+`--sample-subset N` takes the first N resolved entries, for fast iteration on a
+core group before running the full sample.
+
+`--exclude-reference` skips the three films in `taxonomy_config.REFERENCE_EXAMPLES`
+(match by title+year, resolve to film_id once and report it). Re-tagging a film
+whose validated answer is already in the prompt as a few-shot example is
+circular and teaches nothing. `--include-reference` overrides.
+
+1. Select films from the **database** (`film_id`, `tmdb_id`, `original_title`).
+2. Re-fetch TMDB details (`get_film_details` + `get_film_details_fr`) and map via
+   `TMDBMapper.map_film_to_db()`. Cache each raw payload under
+   `scripts/data/retag/tmdb/{tmdb_id}.json` and reuse it on re-runs — the sample
+   pass will be run repeatedly and should not re-hit TMDB.
+   *Why re-fetch rather than rebuild from the DB: TMDB **keywords are not
+   stored** by `create_film`, and they are useful tagging signal. Re-fetching
+   also makes the re-tag input identical in shape to the Add Film input, so the
+   two paths behave the same.*
+3. Read each film's current `time_context` tags with `sort_order < 100` and pass
+   them as `extra_context={"Setting period": "..."}`.
+4. Enrich; append to `scripts/data/retag/enriched.jsonl` as
+   `{film_id, tmdb_id, title, enrichment, usage, model, generated_at}`.
+   JSONL so a crash costs one line. `--resume` skips film_ids already present.
+5. Print running cost and cache hit rate from `usage_totals`.
+
+For `--batch`, port the submit/status/collect flow from
+`claude_batch_enrichment.py` as `generate --batch` / `--batch-status ID` /
+`--batch-collect ID`, using the enricher's two-breakpoint structure. **Check
+whether a 1-hour cache TTL (`{"type": "ephemeral", "ttl": "1h"}`) is supported
+by the installed SDK** — a 4048-film batch will not stay inside a 5-minute
+window, and cache misses across the run are the single biggest cost risk. If
+unsupported, say so in the output and fall back to the default TTL.
+
+**`diff`** — reads the JSONL and the live DB, writes
+`scripts/data/retag/diff_report.md` + `.json`. **Touches nothing.** Contents:
+
+**Alarm rules — tags are partitioned into three buckets by their BEFORE count,
+because one rule cannot serve all of them.** The ~38 tags introduced by
+migration 026 start at zero, so any naive growth test fires on every one of
+them, and a ratio test is meaningless on small numbers (5 → 20 films is 4x and
+signifies nothing).
+
+| Bucket | Before | Rule |
+|---|---|---|
+| **Cold start** | < 10 | Growth is the goal — report the absolute count, no alarm. One exception: landing above ~800 films means the definition is far too loose. |
+| **Sparse** | 10–49 | Report only. Too noisy to judge in either direction. |
+| **Established** | ≥ 50 | Alarm on losing >50% of its films, or on gaining >2.5x **and** more than 100 films in absolute terms. |
+
+Report sections, in this order:
+
+1. **Cold-start coverage** — first, because "did the 38 new tags get populated,
+   and sensibly?" is one of the two questions this whole exercise exists to
+   answer. Every tag with before < 10, its after count, and a sample of 5 films
+   that gained it so the assignments can be eyeballed.
+2. **Alarms** — established-bucket violations only, each with before/after and
+   5 example films gained or lost.
+3. **Per-tag table** — all tags across the seven dimensions: bucket, before,
+   after, delta, gained, lost. Sorted by absolute delta.
+4. **Per-dimension summary** — mean tags per film, before/after.
+5. **Weight distribution** — share of assigned tags marked defining, overall and
+   per dimension. Expected band **30–50%**; flag above 70% (distinction has
+   collapsed) or below 15% (over-strict). Both thresholds are provisional and
+   get recalibrated from the sample pass — say so in the report header.
+6. **Biggest movers** — the 30 films with the most changes, tags listed.
+7. **Time Period check** — assert no `sort_order < 100` row would be lost.
+
+**`apply`** — `--dry-run` (default) and `--commit`. Per film, per dimension:
+delete existing junction rows and insert the new set with weights, **except**
+for `film_period`, where rows whose `time_context.sort_order < 100` are kept and
+only `>= 100` rows are replaced. Skip `[NEW]`-prefixed values. **Do not touch
+`award`, `source`/`film_origin`, or `film_set_place`** — the enrichment carries
+them, but re-tag applies to tags only. Sync `film.color` from the
+`black and white` tag as `create_film` does. One transaction per film, with a
+progress counter and a final summary.
+
+---
+
+### Part D — Delete `scripts/claude_batch_enrichment.py`
+
+After its batch plumbing is ported. Grep for references (`README.md`,
+`CLAUDE.md`, `PROMPTS.md`) and update them. Git history keeps the file.
+
+---
+
+### Verification (no production run)
+
+1. Migration applies; `\d film_theme` shows the column and index; existing rows
+   are NULL.
+2. `snapshot` creates seven tables with matching row counts.
+3. `generate --limit 3` — report the returned `defining` sets and confirm cache
+   reads of ~20 423 on calls 2 and 3.
+4. Feed the validator a hand-made enrichment whose `defining` contains a tag
+   absent from its list, and one with `defining` missing entirely — both must be
+   cleaned, logged, and never crash.
+5. `diff` on those 3 films produces both report files; DB unchanged.
+6. `apply --commit` on **one** film: weights present on every row, its
+   `sort_order < 100` time rows unchanged, its awards/set_places untouched.
+   Restore that film from its `_pre_retag` snapshot afterwards and confirm the
+   restore is exact.
+7. Add Film end to end: still works, saved rows carry weights.
+8. Backend imports clean.
+
+Report the observed defining/secondary ratio on the 3 test films — that number
+drives whether Step 25's sample pass starts by tuning the prompt. Compare it to
+the 30–50% band; report it plainly whatever it is rather than adjusting the
+prompt to hit the target, since the band itself is provisional.
+
+---
+
+## Step 25 Prompt — Re-tag Execution
+
+**Do not start this until Martin has supplied the sample film list and reviewed
+the Step 24 verification.** This step touches real data.
+
+Read `PLAN.md` Step 25 first. The sequence is fixed:
+
+1. `snapshot` + the printed `pg_dump`. Confirm both before continuing.
+2. `generate --sample martin_sample.txt` — real-time, not batch (immediate
+   feedback).
+3. `diff` → present the report to Martin. **Stop. Do not apply.**
+4. Iterate on `database/tags_definition.md` and the enricher prompt as Martin
+   directs, re-running `generate --sample` (TMDB payloads are cached, so
+   iterations only cost API tokens). Each iteration: report the defining ratio
+   and the alarm section.
+5. Once Martin approves, `generate --all --batch`.
+6. `diff` on the full set → present. **Stop again.**
+7. `apply --commit` only on explicit instruction.
+8. Post-apply: re-run the verification queries, confirm the ~38 previously-empty
+   tags now have associations, spot-check the three reference films against
+   `taxonomy_config.REFERENCE_EXAMPLES`, and confirm `/films/{id}/similar`,
+   `/stats/dashboard` and the three game endpoints still return 200.
+
+Supabase is **not** touched by this step — Martin syncs manually once he is
+satisfied with the local result.
+
+If at any point the diff shows a tag losing more than half its films or more
+than tripling, surface it prominently and stop rather than proceeding on
+momentum.
+
+---
+
+## Step 24.1 Prompt — Definition Fixes + Union Apply Mode
+
+The Step 24 three-film sample pass (`scripts/data/retag/diff_report.md`) worked:
+it surfaced real defects before any data was touched. **Do not run the full
+re-tag.** Fix the causes, re-run the same three films, report.
+
+Read `CLAUDE.md`, then `PLAN.md` (Steps 24–25), then
+`scripts/data/retag/diff_report.md`, then:
+- `database/tags_definition.md`
+- `backend/app/services/claude_enricher.py` (`ENRICHMENT_SYSTEM_PROMPT`,
+  `_build_taxonomy_section`, `_validate_enrichment`)
+- `backend/app/services/taxonomy_config.py` (context — change no tag list)
+- `scripts/retag_films.py` (`apply`, `diff`)
+
+**Absolute rule for this step: no film titles anywhere** — not in
+`tags_definition.md`, not in the system prompt, not in a code comment that ends
+up in the prompt. Martin removed them deliberately: a named example makes the
+model match against that film instead of applying the definition, and the
+current `fight` failure is a probable instance. Existing named references in the
+`art house` entry are pre-existing; leave them, do not add more.
+
+---
+
+### Part A — System prompt: the restraint register
+
+Every dimension whose guidance contains a restraint gate went **down** or barely
+moved in the sample; every dimension without one went up. Genre fell 9.67 → 6.33
+tags per film. Those gates were written when there was no way to say "this
+applies but isn't central." There is now, and they are double-counting.
+
+**A1 — terminology collision.** The philosophy block uses "DEFINING" to mean
+*worth including at all*, while the newer block uses it to mean *the top
+subset*. Same word, opposite operational consequence, forty lines apart. Replace
+the block:
+
+```
+Tag selection philosophy — tags must characterize the film, not catalogue it:
+- Assign a tag when the film genuinely satisfies its definition. Incidental
+  background detail that no viewer would associate with the film does not qualify.
+- Do not withhold a tag because it feels less central than others: the weighting
+  step below exists precisely to record that. Withholding it loses the
+  information entirely; marking it secondary keeps it.
+- Tags with no entry in the Tag Usage Guide are not lesser tags. The guide
+  defines only what needs disambiguating; apply undefined tags on their plain
+  meaning, with the same willingness.
+```
+
+That third bullet addresses the sharpest finding in the sample: six of
+Fellowship's fifteen losses are tags with **no entry in the guide**, including
+both magic tags on a film whose most famous character is a wizard.
+
+**A2 — drop the named example** from the "Defining vs secondary" block. Replace
+the two bullets with:
+
+```
+- A film built around physical combat: "fight" is defining — remove it and the
+  description is wrong.
+- A film containing one memorable brawl: "fight" applies, but is secondary.
+```
+
+Same contrast, nothing to pattern-match against.
+
+---
+
+### Part B — Taxonomy section gates
+
+**B1 — Genre.** Replace `- Add sub-genres ONLY when they clearly define the film`
+with:
+
+```
+- Add every sub-genre the film genuinely satisfies; use the defining/secondary
+  marking to record how central each one is.
+```
+
+**B2 — Themes.** The heading reads `(pick all that apply — be thorough, but only
+CENTRAL themes)`. "Be thorough, but only central" is self-cancelling. Replace
+with `(pick all that apply — be thorough; record centrality in the defining set,
+not by omission)`.
+
+**B3 — remove `franchise` from the prompt.** Franchise membership is **derivable**:
+`film.tmdb_collection_id`. Asking a model to guess a fact you already store is
+how a standalone film acquired the tag.
+
+- Add a module-level `DERIVED_TAGS = {"cinema_type": {"franchise"}}` in
+  `taxonomy_config.py`, with a comment explaining it stays a real, filterable
+  taxonomy tag — it is simply not model-assigned.
+- Filter it out of the `Valid:` list rendered by `_build_taxonomy_section`.
+- Strip it in `_validate_enrichment` (debug-level log, not a warning — it is
+  expected, not a defect).
+- Delete its entry from `tags_definition.md`.
+- **Do not** remove it from `VALID_CINEMA_TYPES`.
+
+---
+
+### Part C — `tags_definition.md`
+
+**C1 — six missing definitions.** Add these verbatim, each under its correct
+dimension heading and in existing sort order.
+
+Characters:
+
+> **witch/wizard** — a character whose identity is built on the practice of
+> magic: spellcasting, enchantment, arcane knowledge. Covers folkloric witches
+> and fantasy mages alike. Distinct from the Theme **sorcery** (magic as a
+> subject of the film) and from **paranormal** (unnatural faculties held without
+> an arcane tradition).
+>
+> **super hero** — a character with extraordinary powers or abilities who acts
+> publicly as a protector figure, usually with a costumed or assumed identity.
+>
+> **elderly** — an old character is central to the film, and their age is
+> relevant to who they are or to what the film is doing. Not for any film that
+> happens to feature an old person.
+
+Theme — Face to the unknown:
+
+> **sorcery** — magic as a practised craft within the film: spells, enchantments,
+> rituals, arcane power and the rules governing it. Distinct from **supernatural**
+> (Genre), which structures the whole film, and from **paranormal**, where
+> faculties are experienced rather than practised.
+>
+> **curse** — a malediction laid on a person, family, object or place, whose
+> effects drive the narrative.
+
+Atmosphere:
+
+> **violent** — violence is frequent, graphic or sustained enough to mark the
+> viewing experience. About the intensity of depiction, not the mere presence of
+> conflict (see the Theme **fight**).
+
+**C2 — `no particular` is exclusive.** It was added to all three sample films
+*alongside* real place tags. The definition never says it excludes them, and in
+the file it sits above the `### Environments` heading, so it reads as a
+dimension-level note rather than a value. Move it under a `### None` heading at
+the end of the Place section and rewrite:
+
+> **no particular** — the setting is irrelevant or interchangeable; the film does
+> not rely on any specific location for its identity. **Exclusive: use it alone,
+> never alongside another Place tag.** If any environment, building, narrative
+> setting or vehicle tag applies, this one does not.
+
+**C3 — Environments needs a scope lead-in.** Every Place tag *gained* in the
+sample belongs to a group with an explicit scope note; every Place tag *lost*
+(`mountains`, `beach`, `underground`) is in Environments, the one group with no
+lead-in — so the model applied a "primary setting" standard there and a
+"significant setting" standard everywhere else. Add under `### Environments`:
+
+> Applied when a significant portion of the film takes place there, including
+> major set-pieces. Not restricted to the film's single primary setting — a film
+> can legitimately carry several environments.
+
+**C4 — `fight`.** The tag sits under Theme → Human Relations → *Interpersonal
+conflict*, among tags that all describe relationships between characters who
+have one. Combat against anonymous opponents fails that framing, so an
+action-heavy film lost the tag. Append:
+
+> Records the presence of physical combat regardless of whether the combatants
+> have any prior relationship — fights against anonymous, impersonal or faceless
+> opponents count fully. Despite its placement under Interpersonal conflict, this
+> tag is about action content, not relational dynamics.
+
+**C5 — `spy`.** Append to the existing entry: `Corporate and industrial
+espionage qualify equally.`
+
+**C6 — `gritty/realistic`.** The current definition leads with a visual checklist
+(handheld, unflattering light, dirt, lived-in locations) that a weathered
+fantasy production design satisfies while missing the intent. Replace:
+
+> **gritty/realistic** — the film makes the viewer feel the physical and social
+> harshness of a real, lived-in world: poverty, decay, bodily wear, unglamorous
+> surroundings. A raw aesthetic (handheld camera, natural or unflattering light)
+> serves that end but is not sufficient on its own. Does not apply to genre,
+> fantasy or period films whose weathered production design is a visual style
+> rather than a lived social condition. Distinct from **realism** (Cinema Type),
+> which is membership of an identified cinematic movement — gritty/realistic is a
+> texture available to any film of any era.
+
+**C7 — `realism`,** symmetrically. Append:
+
+> Distinct from the Atmosphere **gritty/realistic**: realism is a lineage a film
+> belongs to, with a period attached; gritty/realistic is a felt texture any film
+> of any era may have.
+
+---
+
+### Part D — Validation
+
+**D1 — `no particular` exclusivity.** In `_validate_enrichment`, after the
+list-dimension loop: if `place_environment` contains `no particular` **and** any
+other value, drop `no particular` and log a warning. Belt and braces alongside C2.
+
+**D2 — audit the existing data.** Report (do not modify) how many of the 287
+films currently tagged `no particular` also carry another place tag. If the old
+pipeline made the same mistake, Martin will want a cleanup migration — that is
+his call, not yours.
+
+---
+
+### Part E — Derived franchise
+
+In `retag_films.py apply`, after the tag junctions: for each film in scope, set
+`franchise` in `film_technique` from `film.tmdb_collection_id IS NOT NULL`.
+
+- Missing but should be present → **insert**, `weight = NULL` (derived, not
+  model-judged).
+- Present but should be absent → **do not delete.** Write it to the loss review
+  (Part F) as `cinema_type:franchise (derived)`. A collection id can be absent
+  from TMDB for a film that really is part of a series, so this is a review
+  signal, not a truth.
+
+---
+
+### Part F — Union apply mode + per-tag loss review
+
+The sample produced 73 gains and 42 losses across three films; Martin endorsed
+roughly a quarter of the losses. Gains are safe, losses are where the damage is
+— and losses aggregate well, so make the destructive operation reviewable at the
+level where judgement is cheap.
+
+**`apply --mode union` becomes the default.** Insert gains with their weights;
+delete nothing. Existing tags the model did not propose keep `weight = NULL` —
+do **not** write 50. The model never evaluated them, and recording an
+unevaluated tag as "secondary" invents information. Consumers treat `weight =
+100` as defining and everything else (50 or NULL) as secondary, so NULL is
+already correct.
+
+`--mode replace` stays available and keeps the existing Time Period preservation
+rule, but is no longer the default.
+
+**`loss_review.md`** — written by `apply` in union mode, grouped **by tag, not by
+film**:
+
+```
+### themes:fight — would be removed from 340 films
+Current count: 1341 → 1001
+Sample: <up to 10 titles>
+Approve with: retag_films.py apply --remove-tag themes:fight
+```
+
+Sorted by film count descending. `--remove-tag DIM:TAG` (repeatable) deletes
+that tag from exactly the films in the current JSONL scope that lost it, in one
+transaction, and logs what it removed. Reviewing ~50 tags is tractable;
+reviewing 4048 films is not.
+
+**`diff`** gains a scope-only per-tag view. At three films the library-wide table
+is all noise — every row reads ±1 against a base of hundreds. Add a
+"scope-only" column pair (films in scope holding the tag, before/after) and sort
+the table by that when scope is under ~200 films.
+
+---
+
+### Part G — Re-run and report
+
+1. Report the **measured** static-prefix token delta (before vs after). Estimate
+   is +320 tokens (+1.6%), ≈ +$0.40 across 4048 films cached, partly offset by
+   dropping `franchise` from the output. If the real delta exceeds +1000
+   tokens, stop and report rather than proceeding — Martin re-evaluates pricing
+   at that point.
+2. `generate --sample` on the **same three films** (film_id 4, 5, 6). TMDB
+   payloads are cached, so this costs about four cents.
+3. `diff`, then report specifically:
+   - Is `no particular` gone from all three?
+   - Do the two magic tags return on the fantasy films?
+   - Do `fight` and `spy` return on the espionage film?
+   - Do `mountains` and `beach` return?
+   - Is `gritty/realistic` gone from the fantasy film?
+   - Is `franchise` absent from the model output entirely?
+   - Genre mean per film — recovered toward the 9.67 baseline?
+   - Defining share per dimension, against the 30–50% band.
+4. `apply --dry-run --mode union` on the three films: show the gains that would
+   land and the `loss_review.md` that would be written. **Apply nothing.**
+
+Report results and stop. Martin decides whether the definitions are ready for
+his ~40-film list.
+
+---
+
+## Step 24.2 Prompt — Genre Gate, Stranded Tags, Derived `no particular`
+
+The Step 24.1 re-run fixed the magic tags, `gritty/realistic` and `franchise`,
+and improved generosity substantially (Themes 12 → 17, Character 5.7 → 11,
+Place 3.7 → 5.3 mean tags/film). Three defects remain, each with an identified
+cause. **Do not run the full re-tag.** Fix, re-run the same three films, report.
+
+Read `CLAUDE.md`, then `PLAN.md` (Steps 24–25), then
+`scripts/data/retag/diff_report.md`, then:
+- `database/tags_definition.md`
+- `backend/app/services/claude_enricher.py`
+- `backend/app/services/taxonomy_config.py` (`DERIVED_TAGS`)
+- `backend/app/routers/films.py` (`create_film`, `update_film`)
+- `scripts/retag_films.py` (`apply`)
+
+**No film titles anywhere** — same absolute rule as Step 24.1.
+
+---
+
+### Part A — The duplicate Genre gate (this is why Genre didn't recover)
+
+Step 24.1 B1 relaxed the sub-genre rule in `_build_taxonomy_section`. It missed
+the **second copy**. `database/tags_definition.md` line 8 still reads:
+
+> Main genres (…) are always assigned — at least one per film. The tags below are
+> sub-genres: use them only when they clearly define the film.
+
+Both strings enter the same prompt. The guide arrives later and is framed as
+authoritative ("Follow these precisely"), so the strict twin plausibly overrode
+the relaxed rule — which explains Genre moving only 6.33 → 6.67 while every
+ungated dimension moved a lot.
+
+Replace that sentence with:
+
+> Main genres (…) are always assigned — at least one per film, usually one to
+> three. The tags below are sub-genres: apply every one the film genuinely
+> satisfies, and use the defining/secondary marking to record how central each
+> one is.
+
+**Then sweep for the same failure elsewhere.** Search **both**
+`tags_definition.md` and `_build_taxonomy_section` for dimension-level or
+group-level restraint gates — lead-in text that tells the model to withhold tags
+across a whole dimension or group. Phrases to look for: "only when", "only
+for", "do NOT include", "be thorough, but", "apply only". Report each one found
+with its location and recommend a rewrite; apply the obvious ones.
+
+**Critical distinction — do not over-apply this.** *Per-tag* hedging ("not simply
+a sad film", "not for every film that contains conversations") is precision and
+must be left completely alone. Only *dimension-level and group-level* gates are
+in scope: those double-count against the weighting mechanism, which per-tag
+boundaries do not.
+
+---
+
+### Part B — `fight`: a tag stranded in the wrong neighbourhood
+
+Step 24.1 C4 added an explicit clause to the `fight` definition and it changed
+nothing. That suggests the model is not rejecting the definition but never
+reaching it: the guide is organised by group, `fight` sits under **Human
+Relations > Interpersonal conflict** among tags that all describe relationships
+between characters who have one, and on a film with no interpersonal-conflict
+theme the model plausibly skips the entire group. A definition inside a skipped
+group can say anything.
+
+Moving the tag would mean reopening the taxonomy, which is closed. Test a
+cross-pointer instead — a reference from a group the model *will* visit on an
+action film. Append to the Atmosphere **violent** entry:
+
+> A film with significant combat sequences also earns the Theme **fight**,
+> whether or not the film has any interpersonal conflict as a subject.
+
+This is an **experiment**, not a known fix. Report explicitly whether `fight`
+returns on the espionage film. If it does, the same technique rescues any tag
+stranded in a group that doesn't match its meaning, and that is worth recording
+in PLAN.md as a reusable pattern. If it does not, say so plainly and do not
+keep adding cross-pointers — Martin will decide whether `fight` is worth a
+taxonomy move later.
+
+Leave `spy` and `beach` alone. Corporate infiltration read as heist rather than
+espionage is defensible, the limbo shore is genuinely marginal, and union mode
+means neither was ever removed.
+
+---
+
+### Part C — Derive `no particular`
+
+The model emitted it on all three films again despite the exclusivity rule; only
+the D1 validator guard stopped it. Guarding against a problem on every call is
+worse than removing the problem: like `franchise`, this value is **computable**
+— it means "no other place tag applies", which is a fact about the output, not a
+judgement about the film.
+
+1. `DERIVED_TAGS` becomes
+   `{"cinema_type": {"franchise"}, "place_environment": {"no particular"}}`.
+   The existing filtering of derived tags out of the prompt's `Valid:` lists and
+   the debug-level strip in `_validate_enrichment` then cover it automatically —
+   verify both actually generalise rather than being hardcoded to `franchise`.
+2. Delete the `### None` heading and the `no particular` entry from
+   `tags_definition.md`.
+3. Keep the D1 exclusivity guard as a cheap invariant; it should now never fire.
+4. **Apply-time rule**, in `retag_films.py apply` and in both `create_film` and
+   `update_film` (so Add Film stays consistent — factor it into one helper):
+   after the place junction writes, if the film has zero `film_place` rows,
+   insert `no particular` with `weight = NULL`; if it has any other place tag,
+   remove `no particular`.
+
+**On that removal and the union guarantee.** Union's no-delete rule protects
+*model judgements*; derived tags are computed and are exempt. Note the asymmetry
+with `franchise`, which is insert-only: a missing TMDB collection id is not proof
+a film stands alone, so absence there is a review signal. Here, the presence of
+another place tag **is** proof by definition. Record this reasoning in a comment
+so the two rules don't get "harmonised" later.
+
+---
+
+### Part D — Migration 030: clean up the existing contradictions
+
+The Step 24.1 D2 audit found **91 of 287** films carrying `no particular`
+alongside another place tag — the old pipeline made the same mistake, and union
+mode would preserve every one.
+
+`database/migrations/030_no_particular_cleanup.sql`, one transaction:
+- Delete `no particular` from any film that has another `film_place` row.
+- Report, but do **not** insert for, films with zero place tags — give Martin
+  the count so he can decide separately.
+- Print before/after counts.
+
+Run `--dry-run` equivalent first (a `SELECT` of what would be deleted), report
+the numbers, and **wait for Martin's approval before committing.** Local DB
+only; he syncs Supabase himself.
+
+---
+
+### Part E — Record two decisions in PLAN.md
+
+Under Step 24, add a short "Decisions" subsection:
+
+- **`ghost/spirit` stays undefined, deliberately.** Martin confirmed the tag
+  should cover mental projections and hallucinations of the dead, not only
+  literal ghosts. Adding a definition would narrow it. Do not "fix" this later.
+- **Derived tags** and why the two rules differ (Part C reasoning, one or two
+  lines).
+
+---
+
+### Part F — Re-run and report
+
+1. Measured static-prefix token delta. Expect roughly neutral: the `no
+   particular` entry and value leave, the Genre rewrite and the `violent`
+   cross-pointer arrive. Same +1000 stop threshold as before.
+2. `generate --sample` on film_id 4, 5, 6 (~$0.12).
+3. `diff`, and report specifically:
+   - **Genre mean per film** — the headline number. Baseline 9.67, last pass
+     6.67. Also list which sub-genres returned.
+   - Does `fight` return on the espionage film? (Part B experiment result.)
+   - Is `no particular` absent from the model output entirely?
+   - Any other dimension-level gates found in the Part A sweep.
+   - Defining share per dimension — Genre and Cinema Type were 65% / 63%,
+     above the 30–50% band. If Genre's count recovers, its share should fall
+     toward the band on its own; report whether it did.
+4. `apply --dry-run --mode union` on the three films. **Apply nothing.**
+
+Report and stop. Note in the report that per-film **output** tokens are now the
+dominant cost at scale (generosity grew them), so the Step 25 full-run estimate
+should be recomputed from this pass rather than from Step 24's figures.

@@ -953,6 +953,40 @@ async def similar_films(
 # =============================================================================
 
 
+async def sync_no_particular_place(db: AsyncSession, film_id: int) -> None:
+    """Derived-tag rule for 'no particular' (Place): it means "no other place
+    tag applies" — a fact about the row set, not a model judgement. After the
+    place junction writes: a film with zero film_place rows gets 'no particular'
+    (weight NULL, derived); a film with any other place tag loses it.
+
+    Deliberately asymmetric with the other derived tag, `franchise` (insert-only
+    at re-tag apply time): a missing TMDB collection id is not proof a film
+    stands alone, but the presence of another place tag IS proof by definition
+    that 'no particular' is wrong. Mirrored in scripts/retag_films.py apply.
+    """
+    r = await db.execute(
+        text("SELECT place_context_id FROM place_context WHERE environment = 'no particular'")
+    )
+    np_id = r.scalar_one_or_none()
+    if np_id is None:
+        return
+    r = await db.execute(
+        text("SELECT count(*) FROM film_place WHERE film_id = :fid AND place_context_id != :np"),
+        {"fid": film_id, "np": np_id},
+    )
+    if r.scalar_one() == 0:
+        await db.execute(
+            text("INSERT INTO film_place (film_id, place_context_id, weight) "
+                 "VALUES (:fid, :np, NULL) ON CONFLICT DO NOTHING"),
+            {"fid": film_id, "np": np_id},
+        )
+    else:
+        await db.execute(
+            text("DELETE FROM film_place WHERE film_id = :fid AND place_context_id = :np"),
+            {"fid": film_id, "np": np_id},
+        )
+
+
 @router.post("/films", response_model=dict, status_code=201)
 async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db), admin: None = Depends(require_admin)):
     """
@@ -1063,6 +1097,18 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
             },
         )
 
+    # Tag weights (Step 24): 100 = defining, 50 = secondary, judged by the
+    # enricher's `defining` key. When the key is absent entirely (legacy
+    # payload, or enrichment_failed with manual tagging), write NULL rather
+    # than invent a value — same rule as update_film.
+    defining = enrichment.get("defining")
+    has_defining = isinstance(defining, dict)
+
+    def _weight_for(dim: str, val: str) -> int | None:
+        if not has_defining:
+            return None
+        return 100 if val in (defining.get(dim) or []) else 50
+
     # Insert categories (special handling for Historic subcategories)
     for cat in enrichment.get("categories", []):
         if not cat or (isinstance(cat, str) and cat.startswith("[NEW]")):
@@ -1074,8 +1120,8 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
         lid = r.scalar_one_or_none()
         if lid:
             await db.execute(
-                text("INSERT INTO film_genre (film_id, category_id) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
-                {"fid": film_id, "lid": lid},
+                text("INSERT INTO film_genre (film_id, category_id, weight) VALUES (:fid, :lid, :w) ON CONFLICT DO NOTHING"),
+                {"fid": film_id, "lid": lid, "w": _weight_for("categories", cat)},
             )
 
     # Insert taxonomy junctions from enrichment
@@ -1102,9 +1148,12 @@ async def create_film(film_data: FilmCreate, db: AsyncSession = Depends(get_db),
             lid = r.scalar_one_or_none()
             if lid:
                 await db.execute(
-                    text(f"INSERT INTO {junc_table} (film_id, {junc_fk}) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
-                    {"fid": film_id, "lid": lid},
+                    text(f"INSERT INTO {junc_table} (film_id, {junc_fk}, weight) VALUES (:fid, :lid, :w) ON CONFLICT DO NOTHING"),
+                    {"fid": film_id, "lid": lid, "w": _weight_for(enr_key, val)},
                 )
+
+    # 'no particular' is derived, never model-assigned (Step 24.2).
+    await sync_no_particular_place(db, film_id)
 
     # Keep film.color in sync with the 'black and white' cinema_type tag.
     # TMDBMapper always emits color=True, so without this every B&W film added
@@ -1369,7 +1418,10 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     {"fid": film_id, "lid": lid},
                 )
 
-    # Update taxonomy junctions (clear and re-insert pattern)
+    # Update taxonomy junctions (clear and re-insert pattern).
+    # `weight` is deliberately left to its NULL default here: a manual tag edit
+    # carries no defining/secondary judgement, and inventing one (a fake 50)
+    # would be indistinguishable from a real secondary later.
     junction_updates = [
         (update.cinema_types, "film_technique", "cinema_type_id", "cinema_type", "cinema_type_id", "technique_name"),
         (update.themes, "film_theme", "theme_context_id", "theme_context", "theme_context_id", "theme_name"),
@@ -1398,6 +1450,11 @@ async def update_film(film_id: int, update: FilmUpdate, db: AsyncSession = Depen
                     text(f"INSERT INTO {junc_table} (film_id, {junc_fk}) VALUES (:fid, :lid) ON CONFLICT DO NOTHING"),
                     {"fid": film_id, "lid": lid},
                 )
+
+    # 'no particular' is derived from the saved row set (Step 24.2) — resync
+    # whenever the place junction was rewritten.
+    if update.place_contexts is not None:
+        await sync_no_particular_place(db, film_id)
 
     # Keep film.color in sync with the 'black and white' cinema_type tag.
     # The hero badge reads film.color directly, so a manual tag edit must

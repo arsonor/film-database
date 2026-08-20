@@ -5,7 +5,7 @@ disambiguation are defined; self-evident tags are omitted.
 
 ## **GENRE**
 
-Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Science-Fiction, Fantasy, Horror, Musical, Documentary) are always assigned — at least one per film. The tags below are sub-genres: use them only when they clearly define the film.
+Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Science-Fiction, Fantasy, Horror, Musical, Documentary) are always assigned — at least one per film, usually one to three. The tags below are sub-genres: apply every one the film genuinely satisfies, and use the defining/secondary marking to record how central each one is.
 
 **Historical** — the historical period is essential to the story: the era's politics, social structures or culture actively shape the characters and conflicts. A film merely set in the past is not Historical — that is a Time Period tag.
 
@@ -35,7 +35,7 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **investigation** vs **crime** — investigation means the narrative is structured around solving or uncovering something (a detective, journalist, or character actively investigating). Crime is broader: crime is present as a central theme without necessarily following an investigation structure.
 
-**spy** — espionage as the film's structure: intelligence work, infiltration, double agents, state secrets.
+**spy** — espionage as the film's structure: intelligence work, infiltration, double agents, state secrets. Corporate and industrial espionage qualify equally.
 
 **heist** — a planned robbery or elaborate scheme drives the plot. Distinct from general crime by its focus on planning, execution, and team coordination.
 
@@ -150,7 +150,7 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 **class/culture clash** — conflict between characters or groups from fundamentally opposed worlds: class, wealth, culture, nationality, or values. The divide between them drives the narrative. Not simply the presence of rich and poor characters (see Characters **poor/marginal**), and not internal (see **identity crisis**).
 
-**fight** — applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles.
+**fight** — applies when there are significant action/combat scenes (physical confrontations, battle sequences), not just metaphorical struggles. Records the presence of physical combat regardless of whether the combatants have any prior relationship — fights against anonymous, impersonal or faceless opponents count fully. Despite its placement under Interpersonal conflict, this tag is about action content, not relational dynamics.
 
 ### Human Relations > Crime & abuse of power
 
@@ -206,7 +206,11 @@ Main genres (Drama, Comedy, Romance, Historical, Action, Adventure, Thriller, Sc
 
 ### Face to the unknown
 
+**sorcery** — magic as a practised craft within the film: spells, enchantments, rituals, arcane power and the rules governing it. Distinct from **supernatural** (Genre), which structures the whole film, and from **paranormal**, where faculties are experienced rather than practised.
+
 **paranormal** — a character experiences or possesses unnatural faculties: contact with the afterlife, mediumship, telepathy, telekinesis, precognition, parapsychology. A theme lived by a character, distinct from **supernatural** (Genre), which structures the whole film.
+
+**curse** — a malediction laid on a person, family, object or place, whose effects drive the narrative.
 
 **virtual/parallel universe** — simulated realities, alternate dimensions or worlds running alongside our own.
 
@@ -249,7 +253,7 @@ The war tags are purely chronological: a film set 1939–1945 is tagged WW2 whet
 
 ### Time span
 
-Applied only when the stretch of time covered is a defining trait of the film. Most films fall between these and receive no span tag.
+Most films fall between these values and receive no span tag. When one of the spans below genuinely applies, tag it, and use the defining/secondary marking to record how central it is.
 
 **single day** — the story unfolds within 24 hours or less.
 
@@ -260,9 +264,9 @@ Applied only when the stretch of time covered is a defining trait of the film. M
 
 ## **PLACE**
 
-**no particular** — the setting is irrelevant or interchangeable; the film doesn't rely on any specific location for its identity.
-
 ### Environments
+
+Applied when a significant portion of the film takes place there, including major set-pieces. Not restricted to the film's single primary setting — a film can legitimately carry several environments.
 
 **small town** — a small, self-contained community where everyone knows everyone. Distinct from **urban** (city scale) and **rural** (countryside and farmland).
 
@@ -311,6 +315,8 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **delicate/intimate** — quiet, tender, emotionally close. The film handles its subject with softness and subtlety, often in a small-scale, personal setting.
 
+**violent** — violence is frequent, graphic or sustained enough to mark the viewing experience. About the intensity of depiction, not the mere presence of conflict (see the Theme **fight**). A film with significant combat sequences also earns the Theme **fight**, whether or not the film has any interpersonal conflict as a subject.
+
 **steamy** — strong erotic charge or sexual tension pervading the atmosphere. Distinct from the Theme **sex** (which is about sexual desire driving the plot) — steamy is about the film's temperature and mood.
 
 **sordid** — the film depicts moral degradation, sleaze, depravity, or a world of seedy, ugly reality. A deliberately uncomfortable, grimy quality.
@@ -329,7 +335,7 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **pastoral** — the countryside, rural life, or natural landscape as a defining atmospheric presence. Its rhythms, textures and light actively shape the film's mood, beyond simply being set in the country (see **rural**).
 
-**gritty/realistic** — the film deliberately uses a raw, rough, unglamorous aesthetic to make the viewer feel the physical and social harshness of the world depicted: handheld camera, natural or unflattering light, dirt and decay, lived-in locations. A standard drama set in the real world is not gritty/realistic — the roughness must be a felt, deliberate choice.
+**gritty/realistic** — the film makes the viewer feel the physical and social harshness of a real, lived-in world: poverty, decay, bodily wear, unglamorous surroundings. A raw aesthetic (handheld camera, natural or unflattering light) serves that end but is not sufficient on its own. Does not apply to genre, fantasy or period films whose weathered production design is a visual style rather than a lived social condition. Distinct from **realism** (Cinema Type), which is membership of an identified cinematic movement — gritty/realistic is a texture available to any film of any era.
 
 **meticulous** — the film demonstrates exceptional precision and attention to detail in its storytelling, direction, or visual composition. Everything feels deliberate, ordered, controlled.
 
@@ -354,6 +360,8 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **ensemble cast** — used strictly when the film features multiple distinct characters in separate storylines that eventually intersect or parallel each other. Not simply "a film with many characters" — the narrative structure must deliberately distribute focus across diverse character arcs.
 
+**elderly** — an old character is central to the film, and their age is relevant to who they are or to what the film is doing. Not for any film that happens to feature an old person.
+
 **adult/child** — the central relationship or dynamic is between an adult and a child. Not simply "a film featuring both adults and children."
 
 **female lead** — the film places female experience, perspective, or identity at its core in a way that is central to understanding the film.
@@ -376,11 +384,15 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **unreliable narrator** — the story is told through a perspective that the audience eventually discovers is distorted, biased, or deliberately deceptive.
 
+**super hero** — a character with extraordinary powers or abilities who acts publicly as a protector figure, usually with a costumed or assumed identity.
+
 **chosen one** — a character singled out by prophecy, birth or destiny to fulfil a role others cannot.
 
 **antihero** — a protagonist who lacks conventional heroic qualities: morality, idealism, courage, or likability. The audience follows and often roots for them despite their flaws, selfishness, or moral ambiguity. Distinct from a villain (who opposes the protagonist) and from **outcast/misfit** (who is defined by social exclusion, not moral complexity).
 
 **mentor** — a guiding figure who shapes a protagonist's journey through teaching, wisdom, or example.
+
+**witch/wizard** — a character whose identity is built on the practice of magic: spellcasting, enchantment, arcane knowledge. Covers folkloric witches and fantasy mages alike. Distinct from the Theme **sorcery** (magic as a subject of the film) and from **paranormal** (unnatural faculties held without an arcane tradition).
 
 **femme fatale** — a seductive woman whose allure draws the protagonist into danger or ruin. Her attraction is the instrument of the plot, not a character trait. A noir archetype.
 
@@ -412,8 +424,6 @@ Applied when a significant part of the action takes place aboard. These tags rec
 **art house** — artistic expression rather than mass commercial appeal, typically with limited theatrical release, festival circulation, or independent distribution. A well-crafted studio film with broad appeal is not art house. Many films are neither blockbuster nor art house; the two rarely co-occur, and both apply only to studio-scale films that are also formally radical (*2001*, *Apocalypse Now*).
 
 **B** — a low-budget commercial film, historically the second feature in a double bill. Fast-paced genre entertainment (horror, sci-fi, westerns) with modest production values and lesser-known casts. Not the same as "bad film" or "indie film."
-
-**franchise** — the film belongs to a multi-film series sharing continuity, characters or a brand.
 
 **popular culture** — the film explicitly references, quotes, or is steeped in elements of shared popular culture (other movies, music, brands, TV, memes). The film speaks through pop culture. Not used simply because the film itself became popular.
 
@@ -451,7 +461,7 @@ Applied when a significant part of the action takes place aboard. These tags rec
 
 **expressionism** — early 20th-century movement originating in German cinema, using extreme visual distortion to externalize psychological states and inner turmoil. Characters' environments literally reflect their emotional or mental reality. Influenced nearly every genre that followed, especially horror and noir. **Period: 1919–1933, with lasting stylistic influence**.
 
-**realism** — movement seeking to depict everyday social life without artifice, focusing on working classes, fatalism, and unembellished truth. Not to be confused with the Atmosphere **gritty/realistic**, which describes a feeling — this is a conscious cinematic tradition. **Period: 1930s–1940s (poetic realism), 1960s–present (social realism)**.
+**realism** — movement seeking to depict everyday social life without artifice, focusing on working classes, fatalism, and unembellished truth. Not to be confused with the Atmosphere **gritty/realistic**, which describes a feeling — this is a conscious cinematic tradition. **Period: 1930s–1940s (poetic realism), 1960s–present (social realism)**. Distinct from the Atmosphere **gritty/realistic**: realism is a lineage a film belongs to, with a period attached; gritty/realistic is a felt texture any film of any era may have.
 
 **neo-realism** — Italian post-war movement that broke radically with studio filmmaking: real locations, non-professional actors, natural light, and stories about ordinary people struggling in the ruins of war and poverty. **Period: 1943–1955, with influence extending through the 1960s**.
 

@@ -44,8 +44,9 @@
 | 22 | Taxonomy v2 — Deferred surfaces | ✅ DONE | Recommender weights, dashboard Taxonomy tab, 3 games, migration 027 drops motivation/message tables |
 | 22.1 | Taxonomy tweaks (migration 028) | ✅ DONE | courtroom rename, submarine/spaceship, naval→military. Local + Supabase + deployed |
 | 23 | Enrichment pipeline hardening + prompt caching | ✅ DONE | Cacheable prompt prefix, Sonnet 5, prompt dedup, 3 Add Film bugs, TMDB genre seeds |
-| 24 | Backfill the 38 zero-association v2 tags | ⬜ TODO | `review_tag.py` tag-by-tag, additive only |
-| 25 | Re-enrichment of the bulk-import cohort | ⬜ TODO | Batch API + diff-then-apply harness, merge policy TBD |
+| 24 | Tag weighting foundation + re-tag harness | 🔜 NEXT | `weight` column, `defining` enricher output, retag_films.py — no production run |
+| 25 | Re-tag execution — sample pass, then full run | ⬜ TODO | snapshot → generate → diff → apply over all 4048 films |
+| 26 | Weight-aware surfaces | ⬜ TODO | Recommender weighting, uniqueness + differentiator queries, "defining only" browse, games |
 
 ---
 
@@ -455,3 +456,345 @@ A TMDB film whose only genres are `Animation` and/or `Family` still seeds
 **zero** categories, because both map to `None` in `GENRE_TO_CATEGORY`. It does
 get `animation` as a cinema type. Closing this means editing
 `GENRE_TO_CATEGORY`, which Step 23 forbids.
+
+---
+
+## Step 24: Tag Weighting Foundation + Re-tag Harness
+
+### Decision record
+
+The v2 taxonomy moved, merged or created enough tags that a tag-by-tag backfill
+of the 38 zero-association tags via `review_tag.py` was rejected as too slow and
+too narrow. **The whole library gets re-tagged from scratch**, and the run is
+used as the opportunity to introduce **tag weighting**.
+
+Martin's observation from playing Tag It: the library is systematically
+*under*-tagged, and for the games over-tagging is the cheaper error. But
+over-tagging degrades the recommender — Jaccard similarity gets noisier as tag
+sets grow, and IDF only partly compensates. Weights resolve the tension: **tag
+generously, then weight the recommender toward defining tags only.**
+
+### Why two levels, not percentages
+
+The original idea was a 0–100% score per tag. Rejected for v1 on the evidence
+already in this project: every confidence score produced under the old prompt
+clustered at 0.85–0.95, which is exactly why `get_low_confidence_films` was
+inert. Fine-grained numeric self-assessment is not something to build a
+recommender on. Coarse ordinal judgement is reliable; **defining vs secondary**
+is it.
+
+The column is `smallint` (100 = defining, 50 = secondary, NULL = unscored
+legacy), so a third level or true percentages need no migration later — just a
+re-run.
+
+Second-order benefit, and possibly the main one: **asking for a defining subset
+should make tagging more generous, not less.** It gives the model somewhere to
+put "this applies but isn't central", which is the judgement that currently
+makes it drop the tag entirely. The under-tagging problem and the weighting
+feature have the same fix.
+
+### What Claude is asked for, and what is computed
+
+Two distinct things that were conflated in early drafts of this plan:
+
+- **Defining tags** — a per-film, absolute judgement made by Claude: *would
+  someone describing this film in two sentences mention this?* Roughly **20–25
+  tags per film**, 30–50% of the total assigned.
+- **Minimum identifying set** — the **3–4 tags that suffice to isolate the film**
+  among 4048. A *derived subset* of the defining tags, computed in SQL in Step
+  26. Never requested from the model: it is a relative property depending on the
+  whole library, and a model seeing one film at a time would confabulate it.
+
+Martin's worked examples are the second kind. Validated against the real v2 tag
+lists (2026-08-14):
+
+| Film | Defining / total | Minimum identifying set | Differentiator |
+|---|---|---|---|
+| 2001: A Space Odyssey | 25 / 51 (49%) | AI/technology, alien contact, contemplative/meditative | contemplative (strong) |
+| La Haine | 25 / 46 (54%) | immigration, trio, black and white, set: Paris | immigration |
+| Mulholland Drive | 23 / 45 (51%) | art: cinema, disturbed/madness, neo-noir | art: cinema ≈ neo-noir |
+
+2001's identifying set is a subset of its 25 defining tags; `philosophical` and
+`space` are equally defining but add no discriminating power. The full defining
+lists live in the Step 24 prompt and go into `REFERENCE_EXAMPLES` verbatim —
+Martin hand-validated them, and they are the calibration standard for all 4048
+films.
+
+Because all three are unusually dense canonical works, ~50% is an **upper**
+bound, not the expected mean. The prompt states 30–50%; the sample pass
+recalibrates it.
+
+Two further patterns from the exercise, both worth preserving: **Time Period is
+rarely defining** unless the period is the subject (La Haine's `single day` is
+structural and counts; Mulholland Drive's `2000-2010's` is background and does
+not), and **Genre skews secondary**.
+
+Two rules that fall out of the identifying sets, both **query-side, not
+prompt-side**: main genres are excluded from identification (only 12 of them, so
+they carry no discriminating power — but they stay weighted, because the
+recommender wants to know whether a film is primarily or incidentally a comedy),
+and **diegetic `film_set_place` entries join in as pseudo-tags** (La Haine's
+`set: Paris`). Neither needs a schema or enrichment change.
+
+### Guardrails agreed for the run
+
+1. **Snapshot tables** `<junction>_pre_retag` for all seven junctions, plus a
+   `pg_dump`. Queryable rollback, so the diff is plain SQL.
+2. **Sample pass first** — ~40 films Martin knows well, iterated until the
+   definitions behave. At ~$0.013/film a full pass costs about $0.52, so the
+   definitions can be tuned repeatedly before committing; the constraint is
+   review time, not money.
+3. **Time Period "Years & eras" is preserved.** The only sub-dimension Martin
+   hand-corrected. Predicate: `time_context.sort_order < 100`. Time span and
+   Seasons (≥ 100, currently zero associations) are accepted from the re-tag.
+4. **Showing Claude the current tags was considered and rejected.** Models shown
+   an existing answer ratify it — the thin tag set would come back with two or
+   three additions and almost no removals, re-introducing the exact anchor Step
+   23 removed. The known chronological period *is* injected into the film block,
+   because it is factual context rather than an interpretive answer, and it
+   genuinely helps Character/Place/Cinema Type.
+
+### Decisions
+
+- **`ghost/spirit` stays undefined, deliberately.** Martin confirmed the tag
+  should cover mental projections and hallucinations of the dead, not only
+  literal ghosts. Adding a definition would narrow it. Do not "fix" this later.
+- **Derived tags** (`DERIVED_TAGS`: `franchise`, `no particular`) are computed
+  from data, never model-assigned — and their rules are deliberately
+  asymmetric: `franchise` is insert-only (a missing TMDB collection id is not
+  proof a film stands alone, so absence is a loss-review signal), while
+  `no particular` is inserted *and* removed (another place tag's presence is
+  proof by definition). Union's no-delete rule protects model judgements;
+  derived values are exempt. Do not harmonise the two.
+
+### Scope of Step 24 (build only — no production run)
+
+- **Migration 029**: `weight smallint` on the seven junctions + partial indexes
+  for `weight = 100`.
+- **Enricher**: a `defining` key in the output, a prompt section defining the
+  two-sentence test, and an optional `extra_context` on `_build_film_block`.
+  The Add Film path keeps working unchanged.
+- **`scripts/retag_films.py`**: four separate commands — `snapshot`,
+  `generate`, `diff`, `apply`. Sourced from the **database**, not
+  `resolved_films.json`. Reuses `ClaudeEnricher`'s cached prefix rather than
+  forking the prompt.
+- **`scripts/claude_batch_enrichment.py` is deleted.** Its selection model
+  (diff `resolved_films.json` against `enriched_films.json`) is structurally
+  wrong for re-tagging — every film to re-tag is already in the "done" ledger,
+  so `--submit` would find nothing. Its prompt is a pre-Step-23 fork with no tag
+  guide at all. Only the Batch submit/status/collect plumbing is worth keeping,
+  and that ports into `retag_films.py`.
+
+### Apply-time merge policy
+
+**Full replace on the seven tag dimensions**, with two exceptions:
+
+- Time Period `sort_order < 100` rows are preserved.
+- **Awards, Source and Geography are NOT applied.** The enricher still returns
+  them and they are kept in the JSON for later use, but `film_set_place` feeds
+  the Step 26 uniqueness work and awards may have been hand-corrected. Re-tag
+  touches tags only.
+
+### Success criteria
+
+- `defining` validates as a subset of the tag lists; a violation is dropped and
+  logged, never written.
+- `generate` on 3 films shows a cache read of ~20.4k on calls 2 and 3.
+- `diff` on those 3 films produces a per-tag and per-film report without
+  touching the database.
+- `apply --dry-run` reports the same numbers as `apply`, and `apply` on a single
+  film sets `weight` on every row it writes.
+- Add Film still works end to end, and its saved rows also carry weights.
+
+### Verification (2026-08-19 — step complete)
+
+- **Migration is `030_tag_weight.sql`, not 029** — `029_character_subdimensions.sql`
+  already existed, so the numbering shifted by one. Applied to the local DB:
+  `weight smallint` + CHECK + partial `weight = 100` index on all seven
+  junctions; all 35,553 existing `film_theme` rows (and every other junction)
+  are NULL. Mirrored into `schema.sql`.
+- `snapshot` created all seven `_pre_retag` tables with exactly matching row
+  counts (film_genre 23,090 · film_theme 35,553 · film_technique 10,801 ·
+  film_character_context 20,321 · film_atmosphere 16,003 · film_period 4,571 ·
+  film_place 8,150) and printed the pg_dump + restore procedures.
+- `generate --all --limit 3` (Inception, LOTR 1–2; reference films auto-excluded
+  by film_id 1/2/3): call 1 cache **write 21,886**, calls 2–3 cache **read
+  21,886** each. The prefix grew from ~20.4k to ~21.9k tokens because of the
+  `defining` additions (three examples + skeleton + prompt section). Validator
+  fired live: an invalid `epic` cinema_type and its `defining` copy were dropped
+  and logged, never written.
+- **Observed defining ratio on the 3 test films: 40% / 50% / 57% (48.8%
+  overall)** — at or just above the top of the provisional 30–50% band, which is
+  consistent with these being dense canonical blockbusters. No prompt adjustment
+  made; Step 25's sample pass judges it on ordinary films.
+- Validator hand-tests: `defining` with an out-of-list tag → dropped + logged;
+  `defining` missing entirely → normalised to the empty 7-dim shape;
+  `defining` as a list → reset; `_empty_enrichment` carries the empty shape.
+- `diff` produced `diff_report.md`/`.json` (cold-start section, 0 alarms,
+  per-tag/per-dimension tables, weight distribution, movers, Time Period check
+  clean) with the DB untouched. For a partial scope the per-tag counts are
+  *projected library totals* (global before ± scope gains/losses), so alarms
+  stay meaningful on sample runs.
+- `apply --film-id 4` dry-run and `--commit` reported identical numbers
+  (45 deleted / 56 inserted = 23 defining + 33 secondary); every written row
+  carried a weight; the film's `sort_order < 100` period row (2000-2010's) was
+  preserved with its legacy NULL weight; its 11 awards and 4 film_set_place
+  rows untouched. Restored from `_pre_retag` and confirmed exact (EXCEPT-based
+  set equality in both directions).
+- Add Film end to end (create_film via ASGI with a `defining`-carrying
+  enrichment): defining tags saved at weight 100, secondary at 50,
+  `film.color = FALSE` synced from `black and white`. `update_film` writes NULL
+  weights by design (a manual edit carries no defining judgement).
+- `scripts/claude_batch_enrichment.py` deleted after porting its
+  submit/status/collect plumbing into `retag_films.py --batch*`; the installed
+  SDK (0.86.0) supports the 1-hour cache TTL, which the batch path uses.
+  `MODEL_PRICES` + cost helpers moved to `scripts/_pricing.py`, imported by both
+  the runner and the re-tag script. Backend imports clean.
+- Note for Step 25: `scripts/data/retag/enriched.jsonl` currently holds the 3
+  verification films — delete it (or rely on the fact that `apply` is scoped to
+  the JSONL you generate) before starting the real sample pass. The TMDB payload
+  cache under `scripts/data/retag/tmdb/` is worth keeping.
+
+### Step 24.1 — Definition fixes + union apply mode (2026-08-20, complete)
+
+Fixes driven by the three-film sample diff; no production run, nothing applied.
+
+- **Prompt**: restraint gates removed (philosophy block rewritten around "the
+  weighting step records centrality", sub-genre and Themes gates relaxed, the
+  named film dropped from the defining/secondary example). `franchise` is no
+  longer model-assigned — `DERIVED_TAGS` in `taxonomy_config.py`, filtered from
+  the prompt, stripped at debug level by the validator, derived at apply time
+  from `film.tmdb_collection_id` (insert `weight NULL`; never deleted — absence
+  of a collection id goes to the loss review as a `(derived)` signal).
+- **tags_definition.md**: six new definitions (witch/wizard, super hero,
+  elderly, sorcery, curse, violent), `no particular` moved under `### None` and
+  made exclusive (validator enforces it too), Environments scope lead-in,
+  `fight` decoupled from relational framing, `spy` covers corporate espionage,
+  `gritty/realistic`/`realism` disentangled, franchise entry deleted.
+- **Apply is now union by default**: insert gains with weights, update weights
+  on re-proposed existing tags, delete nothing; existing tags the model did not
+  propose keep `weight NULL` (never a fake 50). Removals are grouped by tag in
+  `loss_review.md` and approved per tag via `apply --commit --remove-tag
+  DIM:TAG` (scope-limited, one transaction). `--mode replace` retained. Diff
+  gained in-scope before/after columns and sorts by in-scope movement when the
+  scope is under 200 films.
+- **Audit (report only)**: 91 of the 287 films tagged `no particular` also
+  carry another place tag — the old pipeline made the same mistake. Cleanup
+  migration is Martin's call.
+- **Measured prefix delta: +818 tokens** (21,886 → 22,704; +3.7%), above the
+  +320 estimate but under the +1000 stop threshold. ≈ +$0.17 across a 4048-film
+  cached run at Sonnet 5 intro rates.
+- **Three-film re-run**: `no particular` gone from all three (the model still
+  emits it; the validator guard drops it every time). sorcery/curse/witch-wizard
+  back on both LOTR films; supernatural retained; `gritty/realistic` no longer
+  on the fantasy films; `mountains` back on Inception; franchise absent from
+  model output. Still missing: `fight`/`spy` on Inception and `beach`
+  (Inception) — the definition changes did not move the model on those. Genre
+  mean 6.33 → 6.67 (baseline 9.67): the sub-genre gate relaxation recovered
+  little. Defining share 46.5% overall; Genre (65%) and Cinema Type (63%) sit
+  above the 30–50% band. Union dry-run: 78 gains, 89 weight updates, 30-tag
+  loss review, nothing applied.
+
+### Step 24.2 — Genre gate, stranded tags, derived `no particular` (2026-08-20, complete)
+
+- **Duplicate Genre gate fixed**: `tags_definition.md` line 8 still carried the
+  strict sub-genre rule 24.1 had relaxed in the taxonomy section; both entered
+  the same prompt and the guide is framed as authoritative. The sweep found
+  exactly one more dimension/group-level gate — the Time span lead-in
+  ("Applied only when … a defining trait") — rewritten to route centrality
+  through the defining marking. Everything else matching the gate phrases is
+  per-tag precision, left alone (psychological, cityscape, ordinary,
+  outcast/misfit, art house). The Vehicles lead-in is a threshold definition,
+  not a gate.
+- **`fight` cross-pointer experiment (on Atmosphere `violent`): negative** for
+  its target case. `fight` returned on both fantasy films but still not on the
+  espionage film — the model even emitted `spy` as a *Theme* there (invalid,
+  stripped), so it sees the espionage content and classes it differently. Per
+  the step: no more cross-pointers; whether `fight`/`spy` warrant a taxonomy
+  move is Martin's later call. Union mode never removed either.
+- **`no particular` is now derived** (second entry in `DERIVED_TAGS`): out of
+  the prompt's Valid lists (filter generalised to all dimensions), stripped
+  from model output, entry deleted from the guide, D1 exclusivity guard kept
+  as a now-unreachable invariant. Derivation (zero place rows → insert weight
+  NULL; any other place tag → remove it) implemented once per surface:
+  `sync_no_particular_place` in `films.py` (create + update) and
+  `_derive_no_particular` in `retag_films.py` (both apply modes).
+- **Migration `031_no_particular_cleanup.sql` written but NOT run** (PROMPTS
+  says 030; that number was already taken by tag_weight). Dry-run SELECT:
+  **91 rows would be deleted** of 287; **17 films have zero place tags**
+  (reported only — inserting for them is Martin's separate decision).
+  Awaiting Martin's approval; local DB only.
+- **Re-run (films 4/5/6)**: prefix delta **−11 tokens** vs 24.1 (22,704 →
+  22,693, measured cache_write). Genre mean **6.67 → 7.00** (baseline 9.67);
+  `war` returned on Fellowship, `chase/escape` on Two Towers; the espionage
+  film's spy/crime/odyssey-quest still declined. `no particular` absent from
+  all validated output. Defining share: Genre **65% → 57%** (falling toward
+  the band as its count recovers), Cinema Type 62%, overall 46.4%. Zero
+  alarms, zero Time Period violations. Union dry-run: 73 gains, 91 weight
+  updates, 28-tag loss review, nothing applied.
+- **Step 25 cost must be recomputed from this pass — output tokens now
+  dominate (~73% of per-film cost).** Warm-cache per film ≈ 550 input + 22.7k
+  cache-read + ~1,500 output ≈ **$0.021/film** at Sonnet 5 intro rates →
+  ≈ $84 real-time / ≈ $42 via Batch API for 4048 films. At standard $3/$15
+  (from 2026-09-01): ≈ $0.031/film → ≈ $127 / ≈ $63. Step 24's $0.013/film
+  figure is stale.
+
+---
+
+## Step 25: Re-tag Execution
+
+Runs the Step 24 harness for real. No new code beyond fixes the sample pass
+exposes.
+
+1. `snapshot` + `pg_dump`.
+2. `generate --sample` on Martin's ~40 films — including films he considers
+   *well* tagged today, plus structural edge cases (a silent film, a
+   documentary, an animation, an anthology, something obscure with a thin TMDB
+   overview). The failure mode invisible otherwise is the re-tag **degrading**
+   recent good work. The three reference films are excluded by default. At
+   ~$0.013/film a full 40-film pass costs ~$0.52, so iteration is free — the
+   real budget is review time. `--sample-subset 15` iterates on a core group
+   first.
+3. Review the diff. Tune `tags_definition.md` and the prompt. Repeat.
+4. `generate --all --batch` once the sample is satisfying.
+5. `diff` → read the aggregate report **before** applying anything.
+6. `apply`.
+
+### The alarm signals in the diff
+
+Tags are bucketed by their **before** count, because one rule cannot serve all
+of them — the ~38 tags from migration 026 start at zero, so any naive growth
+test fires on every one, and ratios are meaningless on small numbers.
+
+- **Cold start** (before < 10): growth is the goal. Reported, not alarmed —
+  except above ~800 films, which means the definition is far too loose.
+- **Sparse** (10–49): reported only.
+- **Established** (≥ 50): alarm on losing **>50%** of its films, or gaining
+  **>2.5x and more than 100 films**. `fight` at 1341 going to 4000 must be
+  caught before the DB is touched, not after.
+
+And one health check on the weights: the defining share should land in the
+**30–50%** band. Above 70% the distinction has collapsed; below 15% it is
+over-strict. Both thresholds are provisional — the three reference films sit at
+49/54/51% and are denser than average, so the sample pass is what actually
+calibrates this.
+
+The report leads with **cold-start coverage**, since "did the 38 new tags get
+populated, and sensibly?" is one of the two questions the exercise exists to
+answer.
+
+### Cost and timing
+
+~$25 batched at the introductory rate, ~$38 after it lapses on **2026-08-31**.
+Not enough to rush the merge decision, but if the sample pass converges quickly
+there is ~$13 in running before month end.
+
+### Deferred to Step 26
+
+Recommender weighting, the uniqueness/differentiator queries, a "defining only"
+browse toggle (`fight` drops from 1341 films to perhaps 150 — a query an LLM
+chat cannot answer verifiably and the sidebar can), and game integration.
+
+Also deferred: a possible **adjudication pass** over just the films whose diff
+is extreme, showing both versions and asking for a decision. ~200 films, not
+4048 — and only worth building once the diff report exists.

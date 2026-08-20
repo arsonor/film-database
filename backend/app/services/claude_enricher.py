@@ -16,6 +16,7 @@ from pathlib import Path
 import anthropic
 
 from .taxonomy_config import (
+    DERIVED_TAGS,
     REFERENCE_EXAMPLES,
     TAXONOMY_DIMENSIONS,
     TIME_PERIOD_YEAR_RANGES,
@@ -61,9 +62,29 @@ Core principles:
 - Geography, Source and Awards may legitimately be empty when the metadata does not support them. The tag dimensions should not be — apply every tag whose definition the film satisfies.
 - Respond ONLY with the JSON structure specified. No preamble, no markdown backticks.
 
-Tag selection philosophy — tags must characterize the film as a whole:
-- Each tag should represent a DEFINING or SIGNIFICANT aspect of the film, not an incidental detail.
-- Ask yourself: "Would someone who has seen this film agree this tag defines it?" If it's just a passing scene or minor element, do NOT include it.
+Tag selection philosophy — tags must characterize the film, not catalogue it:
+- Assign a tag when the film genuinely satisfies its definition. Incidental
+  background detail that no viewer would associate with the film does not qualify.
+- Do not withhold a tag because it feels less central than others: the weighting
+  step below exists precisely to record that. Withholding it loses the
+  information entirely; marking it secondary keeps it.
+- Tags with no entry in the Tag Usage Guide are not lesser tags. The guide
+  defines only what needs disambiguating; apply undefined tags on their plain
+  meaning, with the same willingness.
+
+Defining vs secondary tags:
+Every tag you assign must genuinely apply. Among those, mark the DEFINING ones —
+the tags someone would use to describe this film in two sentences to a friend.
+Test: if this tag disappeared, would that description still be accurate?
+- A film built around physical combat: "fight" is defining — remove it and the
+  description is wrong.
+- A film containing one memorable brawl: "fight" applies, but is secondary.
+Everything you list that is not marked defining is understood to be secondary.
+A secondary tag is still a real tag: it is not a lower-confidence guess, it is
+an accurate description of something the film contains without being about.
+Typically 30-50% of the tags you assign will be defining. Judge each tag on its
+own merits rather than to a quota — but if you are marking nearly everything, or
+almost nothing, you have lost the distinction.
 
 Confidence calibration — these scores drive human review, so spread them:
 - 0.9-1.0: you know this film well; the classification is unambiguous.
@@ -117,12 +138,17 @@ class ClaudeEnricher:
     # Core enrichment method
     # -------------------------------------------------------------------------
 
-    async def enrich_film(self, tmdb_mapped_data: dict) -> dict:
+    async def enrich_film(
+        self, tmdb_mapped_data: dict, extra_context: dict | None = None
+    ) -> dict:
         """
         Classify a film into the full taxonomy using Claude.
 
         Args:
             tmdb_mapped_data: Output from TMDBMapper.map_film_to_db()
+            extra_context: Optional factual `- Key: value` lines appended to the
+                film metadata block (see _build_film_block). Used by the re-tag
+                script; unused by Add Film.
 
         Returns:
             Enrichment dict with taxonomy classifications, confidence scores,
@@ -134,7 +160,7 @@ class ClaudeEnricher:
 
         logger.info("Enriching film: %s (tmdb_id=%s)", title, tmdb_id)
 
-        film_block = self._build_film_block(tmdb_mapped_data)
+        film_block = self._build_film_block(tmdb_mapped_data, extra_context)
 
         thinking = self._thinking_param()
         extra: dict = {"thinking": thinking} if thinking else {}
@@ -213,7 +239,7 @@ class ClaudeEnricher:
                     # prefix instead would change its bytes and throw away the
                     # cache on exactly the calls that already cost the most.
                     film_block = (
-                        self._build_film_block(tmdb_mapped_data)
+                        self._build_film_block(tmdb_mapped_data, extra_context)
                         + "\n\nIMPORTANT: Your previous response was not valid JSON. "
                         "Respond with ONLY the JSON object, no markdown, no backticks, no explanation."
                     )
@@ -362,6 +388,15 @@ Respond with ONLY this JSON structure:
   "themes": ["..."],
   "character_context": ["..."],
   "atmosphere": ["..."],
+  "defining": {
+    "categories": ["..."],
+    "cinema_type": ["..."],
+    "time_context": ["..."],
+    "place_environment": ["..."],
+    "themes": ["..."],
+    "character_context": ["..."],
+    "atmosphere": ["..."]
+  },
   "source": {
     "type": "...",
     "title": "..." or null,
@@ -390,12 +425,20 @@ Respond with ONLY this JSON structure:
         """Full prompt as a single string (prefix + film block).
 
         Thin wrapper kept for callers that build their own request bodies —
-        `scripts/claude_batch_enrichment.py` and `test_enrichment_pipeline.py`.
+        `test_enrichment_pipeline.py`.
         """
         return self._static_prefix + "\n\n" + self._build_film_block(tmdb_mapped_data)
 
-    def _build_film_block(self, tmdb_mapped_data: dict) -> str:
-        """The per-film half of the prompt. Must never be cached."""
+    def _build_film_block(
+        self, tmdb_mapped_data: dict, extra_context: dict | None = None
+    ) -> str:
+        """The per-film half of the prompt. Must never be cached.
+
+        extra_context renders as additional `- Key: value` metadata lines.
+        Factual context ONLY (e.g. the known setting period) — never existing
+        tags: a model shown an existing answer ratifies it (PLAN.md Step 24
+        guardrail 4).
+        """
         film = tmdb_mapped_data.get("film", {})
         crew = tmdb_mapped_data.get("crew", [])
         cast = tmdb_mapped_data.get("cast", [])
@@ -427,6 +470,12 @@ Respond with ONLY this JSON structure:
         budget_str = f"${film['budget']:,}" if film.get("budget") else "Unknown"
         revenue_str = f"${film['revenue']:,}" if film.get("revenue") else "Unknown"
 
+        extra_lines = ""
+        if extra_context:
+            extra_lines = "".join(
+                f"\n- {key}: {value}" for key, value in extra_context.items()
+            )
+
         # The film block sits LAST, immediately before the final instruction —
         # pre-Step-23 it sat ~15k tokens *before* it, which both hurt recency
         # and made the constant content uncacheable.
@@ -440,13 +489,20 @@ Respond with ONLY this JSON structure:
 - Key Cast: {'; '.join(cast_lines) if cast_lines else 'N/A'}
 - Production Countries: {', '.join(production_countries) if production_countries else 'N/A'}
 - Budget: {budget_str} | Revenue: {revenue_str}
-- Languages: {', '.join(lang.get('name', lang.get('code', '')) for lang in languages) if languages else 'N/A'}
+- Languages: {', '.join(lang.get('name', lang.get('code', '')) for lang in languages) if languages else 'N/A'}{extra_lines}
 
 Classify the film above using the taxonomy and definitions provided. Respond with ONLY the JSON object described in the Output Format section."""
 
     def _build_taxonomy_section(self) -> str:
         """Build the taxonomy dimension section of the prompt."""
         dims = TAXONOMY_DIMENSIONS
+        # Derived tags (franchise, no particular) are computed from data, never
+        # requested from the model — filter them out of every Valid: list.
+        valid = {
+            dim: ", ".join(v for v in values
+                           if v not in DERIVED_TAGS.get(dim, set()))
+            for dim, values in dims.items()
+        }
         year_table = " · ".join(f"{tag} {years}" for tag, years in TIME_PERIOD_YEAR_RANGES)
 
         section = f"""## Taxonomy Dimensions — Use ONLY these values (or prefix new ones with [NEW])
@@ -456,14 +512,15 @@ Main genres: {', '.join(VALID_GENRES_MAIN)}
 Sub-genres: {', '.join(VALID_GENRES_SUB)}
 Rules:
 - Assign at least ONE main genre — always. Usually one to three.
-- Add sub-genres ONLY when they clearly define the film
+- Add every sub-genre the film genuinely satisfies; use the defining/secondary
+  marking to record how central each one is.
 - Put main genres and sub-genres together in the same "categories" list.
 
 ### Cinema Type (visual techniques, industry & culture, narrative techniques, movements & eras)
-Valid: {', '.join(dims['cinema_type'])}
+Valid: {valid['cinema_type']}
 
 ### Time Context (when is the film set — can be multiple)
-Valid: {', '.join(dims['time_context'])}
+Valid: {valid['time_context']}
 Years & eras tags map to these year ranges: {year_table}
 
 ### Place Context — Geography
@@ -471,16 +528,16 @@ Provide as: continent > country > state/city
 Specify place_type for each: diegetic (in-film), shooting (real location), or fictional
 
 ### Place Context — Environment (pick all that apply)
-Valid: {', '.join(dims['place_environment'])}
+Valid: {valid['place_environment']}
 
-### Themes (pick all that apply — be thorough, but only CENTRAL themes)
-Valid: {', '.join(dims['themes'])}
+### Themes (pick all that apply — be thorough; record centrality in the defining set, not by omission)
+Valid: {valid['themes']}
 
 ### Characters (group structure, contexts, and archetypes — pick all that apply)
-Valid: {', '.join(dims['character_context'])}
+Valid: {valid['character_context']}
 
 ### Atmosphere (mood, tone and artistic directing — pick all that apply)
-Valid: {', '.join(dims['atmosphere'])}
+Valid: {valid['atmosphere']}
 
 ### Source / Origin
 Type (one of): {', '.join(VALID_SOURCE_TYPES)}
@@ -551,6 +608,7 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
                 continue
 
             valid_set = self.valid_sets.get(dim, set())
+            derived = DERIVED_TAGS.get(dim, set())
             cleaned = []
             for v in values:
                 if not isinstance(v, str):
@@ -558,12 +616,53 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
                 if v.startswith("[NEW]"):
                     new_suggestions.append(f"{dim}: {v}")
                     cleaned.append(v)
+                elif v in derived:
+                    # Derived tags are written from stored data, never from the
+                    # model. Expected occasionally despite the prompt omitting
+                    # them, so debug rather than warning.
+                    logger.debug("Derived %s tag stripped from model output: '%s'", dim, v)
                 elif v in valid_set:
                     cleaned.append(v)
                 else:
                     logger.warning("Invalid %s value removed: '%s'", dim, v)
 
             enrichment[dim] = cleaned
+
+        # 'no particular' (Place) is exclusive by definition: it asserts that no
+        # location matters, so it cannot coexist with a real place tag. Belt and
+        # braces alongside the tags_definition.md entry.
+        place = enrichment.get("place_environment", [])
+        if "no particular" in place and len([v for v in place if not v.startswith("[NEW]")]) > 1:
+            logger.warning(
+                "'no particular' dropped: it is exclusive but appeared alongside %s",
+                [v for v in place if v != "no particular"],
+            )
+            enrichment["place_environment"] = [v for v in place if v != "no particular"]
+
+        # Validate the defining sets (Step 24): each entry must be a subset of
+        # the validated tag list for its dimension. Anything outside is dropped
+        # with a warning — a defining tag that isn't a tag must never be
+        # written. Missing/malformed shapes normalise to empty lists.
+        defining = enrichment.get("defining")
+        if not isinstance(defining, dict):
+            if defining is not None:
+                logger.warning("Malformed 'defining' key (%s) — resetting to empty", type(defining).__name__)
+            defining = {}
+        cleaned_defining: dict[str, list[str]] = {}
+        for dim in list_dims:
+            values = defining.get(dim, [])
+            if not isinstance(values, list):
+                logger.warning("Malformed defining.%s (%s) — resetting to empty", dim, type(values).__name__)
+                values = []
+            assigned = set(enrichment.get(dim, []))
+            kept = []
+            for v in values:
+                if isinstance(v, str) and v in assigned:
+                    kept.append(v)
+                else:
+                    logger.warning("Defining %s value not in tag list, dropped: %r", dim, v)
+            cleaned_defining[dim] = kept
+        enrichment["defining"] = cleaned_defining
 
         # Validate source
         source = enrichment.get("source", {})
@@ -648,6 +747,15 @@ The following definitions clarify how to use ambiguous or easily confused tags. 
             "themes": [],
             "character_context": [],
             "atmosphere": [],
+            "defining": {
+                "categories": [],
+                "cinema_type": [],
+                "time_context": [],
+                "place_environment": [],
+                "themes": [],
+                "character_context": [],
+                "atmosphere": [],
+            },
             "source": {"type": None, "title": None, "author": None},
             "awards": [],
             "confidence": {

@@ -194,6 +194,26 @@ VALID_SOURCE_TYPES = [
     "play", "video game", "poem", "short story", "remake",
 ]
 
+# Tags that are real, filterable taxonomy values but are NOT model-assigned,
+# because the fact they encode is derivable rather than a judgement about the
+# film. They stay in the VALID_* lists so the sidebar, filters and manual edits
+# keep working; the enrichment prompt omits them and the validator strips them
+# from model output. They are written by derivation instead (create_film /
+# update_film and scripts/retag_films.py apply).
+#
+# The two derivation rules are deliberately ASYMMETRIC — do not "harmonise":
+# - franchise (<=> film.tmdb_collection_id IS NOT NULL) is INSERT-ONLY. A
+#   missing TMDB collection id is not proof a film stands alone, so absence is
+#   a review signal (loss_review.md), never an automatic delete.
+# - no particular (<=> the film has zero other film_place rows) is inserted AND
+#   removed, because the presence of another place tag IS proof by definition
+#   that "no particular" is wrong. Union apply's no-delete rule protects model
+#   judgements; derived values are computed and are exempt.
+DERIVED_TAGS: dict[str, set[str]] = {
+    "cinema_type": {"franchise"},
+    "place_environment": {"no particular"},
+}
+
 # =============================================================================
 # All valid values grouped by dimension — for prompt building and validation
 # =============================================================================
@@ -241,6 +261,21 @@ REFERENCE_EXAMPLES = {
                 "contemplative/meditative", "meticulous", "hypnotic/immersive",
                 "psychedelic", "ethereal", "symbolic", "dreamlike/surreal",
             ],
+            # 25 defining of 51 tags — hand-validated by Martin (Step 24).
+            # Calibration standard for the re-tag run: do NOT re-derive.
+            "defining": {
+                "categories": ["Science-Fiction"],
+                "cinema_type": ["aesthetics", "art house", "chapters/multi-sequence",
+                                "few/no dialogs", "slow cinema"],
+                "time_context": ["future", "prehistoric"],
+                "place_environment": ["space", "spaceship"],
+                "themes": ["AI/technology", "philosophical", "metaphysical",
+                           "alien contact", "exploration", "transformation"],
+                "character_context": ["solitary", "android/robot"],
+                "atmosphere": ["contemplative/meditative", "epic", "mysterious",
+                               "hypnotic/immersive", "psychedelic", "meticulous",
+                               "symbolic"],
+            },
             "source": {
                 "type": "novel",
                 "title": "The Sentinel",
@@ -297,6 +332,20 @@ REFERENCE_EXAMPLES = {
                 "depressive/sad", "violent", "disturbing", "oppressive",
                 "cityscape", "gritty/realistic",
             ],
+            # 25 defining of 46 tags — hand-validated by Martin (Step 24).
+            "defining": {
+                "categories": ["Drama", "slice of life"],
+                "cinema_type": ["black and white", "realism", "dialogs/punchline",
+                                "slang dialogs"],
+                "time_context": ["single day"],
+                "place_environment": ["urban"],
+                "themes": ["social", "societal", "political", "immigration",
+                           "class/culture clash", "police violence", "rebellion/revolt",
+                           "friendship"],
+                "character_context": ["trio", "buddies", "teenager", "interracial",
+                                      "poor/marginal"],
+                "atmosphere": ["violent", "oppressive", "gritty/realistic", "cityscape"],
+            },
             "source": {
                 "type": "original screenplay",
                 "title": None,
@@ -354,6 +403,21 @@ REFERENCE_EXAMPLES = {
                 "oppressive", "cityscape", "meticulous", "hypnotic/immersive",
                 "symbolic", "dreamlike/surreal",
             ],
+            # 23 defining of 45 tags — hand-validated by Martin (Step 24).
+            # time_context deliberately empty: 2000-2010's is background, not subject.
+            "defining": {
+                "categories": ["Drama", "psychological"],
+                "cinema_type": ["aesthetics", "art house", "flashback/non linear",
+                                "neo-noir"],
+                "time_context": [],
+                "place_environment": ["urban"],
+                "themes": ["identity crisis", "amnesia", "dream", "art: cinema",
+                           "obsession", "greed/ambition"],
+                "character_context": ["female lead", "tandem", "double",
+                                      "unreliable narrator", "disturbed/madness"],
+                "atmosphere": ["dreamlike/surreal", "mysterious", "hypnotic/immersive",
+                               "disturbing", "symbolic"],
+            },
             "source": {
                 "type": "original screenplay",
                 "title": None,

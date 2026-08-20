@@ -219,15 +219,19 @@ COMMENT ON COLUMN category.historic_subcategory_name IS 'DEPRECATED (Taxonomy v2
 CREATE TABLE IF NOT EXISTS film_genre (
     film_id INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, category_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES category(category_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_genre IS 'Junction table linking films to their genres/categories';
+COMMENT ON COLUMN film_genre.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_genre_film_id ON film_genre(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_genre_category_id ON film_genre(category_id);
+CREATE INDEX IF NOT EXISTS idx_film_genre_defining ON film_genre(category_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: CINEMA TYPE / CINEMATOGRAPHY
@@ -246,15 +250,19 @@ COMMENT ON TABLE cinema_type IS 'Cinema types, techniques, and cultural movement
 CREATE TABLE IF NOT EXISTS film_technique (
     film_id INTEGER NOT NULL,
     cinema_type_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, cinema_type_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (cinema_type_id) REFERENCES cinema_type(cinema_type_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_technique IS 'Junction table linking films to their cinematographic techniques';
+COMMENT ON COLUMN film_technique.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_technique_film_id ON film_technique(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_technique_cinema_type_id ON film_technique(cinema_type_id);
+CREATE INDEX IF NOT EXISTS idx_film_technique_defining ON film_technique(cinema_type_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: GEOGRAPHY & PLACE
@@ -300,15 +308,19 @@ COMMENT ON TABLE place_context IS 'Types of environments/settings (urban, rural,
 CREATE TABLE IF NOT EXISTS film_place (
     film_id INTEGER NOT NULL,
     place_context_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, place_context_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (place_context_id) REFERENCES place_context(place_context_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_place IS 'Junction table linking films to their environmental settings';
+COMMENT ON COLUMN film_place.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_place_film_id ON film_place(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_place_place_context_id ON film_place(place_context_id);
+CREATE INDEX IF NOT EXISTS idx_film_place_defining ON film_place(place_context_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: TIME CONTEXT
@@ -327,15 +339,19 @@ COMMENT ON TABLE time_context IS 'Historical periods and seasons (contemporary, 
 CREATE TABLE IF NOT EXISTS film_period (
     film_id INTEGER NOT NULL,
     time_context_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, time_context_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (time_context_id) REFERENCES time_context(time_context_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_period IS 'Junction table linking films to their time periods';
+COMMENT ON COLUMN film_period.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_period_film_id ON film_period(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_period_time_context_id ON film_period(time_context_id);
+CREATE INDEX IF NOT EXISTS idx_film_period_defining ON film_period(time_context_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: THEMES
@@ -354,15 +370,19 @@ COMMENT ON TABLE theme_context IS 'Thematic elements and subject matter (war, cr
 CREATE TABLE IF NOT EXISTS film_theme (
     film_id INTEGER NOT NULL,
     theme_context_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, theme_context_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (theme_context_id) REFERENCES theme_context(theme_context_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_theme IS 'Junction table linking films to their thematic elements';
+COMMENT ON COLUMN film_theme.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_theme_film_id ON film_theme(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_theme_theme_context_id ON film_theme(theme_context_id);
+CREATE INDEX IF NOT EXISTS idx_film_theme_defining ON film_theme(theme_context_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: CHARACTERS (merged character types + contexts + archetypes)
@@ -381,15 +401,19 @@ COMMENT ON TABLE character_context IS 'Character types, contexts, and archetypes
 CREATE TABLE IF NOT EXISTS film_character_context (
     film_id INTEGER NOT NULL,
     character_context_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, character_context_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (character_context_id) REFERENCES character_context(character_context_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_character_context IS 'Junction table linking films to character contexts and archetypes';
+COMMENT ON COLUMN film_character_context.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_character_context_film_id ON film_character_context(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_character_context_context_id ON film_character_context(character_context_id);
+CREATE INDEX IF NOT EXISTS idx_film_character_context_defining ON film_character_context(character_context_id) WHERE weight = 100;
 
 -- =============================================================================
 -- CLASSIFICATION: ATMOSPHERE
@@ -408,15 +432,19 @@ COMMENT ON TABLE atmosphere IS 'Film atmosphere and tone (feel good, violent, my
 CREATE TABLE IF NOT EXISTS film_atmosphere (
     film_id INTEGER NOT NULL,
     atmosphere_id INTEGER NOT NULL,
+    -- 100 = defining, 50 = secondary, NULL = unscored legacy row (migration 030)
+    weight SMALLINT CHECK (weight IS NULL OR weight BETWEEN 1 AND 100),
     PRIMARY KEY (film_id, atmosphere_id),
     FOREIGN KEY (film_id) REFERENCES film(film_id) ON DELETE CASCADE,
     FOREIGN KEY (atmosphere_id) REFERENCES atmosphere(atmosphere_id) ON DELETE CASCADE
 );
 
 COMMENT ON TABLE film_atmosphere IS 'Junction table linking films to their atmospheric qualities';
+COMMENT ON COLUMN film_atmosphere.weight IS '100 = defining, 50 = secondary, NULL = unscored legacy row (pre-retag)';
 
 CREATE INDEX IF NOT EXISTS idx_film_atmosphere_film_id ON film_atmosphere(film_id);
 CREATE INDEX IF NOT EXISTS idx_film_atmosphere_atmosphere_id ON film_atmosphere(atmosphere_id);
+CREATE INDEX IF NOT EXISTS idx_film_atmosphere_defining ON film_atmosphere(atmosphere_id) WHERE weight = 100;
 
 -- =============================================================================
 -- FILM RELATIONSHIPS (Sequels, Prequels, Remakes)

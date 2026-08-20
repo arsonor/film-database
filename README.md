@@ -46,7 +46,8 @@ film-database/
 ├── scripts/
 │   ├── parse_film_list.py      # Parse Films_list.docx into structured JSON
 │   ├── tmdb_resolver.py        # Resolve film titles to TMDB IDs
-│   ├── claude_batch_enrichment.py  # Claude Batch API enrichment pipeline
+│   ├── claude_enrichment_runner.py # Claude enrichment pipeline (real-time)
+│   ├── retag_films.py          # Re-tag harness: snapshot / generate / diff / apply
 │   ├── db_inserter.py          # Insert enriched films into PostgreSQL
 │   ├── export_taxonomy.py      # Regenerate seed_taxonomy.sql + taxonomy_config.py from DB
 │   ├── backfill_person_details.py  # Fetch person details from TMDB
